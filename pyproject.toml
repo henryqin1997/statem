@@ -2,14 +2,17 @@
 name = "statem"
 version = "0.1.0"
 description = "A command line state machine for agent long runs."
-readme = "design.md"
+readme = "README.md"
 requires-python = ">=3.11"
 dependencies = []
 
 [project.scripts]
 statem = "statem.cli:main"
 
+[tool.setuptools.packages.find]
+include = ["statem*"]
+exclude = ["plugins*", "integrations*", "examples*", "tests*"]
+
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
-

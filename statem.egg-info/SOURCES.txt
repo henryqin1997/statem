@@ -1,0 +1,13 @@
+README.md
+pyproject.toml
+statem/__init__.py
+statem/__main__.py
+statem/cli.py
+statem/core.py
+statem/miniyaml.py
+statem.egg-info/PKG-INFO
+statem.egg-info/SOURCES.txt
+statem.egg-info/dependency_links.txt
+statem.egg-info/entry_points.txt
+statem.egg-info/top_level.txt
+tests/test_statem_cli.py
