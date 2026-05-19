@@ -1,18 +1,20 @@
 # statem
 
-`statem` is a command line state machine for agent long runs. It can turn execution graph into
-a state machine for agents: the agent can inspect the current node, see
-allowed next states, run checks and hooks, save progress, and resume after
-context changes.
+`statem` is a command line state machine for agent long runs. It turns an
+execution graph into an agent-readable runbook: the agent can inspect the
+current node, see allowed next states, run checks and hooks, save progress, and
+resume after context changes.
 
-It is a agent-native runbook, not a hard workflow harness. The goal is to keep smart agents
-oriented during long coding and research loops (and other tasks beyond these) without forcing every step into a large orchestration framework.
+It is an agent-native runbook, not a hard workflow harness. The goal is to keep
+smart agents oriented during long coding, research, and review loops without
+forcing every step into a large orchestration framework.
 
 ## Why
 
 Prompt-only long runs drift. Recent chat gets too much attention, old
-instructions fade, and agents lose track of what was already checked.
-Graph-based orchestration are heavy to manage.
+instructions fade, and agents lose track of what was already checked. Heavy
+graph orchestration frameworks can also be awkward to author, debug, and repair
+inside a live agent session.
 
 `statem` keeps the procedural state outside the model context:
 

@@ -1,2 +1,0 @@
-[console_scripts]
-statem = statem.cli:main

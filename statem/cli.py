@@ -93,7 +93,7 @@ def _build_parser() -> argparse.ArgumentParser:
     prompt.add_argument(
         "--command",
         dest="statem_command",
-        default="python3 -m statem",
+        default="statem",
         help="statem command to embed in the prompt",
     )
     prompt.set_defaults(handler=_cmd_prompt)
@@ -106,7 +106,7 @@ def _build_parser() -> argparse.ArgumentParser:
     compact_prompt.add_argument(
         "--command",
         dest="statem_command",
-        default="python3 -m statem",
+        default="statem",
         help="statem command to embed in the prompt",
     )
     compact_prompt.set_defaults(handler=_cmd_compact_prompt)

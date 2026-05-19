@@ -315,7 +315,7 @@ class StatemRuntime:
             events = events[-limit:]
         return {"run_id": state["run_id"], "current": state["current"], "history": events}
 
-    def prompt(self, *, run_id: str | None = None, command: str = "python3 -m statem") -> dict[str, Any]:
+    def prompt(self, *, run_id: str | None = None, command: str = "statem") -> dict[str, Any]:
         spec, state = self._load_runtime(run_id)
         current = state["current"]
         state_dir = self.state_dir
@@ -347,7 +347,7 @@ Current state at prompt generation time: {current}
             "prompt": prompt.strip() + "\n",
         }
 
-    def compact_prompt(self, *, run_id: str | None = None, command: str = "python3 -m statem") -> dict[str, Any]:
+    def compact_prompt(self, *, run_id: str | None = None, command: str = "statem") -> dict[str, Any]:
         spec, state = self._load_runtime(run_id)
         current = state["current"]
         state_dir = self.state_dir

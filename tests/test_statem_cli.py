@@ -454,6 +454,7 @@ edges: []
             rendered = self.run_statem("prompt", "--run-id", "prompt-run", "--state-dir", str(state_dir))
             self.assertIn("after a context clear", rendered.stdout)
             self.assertIn("statem start", rendered.stdout)
+            self.assertNotIn("python3 -m statem", rendered.stdout)
             self.assertIn("--run-id prompt-run", rendered.stdout)
             self.assertIn("--state-dir", rendered.stdout)
             self.assertIn("'{}'".format(state_dir.resolve()), rendered.stdout)
@@ -484,6 +485,7 @@ edges: []
             self.assertIn("/compact", rendered.stdout)
             self.assertIn("stale failed attempts", rendered.stdout)
             self.assertIn("statem cur", rendered.stdout)
+            self.assertNotIn("python3 -m statem", rendered.stdout)
             self.assertIn("compact-run", rendered.stdout)
 
             payload = self.run_statem("compact-prompt", "--run-id", "compact-run", "--state-dir", str(state_dir), "--json")
