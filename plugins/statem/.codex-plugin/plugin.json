@@ -1,0 +1,34 @@
+{
+  "name": "statem",
+  "version": "0.1.0",
+  "description": "Stateful runbooks for long-running coding agents using the statem CLI.",
+  "author": {
+    "name": "statem contributors"
+  },
+  "license": "MIT",
+  "keywords": [
+    "agents",
+    "state-machine",
+    "runbook",
+    "cli"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Statem",
+    "shortDescription": "Stateful runbooks for long agent runs.",
+    "longDescription": "Use the statem CLI to create, validate, start, resume, inspect, and transition through stateful runbooks for long-running agent work.",
+    "developerName": "statem contributors",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Create a statem runbook for this task.",
+      "Resume my current statem run.",
+      "Review this statem spec."
+    ],
+    "brandColor": "#2563EB"
+  }
+}
+

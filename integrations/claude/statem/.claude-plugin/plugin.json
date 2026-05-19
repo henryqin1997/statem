@@ -1,0 +1,10 @@
+{
+  "name": "statem",
+  "description": "Stateful runbooks for long-running Claude Code sessions using the statem CLI.",
+  "version": "0.1.0",
+  "author": {
+    "name": "statem contributors"
+  },
+  "license": "MIT"
+}
+
