@@ -26,7 +26,10 @@ def main(argv: list[str] | None = None) -> int:
         payload = args.handler(args, options)
     except StatemError as exc:
         if getattr(args, "json", False):
-            print(json.dumps({"ok": False, "error": str(exc)}, indent=2, sort_keys=True))
+            error_payload: dict[str, Any] = {"ok": False, "error": str(exc)}
+            if exc.details:
+                error_payload["details"] = exc.details
+            print(json.dumps(error_payload, indent=2, sort_keys=True))
         else:
             print(f"statem: {exc}", file=sys.stderr)
         return getattr(exc, "exit_code", 1)
@@ -86,7 +89,7 @@ def _build_parser() -> argparse.ArgumentParser:
     save.set_defaults(handler=_cmd_save)
 
     history = subparsers.add_parser("history", parents=[common], help="show run history")
-    history.add_argument("--limit", type=int, help="show only the last N events")
+    history.add_argument("--limit", "--tail", dest="limit", type=int, help="show only the last N events")
     history.set_defaults(handler=_cmd_history)
 
     prompt = subparsers.add_parser("prompt", parents=[common], help="print a post-clear resume prompt")

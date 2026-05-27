@@ -196,7 +196,7 @@ Commands:
 - `statem goto TARGET`: move to a next state using the transition transaction.
 - `statem transfer TARGET`: alias for `goto`.
 - `statem save`: persist runtime state and run the current node `out_hook`.
-- `statem history [--json]`: show run history.
+- `statem history [--tail N] [--json]`: show run history.
 - `statem prompt [--json]`: print a durable post-`/clear` resume prompt.
 - `statem compact-prompt [--json]`: print a safe `/compact` prompt for cyclic
   runbooks.
@@ -205,6 +205,11 @@ Commands:
 `before_transfer` is not a CLI command. It is a node spec field shown by
 `statem cur`/`statem ls` and executed automatically by `statem goto` before the
 current node is allowed to exit.
+
+When a JSON transition fails, the error payload should include structured
+details about the failed check or hook, including `stage` and `results`, so
+agents can recover without rerunning a non-JSON command just to inspect the
+failure.
 
 ## Context Clear
 
@@ -291,6 +296,21 @@ Editing the spec and restarting should be possible, but must be explicit:
 - If the current node was removed or renamed, startup moves the pointer to
   `initial`, logs a `migrate_current` event, and runs the initial node's
   `in_hook`.
+
+## Feedback Backlog
+
+Early agent feedback suggests these v2 directions:
+
+- Evidence cache: allow a command or verification hook to reuse recent passing
+  evidence within a configurable time window, while still making fresh checks
+  the safe default.
+- Run variables: store small first-class run fields such as
+  `selected_issue=q_quant-y7a` outside chat context and expose them in hooks,
+  prompts, and JSON output.
+- History summary: add a compact handoff-oriented view over recent events beyond
+  `history --tail N`.
+- Integration modes: for tools such as Beads, support sandbox-friendly
+  export-only behavior that avoids noisy git staging attempts.
 
 ## Example Coding Agent Loop
 

@@ -26,6 +26,13 @@ inside a live agent session.
 
 ## Install
 
+Clone repository:
+
+```bash
+git clone https://github.com/henryqin1997/statem.git
+cd statem
+```
+
 From this repository:
 
 ```bash
@@ -92,7 +99,7 @@ Common commands:
 - `statem next [--json]`: show allowed next states.
 - `statem goto TARGET`: move through a checked transition.
 - `statem save`: persist state and run the current node `out_hook`.
-- `statem history [--json]`: show transition and hook history.
+- `statem history [--tail N] [--json]`: show transition and hook history.
 - `statem prompt`: print a durable post-`/clear` recovery prompt.
 - `statem compact-prompt`: print a safe `/compact` prompt for cyclic runbooks.
 - `statem validate SPEC`: validate graph shape and references.
@@ -147,6 +154,9 @@ Hook/check types:
 10. Record history.
 
 This makes retry behavior simple: fix the failed check, then rerun `goto`.
+When `--json` is used and a transition is blocked, the error payload includes a
+`details.results` list with the failed checklist, command, predicate, or review
+output.
 
 ## Runtime State
 
@@ -179,6 +189,9 @@ statem prompt --run-id ID
 
 Paste that generated prompt immediately after `/clear` so the next context can
 recover from `.statem`.
+
+For handoffs, use `statem history --tail 10 --json` to keep the recent run
+history compact enough for an agent or user to scan.
 
 ## Auto Loop Hook
 
@@ -231,3 +244,7 @@ review, optional compaction, and explicit handoff.
 
 See `design.md` for the full rationale, hook semantics, transaction details,
 graph migration behavior, and future design considerations.
+
+## License
+
+Apache License 2.0. See `LICENSE`.

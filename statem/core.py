@@ -19,6 +19,10 @@ from . import miniyaml
 class StatemError(Exception):
     exit_code = 1
 
+    def __init__(self, message: str, *, details: dict[str, Any] | None = None) -> None:
+        super().__init__(message)
+        self.details = details or {}
+
 
 class TransitionBlocked(StatemError):
     exit_code = 2
@@ -177,7 +181,16 @@ class StatemRuntime:
             {"node": state["current"], "reason": "start" if is_new else "resume", "results": results},
         )
         self._write_state(state)
-        _raise_if_blocked(results, f"Run '{run_id}' started, but in_hook failed for '{state['current']}'")
+        _raise_if_blocked(
+            results,
+            f"Run '{run_id}' started, but in_hook failed for '{state['current']}'",
+            details={
+                "run_id": run_id,
+                "current": state["current"],
+                "stage": "in_hook",
+                "results": results,
+            },
+        )
 
         return self.cur(run_id=run_id)
 
@@ -249,25 +262,33 @@ class StatemRuntime:
         condition_results = self._run_items(spec, state, edge.get("condition"), "condition")
         pre_results = before_results + condition_results
         if _has_blocking_failure(pre_results):
+            details = _block_details(state, source, target, "before_transfer", pre_results)
             _append_event(
                 state,
                 "goto_blocked",
-                {"from": source, "to": target, "stage": "before_transfer", "results": pre_results},
+                details,
             )
             self._write_state(state)
-            raise TransitionBlocked(f"Transition '{source}' -> '{target}' blocked before leaving '{source}'")
+            raise TransitionBlocked(
+                f"Transition '{source}' -> '{target}' blocked before leaving '{source}'",
+                details=details,
+            )
 
         out_results = self._run_node_items(spec, state, source, "out_hook")
         edge_hook_results = self._run_items(spec, state, edge.get("hook"), "hook")
         side_effect_results = out_results + edge_hook_results
         if _has_blocking_failure(side_effect_results):
+            details = _block_details(state, source, target, "out_hook", side_effect_results)
             _append_event(
                 state,
                 "goto_blocked",
-                {"from": source, "to": target, "stage": "out_hook", "results": side_effect_results},
+                details,
             )
             self._write_state(state)
-            raise TransitionBlocked(f"Transition '{source}' -> '{target}' blocked while leaving '{source}'")
+            raise TransitionBlocked(
+                f"Transition '{source}' -> '{target}' blocked while leaving '{source}'",
+                details=details,
+            )
 
         state["current"] = target
         self._write_state(state)
@@ -287,7 +308,11 @@ class StatemRuntime:
             },
         )
         self._write_state(state)
-        _raise_if_blocked(in_results, f"Entered '{target}', but in_hook failed")
+        _raise_if_blocked(
+            in_results,
+            f"Entered '{target}', but in_hook failed",
+            details=_block_details(state, source, target, "in_hook", in_results),
+        )
         return {
             "run_id": state["run_id"],
             "from": source,
@@ -305,7 +330,16 @@ class StatemRuntime:
         event = "save_blocked" if _has_blocking_failure(results) else "save"
         _append_event(state, event, {"node": current, "results": results, "skip_hooks": skip_hooks})
         self._write_state(state)
-        _raise_if_blocked(results, f"Save blocked by out_hook for '{current}'")
+        _raise_if_blocked(
+            results,
+            f"Save blocked by out_hook for '{current}'",
+            details={
+                "run_id": state["run_id"],
+                "current": current,
+                "stage": "out_hook",
+                "results": results,
+            },
+        )
         return {"run_id": state["run_id"], "current": current, "results": results}
 
     def history(self, *, run_id: str | None = None, limit: int | None = None) -> dict[str, Any]:
@@ -331,7 +365,7 @@ Run these commands first:
 
 {command} start {spec_arg} --run-id {run_id_arg} --state-dir {state_dir_arg} --json
 {command} cur --run-id {run_id_arg} --state-dir {state_dir_arg} --json
-{command} history --run-id {run_id_arg} --state-dir {state_dir_arg} --limit 8 --json
+{command} history --run-id {run_id_arg} --state-dir {state_dir_arg} --tail 8 --json
 
 Then follow the current node prompt and only move with:
 
@@ -373,7 +407,7 @@ Discard:
 After compaction, immediately recover with:
 
 {command} cur --run-id {run_id_arg} --state-dir {state_dir_arg} --json
-{command} history --run-id {run_id_arg} --state-dir {state_dir_arg} --limit 8 --json
+{command} history --run-id {run_id_arg} --state-dir {state_dir_arg} --tail 8 --json
 """
         return {
             "run_id": run_id_value,
@@ -885,9 +919,24 @@ def _has_blocking_failure(results: list[dict[str, Any]]) -> bool:
     return any(not result["passed"] and result.get("on_failure") == "block" for result in results)
 
 
-def _raise_if_blocked(results: list[dict[str, Any]], message: str) -> None:
+def _raise_if_blocked(
+    results: list[dict[str, Any]], message: str, *, details: dict[str, Any] | None = None
+) -> None:
     if _has_blocking_failure(results):
-        raise TransitionBlocked(message)
+        raise TransitionBlocked(message, details=details)
+
+
+def _block_details(
+    state: dict[str, Any], source: str, target: str, stage: str, results: list[dict[str, Any]]
+) -> dict[str, Any]:
+    return {
+        "run_id": state["run_id"],
+        "current": state["current"],
+        "from": source,
+        "to": target,
+        "stage": stage,
+        "results": results,
+    }
 
 
 def _resolve_cwd(spec: StatemSpec, item: dict[str, Any]) -> Path:

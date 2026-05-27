@@ -15,6 +15,7 @@ Use `statem` when the task is long-running, iterative, easy to lose track of, or
 4. Check state before acting: `python3 -m statem cur --run-id <id> --json`.
 5. Move only through allowed edges: `python3 -m statem goto <node> --run-id <id> --json`.
 6. Save progress before pausing: `python3 -m statem save --run-id <id> --json`.
+7. For handoff context, read recent history: `python3 -m statem history --run-id <id> --tail 10 --json`.
 
 Use `statem` instead of `python3 -m statem` if the CLI is installed on PATH.
 
@@ -46,8 +47,8 @@ python3 -m statem compact-prompt --run-id <id>
 ```
 
 Run the generated `/compact` instruction through the host UI, then recover with
-`statem cur` and `statem history`. Do not use hidden self-messaging to trigger
-compaction.
+`statem cur` and `statem history --tail 10`. Do not use hidden self-messaging
+to trigger compaction.
 
 Agents may inspect the full graph with `statem state`; `cur`, `next`, and
 `goto` are for disciplined execution and attention anchoring, not for hiding the

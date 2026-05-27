@@ -114,7 +114,11 @@ edges:
                 check=False,
             )
             self.assertEqual(blocked.returncode, 2)
-            self.assertIn("blocked", json.loads(blocked.stdout)["error"])
+            blocked_payload = json.loads(blocked.stdout)
+            self.assertIn("blocked", blocked_payload["error"])
+            self.assertEqual(blocked_payload["details"]["stage"], "before_transfer")
+            self.assertEqual(blocked_payload["details"]["results"][0]["type"], "predicate")
+            self.assertIn("file does not exist", blocked_payload["details"]["results"][0]["output"])
 
             cur = self.run_statem("cur", "--run-id", "run1", "--state-dir", str(state_dir), "--json")
             self.assertEqual(json.loads(cur.stdout)["current"], "start")
@@ -223,6 +227,10 @@ edges:
                 check=False,
             )
             self.assertEqual(blocked.returncode, 2)
+            blocked_payload = json.loads(blocked.stdout)
+            self.assertEqual(blocked_payload["details"]["stage"], "before_transfer")
+            self.assertEqual(blocked_payload["details"]["results"][0]["type"], "command")
+            self.assertEqual(blocked_payload["details"]["results"][0]["exit_code"], 1)
             self.assertFalse((root / "edge-hook-ran.txt").exists())
 
             (root / "gate.txt").write_text("ok\n", encoding="utf-8")
@@ -432,6 +440,11 @@ edges: []
             events = [event["event"] for event in json.loads(history.stdout)["history"]]
             self.assertIn("migrate_current", events)
 
+            tail = self.run_statem("history", "--run-id", "edit-run", "--state-dir", str(state_dir), "--tail", "1", "--json")
+            tail_events = json.loads(tail.stdout)["history"]
+            self.assertEqual(len(tail_events), 1)
+            self.assertEqual(tail_events[0]["event"], "in_hook")
+
     def test_prompt_generates_post_clear_bootstrap(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -461,6 +474,7 @@ edges: []
 
             payload = self.run_statem("prompt", "--run-id", "prompt-run", "--state-dir", str(state_dir), "--json")
             self.assertIn("statem history", json.loads(payload.stdout)["prompt"])
+            self.assertIn("--tail 8", json.loads(payload.stdout)["prompt"])
 
     def test_compact_prompt_generates_loop_hygiene_instruction(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -490,6 +504,7 @@ edges: []
 
             payload = self.run_statem("compact-prompt", "--run-id", "compact-run", "--state-dir", str(state_dir), "--json")
             self.assertIn("Discard:", json.loads(payload.stdout)["prompt"])
+            self.assertIn("--tail 8", json.loads(payload.stdout)["prompt"])
 
     def test_help_mentions_loop_hygiene(self) -> None:
         help_text = self.run_statem("--help").stdout

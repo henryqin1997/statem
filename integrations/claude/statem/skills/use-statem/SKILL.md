@@ -17,6 +17,7 @@ Use `statem` as a state-aware runbook for long agent runs. It should guide the w
 4. Before work, run `statem cur --run-id <id> --json`.
 5. When a state is complete, run `statem goto <next> --run-id <id> --json`.
 6. Before pausing, run `statem save --run-id <id> --json`.
+7. For handoff context, read recent history: `statem history --run-id <id> --tail 10 --json`.
 
 If `statem` is not on PATH, use `python3 -m statem` from the repository that contains the Python package.
 
@@ -35,7 +36,7 @@ compaction. Before a hard clear, run
 For cyclic runbooks, prefer an explicit session hygiene node after a full loop.
 When another cycle will continue and the context is noisy, run
 `statem compact-prompt --run-id <id>`, use the generated `/compact`
-instruction, then recover with `statem cur` and `statem history`.
+instruction, then recover with `statem cur` and `statem history --tail 10`.
 
 Agents may inspect the full graph with `statem state`; `cur`, `next`, and
 `goto` are for disciplined execution and attention anchoring, not for hiding the
