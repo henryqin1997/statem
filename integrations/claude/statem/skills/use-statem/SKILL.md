@@ -21,6 +21,15 @@ Use `statem` as a state-aware runbook for long agent runs. It should guide the w
 
 If `statem` is not on PATH, use `python3 -m statem` from the repository that contains the Python package.
 
+For dynamic servers, company machines, or disposable git checkouts, prefer a
+machine-local state directory. Set `STATEM_STATE_DIR` once, for example
+`$HOME/.local/state/statem/<project>`, so runtime state survives checkout
+replacement. After moving to a new checkout, run `statem start <spec> --run-id
+<id>` once to rebind the run to the current spec path.
+
+Commit YAML runbooks with the repo. Do not commit runtime state; treat `.statem/`
+or `STATEM_STATE_DIR` as local, copy-on-use execution data.
+
 ## Context Clear
 
 Avoid `/clear` in normal loops. It flushes the conversation, including any

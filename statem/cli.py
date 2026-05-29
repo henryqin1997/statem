@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -53,7 +54,11 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command")
 
     common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("--state-dir", default=".statem", help="runtime state directory (default: .statem)")
+    common.add_argument(
+        "--state-dir",
+        default=os.environ.get("STATEM_STATE_DIR", ".statem"),
+        help="runtime state directory (default: $STATEM_STATE_DIR or .statem)",
+    )
     common.add_argument("--run-id", help="run id to use instead of the active run")
     common.add_argument("--yes", action="store_true", help="auto-confirm manual checks and checklists")
     common.add_argument("--json", action="store_true", help="emit machine-readable JSON")

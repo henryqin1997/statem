@@ -13,13 +13,19 @@ REPO = Path(__file__).resolve().parents[1]
 
 
 class StatemCliTest(unittest.TestCase):
-    def run_statem(self, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
+    def run_statem(
+        self, *args: str, check: bool = True, env: dict[str, str] | None = None
+    ) -> subprocess.CompletedProcess[str]:
+        process_env = os.environ.copy()
+        if env:
+            process_env.update(env)
         completed = subprocess.run(
             [sys.executable, "-m", "statem", *args],
             cwd=REPO,
             text=True,
             capture_output=True,
             check=False,
+            env=process_env,
         )
         if check and completed.returncode != 0:
             self.fail(
@@ -138,6 +144,33 @@ edges:
 
             self.run_statem("save", "--run-id", "run1", "--state-dir", str(state_dir), "--json")
             self.assertTrue((root / "saved.txt").exists())
+
+    def test_state_dir_can_come_from_environment(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            spec = root / "env-state.yaml"
+            state_dir = root / "machine-state"
+            spec.write_text(
+                """
+name: env-state
+initial: start
+nodes:
+  start:
+    prompt: Start.
+edges: []
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            env = {"STATEM_STATE_DIR": str(state_dir)}
+            started = self.run_statem("start", str(spec), "--run-id", "env-run", "--json", env=env)
+            self.assertEqual(json.loads(started.stdout)["current"], "start")
+            self.assertTrue((state_dir / "active_run").exists())
+            self.assertFalse((root / ".statem").exists())
+
+            cur = self.run_statem("cur", "--run-id", "env-run", "--json", env=env)
+            self.assertEqual(json.loads(cur.stdout)["current"], "start")
 
     def test_json_file_predicate(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

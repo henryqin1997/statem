@@ -19,6 +19,15 @@ Use `statem` when the task is long-running, iterative, easy to lose track of, or
 
 Use `statem` instead of `python3 -m statem` if the CLI is installed on PATH.
 
+For dynamic servers, company machines, or disposable git checkouts, prefer a
+machine-local state directory. Set `STATEM_STATE_DIR` once, for example
+`$HOME/.local/state/statem/<project>`, so runtime state survives checkout
+replacement. After moving to a new checkout, run `statem start <spec> --run-id
+<id>` once to rebind the run to the current spec path.
+
+Commit YAML runbooks with the repo. Do not commit runtime state; treat `.statem/`
+or `STATEM_STATE_DIR` as local, copy-on-use execution data.
+
 ## Context Clear
 
 Avoid `/clear` in normal loops. It flushes the conversation, including any

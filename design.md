@@ -45,7 +45,9 @@ The static spec lives in a user-authored YAML-like file.
 
 ### Runtime State
 
-Runtime state is separate from the static spec. It lives under `.statem/`.
+Runtime state is separate from the static spec. It defaults to `.statem/`, but
+can live in a machine-local directory selected with `STATEM_STATE_DIR` or
+`--state-dir`.
 
 - run id
 - spec path and spec hash
@@ -55,6 +57,14 @@ Runtime state is separate from the static spec. It lives under `.statem/`.
 - timestamps
 
 This separation makes graph edits safer and lets each agent have its own run.
+YAML runbooks should be committed with the repo as shared process definitions.
+Runtime state should not be committed; it is local, copy-on-use execution data
+for one machine, agent, and run id.
+For dynamic servers or company machines where git checkouts may be deleted,
+runtime state should live outside the repo, such as
+`$HOME/.local/state/statem/<project>`, so it can persist across checkouts.
+After moving to a new checkout, `statem start SPEC --run-id ID` should be run
+once to rebind the run to the current spec path.
 
 ### Node
 

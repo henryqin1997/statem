@@ -162,11 +162,30 @@ output.
 
 Runtime state is separate from the static spec and lives under `.statem/`.
 
+The Git model is:
+
+- Commit YAML runbooks such as `statem.yaml` or `examples/*.yaml`.
+- Do not commit runtime state; `.statem/` is ignored by this repo.
+- Treat runtime state as local, copy-on-use execution data for one machine,
+  agent, and run id.
+
 Each run has its own id and state file, so multiple agents can use the same
 runbook without sharing a current pointer. Graph edits are handled on restart:
 if the current node still exists, `statem start` resumes it and reruns its
 `in_hook`; if the node was removed, it moves to `initial` and logs the
 migration.
+
+For dynamic servers, company machines, or worktrees that are frequently deleted
+and checked out again, keep runtime state outside the repo:
+
+```bash
+export STATEM_STATE_DIR="${HOME}/.local/state/statem/my-project"
+```
+
+`--state-dir` still overrides the environment for one command. When using a
+machine-local state directory across checkouts, run `statem start SPEC --run-id
+ID` in the new checkout once to rebind the run to the current spec path before
+calling `statem cur`.
 
 ## Context Hygiene
 
