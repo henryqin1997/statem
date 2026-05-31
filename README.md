@@ -103,6 +103,7 @@ Common commands:
 - `statem prompt`: print a durable post-`/clear` recovery prompt.
 - `statem compact-prompt`: print a safe `/compact` prompt for cyclic runbooks.
 - `statem validate SPEC`: validate graph shape and references.
+- `statem dynamic path|write|list`: manage current-entry dynamic checks.
 
 `statem transfer TARGET` is kept as an alias for `goto`.
 
@@ -138,20 +139,88 @@ Hook/check types:
 - `predicate`: check files or JSON state without shell.
 - `llm_review`: call another model, agent, or reviewer command.
 
+## Dynamic Before Transfer
+
+Nodes may define `dynamic_before_transfer` when the agent should generate
+custom exit checks from state-local research, component memory, architecture
+notes, or the final implementation approach.
+
+```yaml
+nodes:
+  execute:
+    prompt: Execute the plan.
+    in_hook:
+      type: message
+      text: "Load component memory and write customized dynamic exit checks."
+    dynamic_before_transfer:
+      path: current_entry
+      required: true
+      min_items: 1
+      require_reason: true
+      require_basis: true
+      allow_types:
+        - manual
+        - predicate
+      stale_policy: require_confirmation
+```
+
+Version 1 supports only `path: current_entry`. Each time a run enters a node,
+`statem` creates a new entry id and dynamic check directory:
+
+```text
+.statem/runs/<run-id>/nodes/<node>/<entry-id>/dynamic_before_transfer/
+  manifest.json
+  checks.<agent-id>.json
+```
+
+Use the CLI instead of hand-building paths:
+
+```bash
+statem dynamic path --run-id ID --json
+statem dynamic write checks.json --run-id ID --agent-id agent-a --agent-role executor --json
+statem dynamic list --run-id ID --json
+```
+
+The dynamic check file should normally use this shape:
+
+```json
+{
+  "basis": {
+    "implementation_summary": "Changed worker retry behavior after loading queue memory."
+  },
+  "checks": [
+    {
+      "type": "predicate",
+      "path": "tests/worker/test_retry_queue.py",
+      "exists": true,
+      "non_empty": true,
+      "reason": "Prior memory marks retry semantics as fragile."
+    }
+  ]
+}
+```
+
+`goto` reloads the current entry's latest dynamic checks on every attempt. If a
+dynamic check fails, the run stays at the same node and entry id; the agent can
+revise the implementation and overwrite its `checks.<agent-id>.json`. Every
+attempt records the loaded check snapshot in history, so overwritten files do
+not erase what actually ran.
+
 ## Transition Order
 
 `statem goto TARGET` runs a transaction:
 
 1. Resolve the current node and target edge.
 2. Run current node `before_transfer`.
-3. Run edge `condition`.
-4. If a blocking check fails, stay at the current node.
-5. Run current node `out_hook`.
-6. Run edge `hook`.
-7. If a blocking transfer hook fails, stay at the source node.
-8. Persist `current = TARGET`.
-9. Run target node `in_hook`.
-10. Record history.
+3. Load and run current node `dynamic_before_transfer`, if configured.
+4. Run edge `condition`.
+5. If a blocking check fails, stay at the current node.
+6. Run current node `out_hook`.
+7. Run edge `hook`.
+8. If a blocking transfer hook fails, stay at the source node.
+9. Persist `current = TARGET` and create the target node entry id.
+10. Run target node `in_hook`.
+11. Record history.
 
 This makes retry behavior simple: fix the failed check, then rerun `goto`.
 When `--json` is used and a transition is blocked, the error payload includes a

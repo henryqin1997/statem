@@ -279,6 +279,483 @@ edges:
             self.assertEqual(json.loads(moved.stdout)["current"], "done")
             self.assertTrue((root / "edge-hook-ran.txt").exists())
 
+    def test_dynamic_before_transfer_retries_same_entry_and_snapshots_latest_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            spec = root / "dynamic-loop.yaml"
+            state_dir = root / ".statem"
+            spec.write_text(
+                """
+name: dynamic-loop
+initial: execute
+nodes:
+  execute:
+    prompt: Execute.
+    dynamic_before_transfer:
+      path: current_entry
+      required: true
+      min_items: 1
+      require_reason: true
+      require_basis: true
+      allow_types:
+        - manual
+        - predicate
+      stale_policy: require_confirmation
+  review:
+    prompt: Review.
+edges:
+  - from: execute
+    to: review
+  - from: review
+    to: execute
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            started = self.run_statem(
+                "start",
+                str(spec),
+                "--run-id",
+                "dynamic-run",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+            )
+            first_entry = json.loads(started.stdout)["current_entry_id"]
+
+            path_payload = json.loads(
+                self.run_statem(
+                    "dynamic",
+                    "path",
+                    "--run-id",
+                    "dynamic-run",
+                    "--state-dir",
+                    str(state_dir),
+                    "--agent-id",
+                    "agent-a",
+                    "--agent-role",
+                    "executor",
+                    "--json",
+                ).stdout
+            )
+            self.assertEqual(path_payload["current_entry_id"], first_entry)
+            dynamic_dir = Path(path_payload["path"])
+
+            checks_file = root / "checks.json"
+            checks_file.write_text(
+                json.dumps(
+                    {
+                        "basis": {"implementation_summary": "First approach requires proof.txt."},
+                        "checks": [
+                            {
+                                "type": "predicate",
+                                "path": "proof.txt",
+                                "exists": True,
+                                "non_empty": True,
+                                "reason": "The first approach records durable proof.",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            written = json.loads(
+                self.run_statem(
+                    "dynamic",
+                    "write",
+                    str(checks_file),
+                    "--run-id",
+                    "dynamic-run",
+                    "--state-dir",
+                    str(state_dir),
+                    "--agent-id",
+                    "agent-a",
+                    "--agent-role",
+                    "executor",
+                    "--json",
+                ).stdout
+            )
+            self.assertEqual(written["checks"], 1)
+            self.assertTrue((dynamic_dir / "checks.agent-a.json").exists())
+
+            spoof_file = root / "spoof.json"
+            spoof_file.write_text(
+                json.dumps(
+                    {
+                        "producer": {"agent_id": "spoofed-agent", "role": "spoofed-role"},
+                        "basis": {"implementation_summary": "Producer metadata should be command-owned."},
+                        "checks": [
+                            {
+                                "type": "manual",
+                                "prompt": "Confirm producer metadata is normalized.",
+                                "reason": "The CLI agent id should own the written check file.",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            self.run_statem(
+                "dynamic",
+                "write",
+                str(spoof_file),
+                "--run-id",
+                "dynamic-run",
+                "--state-dir",
+                str(state_dir),
+                "--agent-id",
+                "agent-b",
+                "--agent-role",
+                "reviewer",
+                "--json",
+            )
+            producers = json.loads(
+                self.run_statem(
+                    "dynamic",
+                    "list",
+                    "--run-id",
+                    "dynamic-run",
+                    "--state-dir",
+                    str(state_dir),
+                    "--json",
+                ).stdout
+            )["producers"]
+            producer_ids = {item["producer"]["agent_id"] for item in producers}
+            self.assertIn("agent-b", producer_ids)
+            self.assertNotIn("spoofed-agent", producer_ids)
+
+            blocked = self.run_statem(
+                "goto",
+                "review",
+                "--run-id",
+                "dynamic-run",
+                "--state-dir",
+                str(state_dir),
+                "--yes",
+                "--json",
+                check=False,
+            )
+            self.assertEqual(blocked.returncode, 2)
+            blocked_payload = json.loads(blocked.stdout)
+            self.assertEqual(blocked_payload["details"]["stage"], "dynamic_before_transfer")
+            self.assertEqual(blocked_payload["details"]["current_entry_id"], first_entry)
+
+            cur_after_block = json.loads(
+                self.run_statem("cur", "--run-id", "dynamic-run", "--state-dir", str(state_dir), "--json").stdout
+            )
+            self.assertEqual(cur_after_block["current"], "execute")
+            self.assertEqual(cur_after_block["current_entry_id"], first_entry)
+
+            checks_file.write_text(
+                json.dumps(
+                    {
+                        "basis": {"implementation_summary": "Second approach uses manual verification."},
+                        "checks": [
+                            {
+                                "type": "manual",
+                                "prompt": "Confirm second approach was verified.",
+                                "reason": "The implementation approach changed after the failed check.",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            self.run_statem(
+                "dynamic",
+                "write",
+                str(checks_file),
+                "--run-id",
+                "dynamic-run",
+                "--state-dir",
+                str(state_dir),
+                "--agent-id",
+                "agent-a",
+                "--agent-role",
+                "executor",
+                "--json",
+            )
+            moved = json.loads(
+                self.run_statem(
+                    "goto",
+                    "review",
+                    "--run-id",
+                    "dynamic-run",
+                    "--state-dir",
+                    str(state_dir),
+                    "--yes",
+                    "--json",
+                ).stdout
+            )
+            self.assertEqual(moved["current"], "review")
+
+            history = json.loads(
+                self.run_statem("history", "--run-id", "dynamic-run", "--state-dir", str(state_dir), "--json").stdout
+            )
+            dynamic_events = [event for event in history["history"] if event["event"] == "dynamic_before_transfer"]
+            self.assertEqual(len(dynamic_events), 2)
+            self.assertEqual(dynamic_events[0]["checks_snapshot"][0]["type"], "predicate")
+            self.assertEqual(dynamic_events[1]["checks_snapshot"][0]["type"], "manual")
+
+            back = json.loads(
+                self.run_statem(
+                    "goto",
+                    "execute",
+                    "--run-id",
+                    "dynamic-run",
+                    "--state-dir",
+                    str(state_dir),
+                    "--json",
+                ).stdout
+            )
+            self.assertNotEqual(back["current_entry_id"], first_entry)
+
+    def test_dynamic_before_transfer_blocks_disallowed_types(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            spec = root / "dynamic-types.yaml"
+            state_dir = root / ".statem"
+            spec.write_text(
+                """
+name: dynamic-types
+initial: execute
+nodes:
+  execute:
+    prompt: Execute.
+    dynamic_before_transfer:
+      path: current_entry
+      required: true
+      min_items: 1
+      require_reason: true
+      require_basis: true
+      allow_types:
+        - manual
+        - predicate
+  done:
+    prompt: Done.
+edges:
+  - from: execute
+    to: done
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            self.run_statem("start", str(spec), "--run-id", "type-run", "--state-dir", str(state_dir), "--json")
+            checks_file = root / "checks.json"
+            checks_file.write_text(
+                json.dumps(
+                    {
+                        "basis": {"implementation_summary": "This intentionally tries a command check."},
+                        "checks": [
+                            {
+                                "type": "command",
+                                "run": "touch should-not-run.txt",
+                                "reason": "Command checks are not allowed by this state.",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            rejected_write = self.run_statem(
+                "dynamic",
+                "write",
+                str(checks_file),
+                "--run-id",
+                "type-run",
+                "--state-dir",
+                str(state_dir),
+                "--agent-id",
+                "agent-a",
+                "--json",
+                check=False,
+            )
+            self.assertEqual(rejected_write.returncode, 1)
+            self.assertIn("not allowed", json.loads(rejected_write.stdout)["error"])
+
+            dynamic_path = json.loads(
+                self.run_statem(
+                    "dynamic",
+                    "path",
+                    "--run-id",
+                    "type-run",
+                    "--state-dir",
+                    str(state_dir),
+                    "--agent-id",
+                    "agent-a",
+                    "--json",
+                ).stdout
+            )["path"]
+            (Path(dynamic_path) / "checks.agent-a.json").write_text(checks_file.read_text(encoding="utf-8"), encoding="utf-8")
+            blocked = self.run_statem(
+                "goto",
+                "done",
+                "--run-id",
+                "type-run",
+                "--state-dir",
+                str(state_dir),
+                "--yes",
+                "--json",
+                check=False,
+            )
+            self.assertEqual(blocked.returncode, 2)
+            payload = json.loads(blocked.stdout)
+            self.assertEqual(payload["details"]["stage"], "dynamic_before_transfer")
+            self.assertIn("not allowed", payload["details"]["results"][0]["output"])
+            self.assertFalse((root / "should-not-run.txt").exists())
+
+    def test_dynamic_before_transfer_blocks_missing_registered_producer_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            spec = root / "dynamic-missing.yaml"
+            state_dir = root / ".statem"
+            spec.write_text(
+                """
+name: dynamic-missing
+initial: execute
+nodes:
+  execute:
+    prompt: Execute.
+    dynamic_before_transfer:
+      path: current_entry
+      required: true
+      min_items: 1
+      require_reason: true
+      allow_types:
+        - manual
+  done:
+    prompt: Done.
+edges:
+  - from: execute
+    to: done
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            self.run_statem("start", str(spec), "--run-id", "missing-run", "--state-dir", str(state_dir), "--json")
+            checks_file = root / "checks.json"
+            checks_file.write_text(
+                json.dumps(
+                    {
+                        "checks": [
+                            {
+                                "type": "manual",
+                                "prompt": "Confirm registered producer check.",
+                                "reason": "This producer file should not disappear silently.",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            written = json.loads(
+                self.run_statem(
+                    "dynamic",
+                    "write",
+                    str(checks_file),
+                    "--run-id",
+                    "missing-run",
+                    "--state-dir",
+                    str(state_dir),
+                    "--agent-id",
+                    "agent-a",
+                    "--json",
+                ).stdout
+            )
+            Path(written["path"]).unlink()
+
+            blocked = self.run_statem(
+                "goto",
+                "done",
+                "--run-id",
+                "missing-run",
+                "--state-dir",
+                str(state_dir),
+                "--yes",
+                "--json",
+                check=False,
+            )
+            self.assertEqual(blocked.returncode, 2)
+            payload = json.loads(blocked.stdout)
+            self.assertEqual(payload["details"]["stage"], "dynamic_before_transfer")
+            self.assertIn("registered but its checks file is missing", payload["details"]["results"][0]["output"])
+
+    def test_dynamic_agent_ids_with_unsafe_chars_do_not_collapse(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            spec = root / "dynamic-agent-id.yaml"
+            state_dir = root / ".statem"
+            spec.write_text(
+                """
+name: dynamic-agent-id
+initial: execute
+nodes:
+  execute:
+    prompt: Execute.
+    dynamic_before_transfer:
+      path: current_entry
+      required: true
+      min_items: 2
+      require_reason: true
+      allow_types:
+        - manual
+  done:
+    prompt: Done.
+edges:
+  - from: execute
+    to: done
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            self.run_statem("start", str(spec), "--run-id", "agent-id-run", "--state-dir", str(state_dir), "--json")
+            checks_file = root / "checks.json"
+            checks_file.write_text(
+                json.dumps(
+                    {
+                        "checks": [
+                            {
+                                "type": "manual",
+                                "prompt": "Confirm agent-specific check.",
+                                "reason": "Each agent id should map to a distinct safe filename.",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            first = json.loads(
+                self.run_statem(
+                    "dynamic",
+                    "write",
+                    str(checks_file),
+                    "--run-id",
+                    "agent-id-run",
+                    "--state-dir",
+                    str(state_dir),
+                    "--agent-id",
+                    "team/a",
+                    "--json",
+                ).stdout
+            )
+            second = json.loads(
+                self.run_statem(
+                    "dynamic",
+                    "write",
+                    str(checks_file),
+                    "--run-id",
+                    "agent-id-run",
+                    "--state-dir",
+                    str(state_dir),
+                    "--agent-id",
+                    "team-a",
+                    "--json",
+                ).stdout
+            )
+            self.assertNotEqual(first["agent_id"], second["agent_id"])
+            self.assertNotEqual(first["path"], second["path"])
+
     def test_in_hook_sees_persisted_target_state_and_env(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

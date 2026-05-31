@@ -28,8 +28,10 @@ class TransitionBlocked(StatemError):
     exit_code = 2
 
 
-GATING_PURPOSES = {"condition", "before_transfer"}
+DYNAMIC_PURPOSE = "dynamic_before_transfer"
+GATING_PURPOSES = {"condition", "before_transfer", DYNAMIC_PURPOSE}
 HOOK_KEYS = {"in_hook", "before_transfer", "out_hook", "condition", "hook"}
+CHECK_TYPES = {"message", "manual", "checklist", "command", "predicate", "llm_review"}
 
 
 @dataclass
@@ -38,6 +40,8 @@ class RunOptions:
     yes: bool = False
     json_mode: bool = False
     run_id: str | None = None
+    agent_id: str | None = None
+    agent_role: str | None = None
 
     def emit(self, message: str) -> None:
         if message and not self.json_mode:
@@ -110,6 +114,7 @@ class StatemSpec:
             errors.extend(_validate_items(node.get("in_hook"), "in_hook", f"node {name} in_hook"))
             errors.extend(_validate_items(node.get("before_transfer"), "before_transfer", f"node {name} before_transfer"))
             errors.extend(_validate_items(node.get("out_hook"), "out_hook", f"node {name} out_hook"))
+            errors.extend(_validate_dynamic_config(node.get(DYNAMIC_PURPOSE), f"node {name} {DYNAMIC_PURPOSE}"))
         return errors
 
     def node_prompt(self, name: str) -> str:
@@ -149,16 +154,22 @@ class StatemRuntime:
                 "spec_path": str(spec.path),
                 "spec_hash": spec.spec_hash,
                 "current": spec.initial,
+                "current_entry_id": _new_entry_id(),
                 "created_at": _now(),
                 "updated_at": _now(),
                 "history": [],
             }
+            self._ensure_agent_identity(state)
+            self._ensure_entry_manifest(spec, state, spec.initial)
             _append_event(state, "start", {"current": spec.initial, "spec": str(spec.path)})
         else:
             state = _read_json(state_path)
+            self._ensure_agent_identity(state)
             previous_current = str(state.get("current"))
             if previous_current not in spec.nodes:
                 state["current"] = spec.initial
+                state["current_entry_id"] = _new_entry_id()
+                self._ensure_entry_manifest(spec, state, spec.initial)
                 _append_event(
                     state,
                     "migrate_current",
@@ -170,6 +181,7 @@ class StatemRuntime:
                 )
             state["spec_path"] = str(spec.path)
             state["spec_hash"] = spec.spec_hash
+            self._ensure_current_entry(spec, state)
             _append_event(state, "resume", {"current": state["current"], "spec": str(spec.path)})
 
         self._write_active(run_id)
@@ -202,6 +214,12 @@ class StatemRuntime:
             "spec": str(spec.path),
             "spec_name": spec.name,
             "current": current,
+            "current_entry_id": state.get("current_entry_id"),
+            "agent_id": self._ensure_agent_identity(state),
+            "dynamic_before_transfer": _dynamic_summary(
+                spec.nodes[current].get(DYNAMIC_PURPOSE),
+                self._dynamic_dir(state, current, str(state.get("current_entry_id"))),
+            ),
             "prompt": spec.node_prompt(current),
             "before_transfer": _summaries(spec.nodes[current].get("before_transfer"), "before_transfer"),
             "next": [_edge_summary(edge) for edge in spec.outgoing.get(current, [])],
@@ -212,12 +230,14 @@ class StatemRuntime:
         return {
             "run_id": state["run_id"],
             "current": state["current"],
+            "current_entry_id": state.get("current_entry_id"),
             "nodes": [
                 {
                     "name": name,
                     "prompt": spec.node_prompt(name),
                     "in_hook": _summaries(node.get("in_hook"), "in_hook"),
                     "before_transfer": _summaries(node.get("before_transfer"), "before_transfer"),
+                    "dynamic_before_transfer": _dynamic_summary(node.get(DYNAMIC_PURPOSE), None),
                     "out_hook": _summaries(node.get("out_hook"), "out_hook"),
                 }
                 for name, node in spec.nodes.items()
@@ -233,10 +253,17 @@ class StatemRuntime:
         return {
             "run_id": state["run_id"],
             "current": state["current"],
+            "current_entry_id": state.get("current_entry_id"),
             "node": node_name,
             "prompt": spec.node_prompt(node_name),
             "in_hook": _summaries(node.get("in_hook"), "in_hook"),
             "before_transfer": _summaries(node.get("before_transfer"), "before_transfer"),
+            "dynamic_before_transfer": _dynamic_summary(
+                node.get(DYNAMIC_PURPOSE),
+                self._dynamic_dir(state, node_name, str(state.get("current_entry_id")))
+                if node_name == state["current"] and state.get("current_entry_id")
+                else None,
+            ),
             "out_hook": _summaries(node.get("out_hook"), "out_hook"),
             "next": [_edge_summary(edge) for edge in spec.outgoing.get(node_name, [])],
         }
@@ -258,11 +285,17 @@ class StatemRuntime:
             allowed = ", ".join(edge["to"] for edge in spec.outgoing.get(source, [])) or "(none)"
             raise StatemError(f"Cannot goto '{target}' from '{source}'. Allowed next states: {allowed}")
 
+        self._ensure_current_entry(spec, state)
         before_results = self._run_node_items(spec, state, source, "before_transfer")
+        dynamic_payload = self._run_dynamic_before_transfer(spec, state, source, target)
+        dynamic_results = dynamic_payload["results"]
         condition_results = self._run_items(spec, state, edge.get("condition"), "condition")
-        pre_results = before_results + condition_results
+        pre_results = before_results + dynamic_results + condition_results
         if _has_blocking_failure(pre_results):
-            details = _block_details(state, source, target, "before_transfer", pre_results)
+            stage = DYNAMIC_PURPOSE if _has_blocking_failure(dynamic_results) else "before_transfer"
+            details = _block_details(state, source, target, stage, pre_results)
+            if dynamic_payload:
+                details[DYNAMIC_PURPOSE] = dynamic_payload
             _append_event(
                 state,
                 "goto_blocked",
@@ -291,6 +324,8 @@ class StatemRuntime:
             )
 
         state["current"] = target
+        state["current_entry_id"] = _new_entry_id()
+        self._ensure_entry_manifest(spec, state, target)
         self._write_state(state)
         in_results = self._run_node_items(spec, state, target, "in_hook")
         all_results = pre_results + side_effect_results + in_results
@@ -301,6 +336,7 @@ class StatemRuntime:
                 "from": source,
                 "to": target,
                 "before_transfer": before_results,
+                "dynamic_before_transfer": dynamic_payload,
                 "condition": condition_results,
                 "out_hook": out_results,
                 "edge_hook": edge_hook_results,
@@ -318,6 +354,7 @@ class StatemRuntime:
             "from": source,
             "to": target,
             "current": target,
+            "current_entry_id": state.get("current_entry_id"),
             "results": all_results,
         }
 
@@ -348,6 +385,98 @@ class StatemRuntime:
         if limit is not None:
             events = events[-limit:]
         return {"run_id": state["run_id"], "current": state["current"], "history": events}
+
+    def dynamic_path(self, *, run_id: str | None = None) -> dict[str, Any]:
+        spec, state = self._load_runtime(run_id)
+        current = str(state["current"])
+        self._ensure_current_entry(spec, state)
+        self._write_state(state)
+        dynamic_dir = self._dynamic_dir(state, current, str(state["current_entry_id"]))
+        dynamic_dir.mkdir(parents=True, exist_ok=True)
+        self._ensure_entry_manifest(spec, state, current)
+        return {
+            "run_id": state["run_id"],
+            "current": current,
+            "current_entry_id": state["current_entry_id"],
+            "agent_id": self._ensure_agent_identity(state),
+            "agent_role": self.options.agent_role or os.environ.get("STATEM_AGENT_ROLE") or "",
+            "path": str(dynamic_dir),
+        }
+
+    def dynamic_write(
+        self,
+        checks_file: str,
+        *,
+        run_id: str | None = None,
+        agent_id: str | None = None,
+        role: str | None = None,
+    ) -> dict[str, Any]:
+        spec, state = self._load_runtime(run_id)
+        current = str(state["current"])
+        self._ensure_current_entry(spec, state)
+        resolved_agent_id = _clean_agent_id(agent_id or self.options.agent_id or os.environ.get("STATEM_AGENT_ID") or "")
+        if not resolved_agent_id:
+            resolved_agent_id = self._ensure_agent_identity(state)
+        resolved_role = role or self.options.agent_role or os.environ.get("STATEM_AGENT_ROLE") or ""
+        source_path = Path(checks_file).expanduser().resolve()
+        payload = _load_dynamic_check_file(source_path)
+        normalized = _normalize_dynamic_payload(payload, resolved_agent_id, resolved_role)
+        config = _normalize_dynamic_config(spec.nodes[current].get(DYNAMIC_PURPOSE))
+        if config:
+            _validate_dynamic_payload(normalized, config, source_path)
+
+        dynamic_dir = self._dynamic_dir(state, current, str(state["current_entry_id"]))
+        dynamic_dir.mkdir(parents=True, exist_ok=True)
+        target_path = dynamic_dir / f"checks.{resolved_agent_id}.json"
+        target_path.write_text(json.dumps(normalized, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        manifest = self._update_dynamic_manifest(
+            spec,
+            state,
+            current,
+            producer={
+                "agent_id": resolved_agent_id,
+                "role": resolved_role,
+                "path": str(target_path),
+                "updated_at": _now(),
+            },
+        )
+        self._write_state(state)
+        return {
+            "run_id": state["run_id"],
+            "current": current,
+            "current_entry_id": state["current_entry_id"],
+            "agent_id": resolved_agent_id,
+            "role": resolved_role,
+            "path": str(target_path),
+            "checks": len(normalized["checks"]),
+            "manifest": manifest,
+        }
+
+    def dynamic_list(self, *, run_id: str | None = None) -> dict[str, Any]:
+        spec, state = self._load_runtime(run_id)
+        current = str(state["current"])
+        self._ensure_current_entry(spec, state)
+        dynamic_dir = self._dynamic_dir(state, current, str(state["current_entry_id"]))
+        files = sorted(dynamic_dir.glob("checks.*.json")) if dynamic_dir.exists() else []
+        producers: list[dict[str, Any]] = []
+        for path in files:
+            try:
+                payload = _load_dynamic_check_file(path)
+                producer = _dynamic_payload_producer(payload)
+                checks = _dynamic_payload_checks(payload)
+            except StatemError as exc:
+                producers.append({"path": str(path), "error": str(exc)})
+                continue
+            producers.append({"path": str(path), "producer": producer, "checks": len(checks)})
+        manifest = self._read_dynamic_manifest(state, current, str(state["current_entry_id"]))
+        return {
+            "run_id": state["run_id"],
+            "current": current,
+            "current_entry_id": state["current_entry_id"],
+            "path": str(dynamic_dir),
+            "manifest": manifest,
+            "producers": producers,
+        }
 
     def prompt(self, *, run_id: str | None = None, command: str = "statem") -> dict[str, Any]:
         spec, state = self._load_runtime(run_id)
@@ -598,6 +727,122 @@ After compaction, immediately recover with:
             self.options.emit(output)
         return _result(item, purpose, not problems, output=output)
 
+    def _run_dynamic_before_transfer(
+        self, spec: StatemSpec, state: dict[str, Any], source: str, target: str
+    ) -> dict[str, Any]:
+        config = _normalize_dynamic_config(spec.nodes[source].get(DYNAMIC_PURPOSE))
+        if not config:
+            return {"configured": False, "results": []}
+
+        entry_id = str(state.get("current_entry_id") or "")
+        dynamic_dir = self._dynamic_dir(state, source, entry_id)
+        confirmation_results: list[dict[str, Any]] = []
+        if config.get("stale_policy") == "require_confirmation":
+            confirmation_results = self._run_items(
+                spec,
+                state,
+                {
+                    "type": "manual",
+                    "prompt": (
+                        f"Confirm {DYNAMIC_PURPOSE} checks for entry {entry_id} "
+                        "were refreshed for the latest implementation approach."
+                    ),
+                },
+                DYNAMIC_PURPOSE,
+            )
+            if _has_blocking_failure(confirmation_results):
+                payload = {
+                    "configured": True,
+                    "path": str(dynamic_dir),
+                    "entry_id": entry_id,
+                    "producers": [],
+                    "checks_snapshot": [],
+                    "results": confirmation_results,
+                }
+                _append_event(
+                    state,
+                    DYNAMIC_PURPOSE,
+                    {"node": source, "to": target, **payload},
+                )
+                return payload
+
+        loaded = self._load_dynamic_checks(spec, state, source, config, dynamic_dir)
+        results = (
+            confirmation_results
+            + loaded.get("load_results", [])
+            + self._run_items(spec, state, loaded["checks"], DYNAMIC_PURPOSE)
+        )
+        payload = {
+            "configured": True,
+            "path": str(dynamic_dir),
+            "entry_id": entry_id,
+            "producers": loaded["producers"],
+            "checks_snapshot": loaded["checks"],
+            "results": results,
+        }
+        _append_event(
+            state,
+            DYNAMIC_PURPOSE,
+            {"node": source, "to": target, **payload},
+        )
+        return payload
+
+    def _load_dynamic_checks(
+        self,
+        spec: StatemSpec,
+        state: dict[str, Any],
+        node_name: str,
+        config: dict[str, Any],
+        dynamic_dir: Path,
+    ) -> dict[str, Any]:
+        if config.get("path") != "current_entry":
+            raise StatemError(f"{DYNAMIC_PURPOSE} only supports path: current_entry")
+
+        files = sorted(dynamic_dir.glob("checks.*.json")) if dynamic_dir.exists() else []
+        problems: list[str] = []
+        producers: list[dict[str, Any]] = []
+        checks: list[dict[str, Any]] = []
+        manifest = self._read_dynamic_manifest(state, node_name, str(state.get("current_entry_id") or ""))
+        for producer in manifest.get("producers", []):
+            producer_path = Path(str(producer.get("path") or ""))
+            if producer_path and not producer_path.exists():
+                problems.append(
+                    f"{DYNAMIC_PURPOSE} producer {producer.get('agent_id') or '(unknown)'} "
+                    f"was registered but its checks file is missing: {producer_path}"
+                )
+        for path in files:
+            try:
+                raw_payload = _load_dynamic_check_file(path)
+                payload = _normalize_dynamic_payload(
+                    raw_payload,
+                    _clean_agent_id(_dynamic_payload_producer(raw_payload).get("agent_id") or _checks_file_agent_id(path)),
+                    str(_dynamic_payload_producer(raw_payload).get("role") or ""),
+                )
+                producer = payload["producer"]
+                item_checks = payload["checks"]
+                _validate_dynamic_payload(payload, config, path)
+            except StatemError as exc:
+                problems.append(str(exc))
+                continue
+            producers.append({"agent_id": producer.get("agent_id"), "role": producer.get("role"), "path": str(path)})
+            checks.extend(item_checks)
+
+        if config.get("required") and not files:
+            problems.append(f"{DYNAMIC_PURPOSE} requires at least one checks.<agent-id>.json file in {dynamic_dir}")
+        min_items = int(config.get("min_items") or 0)
+        if len(checks) < min_items:
+            problems.append(f"{DYNAMIC_PURPOSE} requires at least {min_items} check item(s), found {len(checks)}")
+
+        if problems:
+            synthetic = _result(
+                {"type": "manual", "blocking": True, "on_failure": "block"},
+                DYNAMIC_PURPOSE,
+                False,
+                output="; ".join(problems),
+            )
+            return {"producers": producers, "checks": [], "load_results": [synthetic]}
+        return {"producers": producers, "checks": checks, "load_results": []}
+
     def _load_runtime(self, run_id: str | None = None) -> tuple[StatemSpec, dict[str, Any]]:
         selected_run_id = _clean_run_id(run_id or self.options.run_id) if (run_id or self.options.run_id) else None
         if selected_run_id is None:
@@ -611,7 +856,76 @@ After compaction, immediately recover with:
             raise StatemError(
                 f"Run '{selected_run_id}' points at '{state.get('current')}', which is not in the current spec"
             )
+        previous_agent_id = state.get("agent_id")
+        previous_entry_id = state.get("current_entry_id")
+        self._ensure_agent_identity(state)
+        self._ensure_current_entry(spec, state)
+        if state.get("agent_id") != previous_agent_id or state.get("current_entry_id") != previous_entry_id:
+            self._write_state(state)
         return spec, state
+
+    def _ensure_agent_identity(self, state: dict[str, Any]) -> str:
+        configured = _clean_agent_id(self.options.agent_id or os.environ.get("STATEM_AGENT_ID") or "")
+        if configured:
+            if not state.get("agent_id"):
+                state["agent_id"] = configured
+            return configured
+        existing = _clean_agent_id(str(state.get("agent_id") or ""))
+        if existing:
+            return existing
+        generated = _new_agent_id()
+        state["agent_id"] = generated
+        return generated
+
+    def _ensure_current_entry(self, spec: StatemSpec, state: dict[str, Any]) -> None:
+        current = str(state.get("current") or "")
+        if not state.get("current_entry_id"):
+            state["current_entry_id"] = _new_entry_id()
+        self._ensure_entry_manifest(spec, state, current)
+
+    def _dynamic_dir(self, state: dict[str, Any], node_name: str, entry_id: str) -> Path:
+        return self.state_dir / "runs" / _clean_run_id(str(state["run_id"])) / "nodes" / _clean_node_id(node_name) / entry_id / DYNAMIC_PURPOSE
+
+    def _entry_manifest_path(self, state: dict[str, Any], node_name: str, entry_id: str) -> Path:
+        return self._dynamic_dir(state, node_name, entry_id) / "manifest.json"
+
+    def _ensure_entry_manifest(self, spec: StatemSpec, state: dict[str, Any], node_name: str) -> dict[str, Any]:
+        entry_id = str(state.get("current_entry_id") or _new_entry_id())
+        state["current_entry_id"] = entry_id
+        dynamic_dir = self._dynamic_dir(state, node_name, entry_id)
+        dynamic_dir.mkdir(parents=True, exist_ok=True)
+        manifest_path = self._entry_manifest_path(state, node_name, entry_id)
+        if manifest_path.exists():
+            return _read_json(manifest_path)
+        manifest = {
+            "version": 1,
+            "run_id": state["run_id"],
+            "node": node_name,
+            "entry_id": entry_id,
+            "created_at": _now(),
+            "dynamic_before_transfer": _dynamic_summary(spec.nodes[node_name].get(DYNAMIC_PURPOSE), dynamic_dir),
+            "producers": [],
+        }
+        manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        return manifest
+
+    def _read_dynamic_manifest(self, state: dict[str, Any], node_name: str, entry_id: str) -> dict[str, Any]:
+        manifest_path = self._entry_manifest_path(state, node_name, entry_id)
+        if not manifest_path.exists():
+            return {}
+        return _read_json(manifest_path)
+
+    def _update_dynamic_manifest(
+        self, spec: StatemSpec, state: dict[str, Any], node_name: str, producer: dict[str, Any]
+    ) -> dict[str, Any]:
+        manifest = self._ensure_entry_manifest(spec, state, node_name)
+        producers = [item for item in manifest.get("producers", []) if item.get("agent_id") != producer.get("agent_id")]
+        producers.append(producer)
+        manifest["producers"] = producers
+        manifest["updated_at"] = _now()
+        manifest_path = self._entry_manifest_path(state, node_name, str(state["current_entry_id"]))
+        manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        return manifest
 
     def _active_run_for_spec(self, spec: StatemSpec) -> str | None:
         try:
@@ -820,6 +1134,143 @@ def _validate_items(raw_items: Any, purpose: str, label: str) -> list[str]:
     return errors
 
 
+def _normalize_dynamic_config(raw_config: Any) -> dict[str, Any]:
+    if raw_config is None or raw_config == "":
+        return {}
+    if not isinstance(raw_config, dict):
+        raise StatemError(f"{DYNAMIC_PURPOSE} must be a mapping")
+    config = dict(raw_config)
+    path = config.get("path", "current_entry")
+    if path != "current_entry":
+        raise StatemError(f"{DYNAMIC_PURPOSE} only supports path: current_entry")
+    config["path"] = path
+    config["required"] = bool(config.get("required", False))
+    config["min_items"] = int(config.get("min_items") or 0)
+    config["require_reason"] = bool(config.get("require_reason", False))
+    config["require_basis"] = bool(config.get("require_basis", False))
+    config["merge"] = str(config.get("merge") or "all")
+    config["refresh"] = str(config.get("refresh") or "on_attempt")
+    config["stale_policy"] = str(config.get("stale_policy") or "none")
+    allow_types = config.get("allow_types")
+    if allow_types is None:
+        config["allow_types"] = sorted(CHECK_TYPES)
+    elif isinstance(allow_types, list):
+        config["allow_types"] = [str(item) for item in allow_types]
+    else:
+        raise StatemError(f"{DYNAMIC_PURPOSE} allow_types must be a list")
+    return config
+
+
+def _validate_dynamic_config(raw_config: Any, label: str) -> list[str]:
+    try:
+        config = _normalize_dynamic_config(raw_config)
+    except (StatemError, ValueError) as exc:
+        return [f"{label}: {exc}"]
+    if not config:
+        return []
+    errors: list[str] = []
+    unknown_types = sorted(set(config["allow_types"]) - CHECK_TYPES)
+    if unknown_types:
+        errors.append(f"{label}: allow_types includes unsupported type(s): {', '.join(unknown_types)}")
+    if config["merge"] != "all":
+        errors.append(f"{label}: only merge: all is supported")
+    if config["refresh"] != "on_attempt":
+        errors.append(f"{label}: only refresh: on_attempt is supported")
+    if config["stale_policy"] not in {"none", "require_confirmation"}:
+        errors.append(f"{label}: stale_policy must be 'none' or 'require_confirmation'")
+    if config["min_items"] < 0:
+        errors.append(f"{label}: min_items cannot be negative")
+    return errors
+
+
+def _dynamic_summary(raw_config: Any, path: Path | None) -> dict[str, Any] | None:
+    config = _normalize_dynamic_config(raw_config)
+    if not config:
+        return None
+    summary = {
+        "path": config["path"],
+        "required": config["required"],
+        "min_items": config["min_items"],
+        "require_reason": config["require_reason"],
+        "require_basis": config["require_basis"],
+        "allow_types": config["allow_types"],
+        "merge": config["merge"],
+        "refresh": config["refresh"],
+        "stale_policy": config["stale_policy"],
+    }
+    if path is not None:
+        summary["resolved_path"] = str(path)
+    return summary
+
+
+def _load_dynamic_check_file(path: Path) -> Any:
+    if not path.exists():
+        raise StatemError(f"Dynamic checks file not found: {path}")
+    text = path.read_text(encoding="utf-8")
+    try:
+        return json.loads(text) if path.suffix.lower() == ".json" else miniyaml.loads(text)
+    except Exception as exc:
+        raise StatemError(f"Could not parse dynamic checks {path}: {exc}") from exc
+
+
+def _checks_file_agent_id(path: Path) -> str:
+    stem = path.stem
+    prefix = "checks."
+    return stem[len(prefix) :] if stem.startswith(prefix) else stem
+
+
+def _dynamic_payload_producer(payload: Any) -> dict[str, Any]:
+    if isinstance(payload, dict) and isinstance(payload.get("producer"), dict):
+        return payload["producer"]
+    return {}
+
+
+def _dynamic_payload_checks(payload: Any) -> list[Any]:
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict) and isinstance(payload.get("checks"), list):
+        return payload["checks"]
+    raise StatemError("Dynamic checks must be a list or a mapping with a checks list")
+
+
+def _normalize_dynamic_payload(payload: Any, agent_id: str, role: str) -> dict[str, Any]:
+    checks = _dynamic_payload_checks(payload)
+    if not agent_id:
+        raise StatemError("Dynamic checks require an agent id")
+    producer = _dynamic_payload_producer(payload)
+    normalized = {
+        "producer": {
+            "agent_id": _clean_agent_id(str(agent_id or producer.get("agent_id") or "")),
+            "role": str(role or producer.get("role") or ""),
+        },
+        "basis": payload.get("basis", {}) if isinstance(payload, dict) else {},
+        "checks": checks,
+    }
+    if not normalized["producer"]["agent_id"]:
+        raise StatemError("Dynamic checks require a non-empty producer.agent_id")
+    return normalized
+
+
+def _validate_dynamic_payload(payload: dict[str, Any], config: dict[str, Any], path: Path) -> None:
+    problems: list[str] = []
+    basis = payload.get("basis")
+    if config.get("require_basis"):
+        if not isinstance(basis, dict) or not str(basis.get("implementation_summary") or "").strip():
+            problems.append(f"{path}: basis.implementation_summary is required")
+    allowed = set(config.get("allow_types") or CHECK_TYPES)
+    for index, raw_check in enumerate(payload.get("checks", []), start=1):
+        if not isinstance(raw_check, dict):
+            problems.append(f"{path}: check {index} must be a mapping")
+            continue
+        check = _normalize_item(raw_check, DYNAMIC_PURPOSE)
+        if check["type"] not in allowed:
+            problems.append(f"{path}: dynamic check {index} type '{check['type']}' is not allowed")
+        if config.get("require_reason") and not str(raw_check.get("reason") or "").strip():
+            problems.append(f"{path}: dynamic check {index} requires reason")
+    if problems:
+        raise StatemError("; ".join(problems))
+
+
 def _summaries(raw_items: Any, purpose: str) -> list[dict[str, Any]]:
     return [_item_summary(item) for item in _normalize_items(raw_items, purpose)]
 
@@ -932,6 +1383,7 @@ def _block_details(
     return {
         "run_id": state["run_id"],
         "current": state["current"],
+        "current_entry_id": state.get("current_entry_id"),
         "from": source,
         "to": target,
         "stage": stage,
@@ -992,8 +1444,32 @@ def _new_run_id() -> str:
     return time.strftime("%Y%m%d-%H%M%S", time.gmtime()) + "-" + uuid.uuid4().hex[:8]
 
 
+def _new_entry_id() -> str:
+    return time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + "-" + uuid.uuid4().hex[:8]
+
+
+def _new_agent_id() -> str:
+    return "agent-" + _new_entry_id()
+
+
 def _clean_run_id(run_id: str) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9_.-]+", "-", str(run_id).strip())
     if not cleaned:
         raise StatemError("run id cannot be empty")
     return cleaned
+
+
+def _clean_agent_id(agent_id: str) -> str:
+    if not agent_id:
+        return ""
+    raw = str(agent_id).strip()
+    cleaned = re.sub(r"[^A-Za-z0-9_.-]+", "-", raw)
+    if cleaned == raw:
+        return cleaned
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:8]
+    return f"{cleaned}-{digest}"
+
+
+def _clean_node_id(node_name: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9_.-]+", "-", str(node_name).strip())
+    return cleaned or "node"
