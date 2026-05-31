@@ -1,9 +1,10 @@
 # statem
 
 `statem` is a command line state machine for agent long runs. It turns an
-execution graph into an agent-readable runbook: the agent can inspect the
+execution graph into an agent-readable interactive runbook: the agent can inspect the
 current node, see allowed next states, run checks and hooks, save progress, and
-resume after context changes.
+resume after changes. It provides state-aware soft/hard hooks to effectively
+direct the behavoir of agents in long run.
 
 It is an agent-native runbook, not a hard workflow harness. The goal is to keep
 smart agents oriented during long coding, research, and review loops without
@@ -11,10 +12,10 @@ forcing every step into a large orchestration framework.
 
 ## Why
 
-Prompt-only long runs drift. Recent chat gets too much attention, old
+Prompt-only long runs drift. Recent context gets too much attention, old
 instructions fade, and agents lose track of what was already checked. Heavy
-graph orchestration frameworks can also be awkward to author, debug, and repair
-inside a live agent session.
+graph orchestration frameworks aim to solve these, but they can also be awkward 
+to author, debug, and repair inside a live agent session.
 
 `statem` keeps the procedural state outside the model context:
 
@@ -23,6 +24,39 @@ inside a live agent session.
 - durable history of transitions, checks, and hooks
 - explicit `goto` transitions instead of implicit "keep working" prompts
 - optional host Stop hook for auto-loop behavior
+
+## Why Not Just Skills Or LangGraph
+
+Skills and prompt files are excellent for reusable knowledge, conventions, and
+local procedures, but long workflows can still drift because the active phase of
+the work lives in the model context. In long server-side or production
+workflows, the agent may ask for clarification, leave the terminal blocked in
+the background, skip a late-stage check, or forget which step should happen
+next.
+
+Heavy graph frameworks solve a different problem. They can be powerful once a
+workflow is stable, but they are often expensive to author, debug, and revise
+while the agent is still discovering the real process.
+
+`statem` is meant to sit in the middle:
+
+- setup is light enough that an agent can draft a runbook and a human can
+  review it in minutes
+- execution is explicit enough to keep an 11-step, multi-hour workflow from
+  drifting
+- blocked states can ask the human to unblock instead of silently hanging
+- learnings from the run can be written back into both skills and the runbook
+  by the same agent that performed the work
+- each revision improves the reusable workflow for future runs
+
+This makes `statem` useful for developing coding, research,
+training, experiment-launch, and operational workflows. Once a workflow becomes
+stable enough to harden, the YAML runbook is also easy to map into a heavier
+LangGraph-style pipeline: nodes become graph states, edges become transitions,
+and hooks/checks become guards or actions. 
+
+As a cli tool with codex/claude-code support, it can be easily interagted.
+
 
 ## Install
 
