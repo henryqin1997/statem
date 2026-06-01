@@ -155,6 +155,7 @@ Node fields:
 - `prompt`: instructions for the agent while in this state.
 - `in_hook`: setup after entering the node.
 - `before_transfer`: checks and redo gates before leaving the node.
+- `dynamic_before_transfer`: current-entry checks generated from the concrete task.
 - `out_hook`: persistence work before leaving the node.
 
 Edge fields:

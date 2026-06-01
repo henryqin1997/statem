@@ -51,9 +51,10 @@ can live in a machine-local directory selected with `STATEM_STATE_DIR` or
 
 - run id
 - spec path and spec hash
-- current state pointer
+- current state pointer and current node entry id
 - transition history
 - hook and condition results
+- dynamic check manifests and current-entry check files
 - timestamps
 
 This separation makes graph edits safer and lets each agent have its own run.
@@ -74,13 +75,60 @@ A node has:
 - `prompt` or `pre_request`: instructions for the agent while in the node
 - optional `in_hook`
 - optional `before_transfer`
+- optional `dynamic_before_transfer`
 - optional `out_hook`
 
 `in_hook` is for setup after entering a node: load durable context, remind the
 agent what to read, initialize files, or prepare node-local state.
 `before_transfer` runs while still in the current node and is the right place
-for redo/check loops.
+for shared redo/check loops authored in the static runbook.
+`dynamic_before_transfer` is a state-level exit gate for checks generated after
+the agent has inspected the actual task, code, implementation approach, or
+component memory for this node entry.
 `out_hook` persists progress before leaving the node.
+
+### Dynamic Before Transfer
+
+Static `before_transfer` is best for checks that are known when the runbook is
+authored. Some checks are task-specific: after reading the current task and
+implementation details, the agent may need to write a custom checklist or file
+predicate that did not exist in the original YAML. Nodes can declare
+`dynamic_before_transfer` for this case.
+
+Version 1 supports `path: current_entry`. Each time a run enters a node,
+`statem` creates a new entry id and a dynamic check directory under runtime
+state:
+
+```text
+.statem/runs/<run-id>/nodes/<node>/<entry-id>/dynamic_before_transfer/
+  manifest.json
+  checks.<agent-id>.json
+```
+
+Agents should use the CLI instead of hand-building paths:
+
+```bash
+statem dynamic path --run-id ID --json
+statem dynamic write checks.json --run-id ID --agent-id agent-a --json
+statem dynamic list --run-id ID --json
+```
+
+The node `in_hook` is a good place to remind the agent to generate or refresh
+these dynamic checks. `dynamic_before_transfer` is not setup; it is the gate
+that loads and runs the current-entry checks during `goto`.
+
+Supported dynamic check items use the same typed check model as static hooks:
+`manual`, `message`, `checklist`, `command`, `predicate`, and `llm_review`.
+Node config can constrain them with fields such as `required`, `min_items`,
+`require_reason`, `require_basis`, `allow_types`, and
+`stale_policy: require_confirmation`. Missing required files, disallowed check
+types, invalid payload shape, or failing check results block the transition.
+
+On every `goto` attempt, `statem` reloads the latest dynamic checks for the
+current entry and records a snapshot in history. If the dynamic gate fails, the
+run stays on the same node with the same entry id so the agent can revise the
+implementation or rewrite its dynamic check file and retry. A successful
+transition creates a fresh entry id for the target node.
 
 ### Edge
 
@@ -105,15 +153,17 @@ Transition order:
 
 1. Resolve current node and target edge.
 2. Run current node `before_transfer` checks.
-3. Run edge `condition`.
-4. If a blocking check fails, stay in the current node and log the attempt.
-5. Run current node `out_hook`.
-6. Run edge `hook` as prepare-transfer work.
-7. If a blocking `out_hook` or edge `hook` fails, stay in the source node and
+3. Load and run current node `dynamic_before_transfer`, if configured.
+4. Run edge `condition`.
+5. If a blocking pre-leave gate fails, stay in the current node with the same
+   entry id and log the attempt.
+6. Run current node `out_hook`.
+7. Run edge `hook` as prepare-transfer work.
+8. If a blocking `out_hook` or edge `hook` fails, stay in the source node and
    log the attempt.
-8. Persist `current = TARGET`.
-9. Run target node `in_hook`.
-10. Record transition history.
+9. Persist `current = TARGET` and create the target node entry id.
+10. Run target node `in_hook`.
+11. Record transition history.
 
 This gives agents a clean chance to redo work before leaving the node.
 
@@ -121,6 +171,9 @@ Hook role summary:
 
 - `in_hook`: setup for the node that has just been entered.
 - `before_transfer`: checks/redos while still in the current node.
+- `dynamic_before_transfer`: current-entry checks generated from the concrete
+  task or implementation state.
+- edge `condition`: transition-specific gate after node-level exit checks.
 - `out_hook`: persist current-node progress before leaving.
 - edge `hook`: prepare the transfer after persistence and before entering the
   target node.
@@ -139,9 +192,16 @@ Typed conditions and hooks should also be supported:
 - `predicate`: declaratively inspect files without shell commands.
 - `llm_review`: call an external reviewer command/model and use its result.
 
+These types are shared by static node hooks, edge conditions/hooks, and dynamic
+current-entry checks. The purpose controls defaults: conditions,
+`before_transfer`, and `dynamic_before_transfer` are gating by default. Plain
+setup/reminder hooks are normally non-blocking unless explicitly marked
+blocking.
+
 Every hook/check should have robust defaults:
 
-- `blocking`: defaults to true for conditions, false for message hooks.
+- `blocking`: defaults to true for gating purposes and for explicit checks,
+  false for plain setup/reminder messages.
 - `on_failure`: defaults to `block` for blocking checks, `continue` for
   non-blocking reminders.
 - `timeout`: optional for command hooks.
@@ -207,6 +267,12 @@ Commands:
 - `statem transfer TARGET`: alias for `goto`.
 - `statem save`: persist runtime state and run the current node `out_hook`.
 - `statem history [--tail N] [--json]`: show run history.
+- `statem dynamic path [--json]`: show the current-entry dynamic check
+  directory.
+- `statem dynamic write CHECKS_FILE [--agent-id ID] [--agent-role ROLE]`:
+  normalize and register one agent's dynamic checks for the current entry.
+- `statem dynamic list [--json]`: show registered current-entry dynamic check
+  producers and files.
 - `statem prompt [--json]`: print a durable post-`/clear` resume prompt.
 - `statem compact-prompt [--json]`: print a safe `/compact` prompt for cyclic
   runbooks.
@@ -215,6 +281,9 @@ Commands:
 `before_transfer` is not a CLI command. It is a node spec field shown by
 `statem cur`/`statem ls` and executed automatically by `statem goto` before the
 current node is allowed to exit.
+`dynamic_before_transfer` is also a node spec field, but agents manage its
+current-entry check files with `statem dynamic path`, `statem dynamic write`,
+and `statem dynamic list`.
 
 When a JSON transition fails, the error payload should include structured
 details about the failed check or hook, including `stage` and `results`, so
@@ -337,7 +406,9 @@ plan
 
 execute
   prompt: load context, progress, architecture.md, golden rules, plan, execute
-  before_transfer: review implementation against checklist
+  in_hook: ask agent to write task-specific dynamic exit checks when needed
+  before_transfer: review shared implementation checklist
+  dynamic_before_transfer: run current-entry checks generated from the task
   out_hook: update progress.md
   goto review
 
