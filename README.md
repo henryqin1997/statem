@@ -304,6 +304,9 @@ full review pass. Use:
 statem compact-prompt --run-id ID
 ```
 
+The generated `/compact` instruction pins the current run id and tells the host
+to ignore older statem run ids or stale commands from prior chat context.
+
 If a hard clear is truly necessary, first generate a recovery prompt:
 
 ```bash

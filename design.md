@@ -316,6 +316,8 @@ keeps durable state and discards stale failed attempts, noisy tool output,
 superseded plans, and irrelevant conversation. After compaction, the agent
 should immediately run `statem cur` and `statem history` to restore attention to
 the current node.
+The generated prompt should pin the current run id and explicitly tell the host
+to ignore older statem run ids or stale commands from prior chat context.
 
 Agents may inspect the full runbook with `statem state`; the graph is not meant
 to be hidden. `cur`, `next`, and `goto` are for disciplined execution and

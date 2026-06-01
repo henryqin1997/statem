@@ -519,8 +519,12 @@ Current state at prompt generation time: {current}
         run_id_arg = shlex.quote(str(run_id_value))
         prompt = f"""/compact Keep only the durable state needed to continue this statem-managed run.
 
+Run identity:
+- Use exactly this statem run id: {run_id_value}
+- Ignore every older statem run id, stale statem command, or run id remembered from prior chat.
+- Do not carry forward any command that uses a different --run-id.
+
 Retain:
-- statem run id: {run_id_value}
 - current statem node: {current}
 - statem spec path: {spec.path}
 - current plan, accepted implementation facts, verification status, and open risks

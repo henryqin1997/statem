@@ -1008,12 +1008,15 @@ edges: []
             rendered = self.run_statem("compact-prompt", "--run-id", "compact-run", "--state-dir", str(state_dir))
             self.assertIn("/compact", rendered.stdout)
             self.assertIn("stale failed attempts", rendered.stdout)
+            self.assertIn("Use exactly this statem run id: compact-run", rendered.stdout)
+            self.assertIn("Ignore every older statem run id", rendered.stdout)
             self.assertIn("statem cur", rendered.stdout)
             self.assertNotIn("python3 -m statem", rendered.stdout)
             self.assertIn("compact-run", rendered.stdout)
 
             payload = self.run_statem("compact-prompt", "--run-id", "compact-run", "--state-dir", str(state_dir), "--json")
             self.assertIn("Discard:", json.loads(payload.stdout)["prompt"])
+            self.assertIn("different --run-id", json.loads(payload.stdout)["prompt"])
             self.assertIn("--tail 8", json.loads(payload.stdout)["prompt"])
 
     def test_help_mentions_loop_hygiene(self) -> None:
