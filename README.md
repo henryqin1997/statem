@@ -25,7 +25,7 @@ to author, debug, and repair inside a live agent session.
 - explicit `goto` transitions instead of implicit "keep working" prompts
 - optional host Stop hook for auto-loop behavior
 
-## Why Not Just Skills Or LangGraph
+## Why Not Just Skills or LangGraph
 
 Skills and prompt files are excellent for reusable knowledge, conventions, and
 local procedures, but long workflows can still drift because the active phase of
