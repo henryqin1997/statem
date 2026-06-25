@@ -1,0 +1,121 @@
+name: coding-agent-loop
+initial: start
+
+nodes:
+  start:
+    prompt: |
+      Initialize the run context from durable project files. Read the task description,
+      progress.md, statem history, architecture notes, and any project rules
+      before planning. It is fine to inspect the full runbook with
+      `statem state`; use `cur`, `next`, and `goto` to execute the current step
+      with discipline. Do not use `/clear` as part of the normal loop; use the
+      session_refresh node and safe compaction when a later cycle needs cleaner
+      context.
+    in_hook:
+      type: message
+      text: "Load the task brief, progress.md, statem history, and any architecture notes before planning."
+    before_transfer:
+      type: checklist
+      items:
+        - Task brief was read
+        - Relevant files were inspected
+        - Constraints were noted
+
+  plan:
+    prompt: |
+      Generate an implementation plan from the task context, current progress,
+      architecture notes, and project rules.
+    before_transfer:
+      - type: manual
+        prompt: "Plan has been reviewed and is concrete enough to execute."
+      - type: predicate
+        path: progress.md
+        exists: true
+        non_empty: true
+
+  execute:
+    prompt: |
+      Execute the plan while keeping edits scoped. Update progress before
+      leaving this state.
+    before_transfer:
+      type: checklist
+      items:
+        - Implementation matches the plan
+        - Tests or verification were run
+        - No unrelated files were changed
+    out_hook:
+      type: message
+      text: "Update progress.md before moving on."
+
+  review:
+    prompt: |
+      Review the implementation before handing work back to the user. Compare
+      the code against the plan, project docs, constraints, and golden rules.
+      If the implementation differs from the plan, decide whether the change is
+      justified and make sure the new consideration is recorded in progress.md
+      or the final handoff. Prefer returning to execute when the review finds a
+      fixable gap.
+    before_transfer:
+      type: checklist
+      items:
+        - Implementation follows the task and current plan, or deviations are justified
+        - Relevant docs, architecture notes, and local conventions were followed
+        - Constraints and golden rules were checked explicitly
+        - Edited file scope is appropriate and unrelated changes were not reverted
+        - Tests, lint, or equivalent verification were run, or blockers are recorded
+        - Remaining risks and follow-ups are clear enough for the user handoff
+    out_hook:
+      type: message
+      text: "Record review notes, verification results, and any remaining risks before leaving review."
+
+  handoff:
+    prompt: |
+      Hand the run back to the user. Summarize what changed, verification run,
+      current state, known risks, and the recommended next command if work will
+      continue later.
+    in_hook:
+      type: message
+      text: "Before replying to the user, read progress.md and statem history so the handoff is grounded in durable state."
+
+  session_refresh:
+    prompt: |
+      Use this node only after a complete review pass when another loop will
+      continue and the context contains stale attempts or noisy intermediate
+      output. Generate a safe compaction instruction with
+      `statem compact-prompt --run-id <id>`, compact through the host UI, then
+      restore attention with `statem cur` and `statem history`.
+    before_transfer:
+      type: checklist
+      items:
+        - progress.md and statem history contain the durable facts needed after compaction
+        - Safe compaction was applied, or the context was judged clean enough to skip it
+        - Current state and next transition were rechecked after compaction
+
+edges:
+  - from: start
+    to: plan
+    condition: "Initial context is loaded."
+
+  - from: plan
+    to: execute
+    condition: "Plan is ready for execution."
+
+  - from: execute
+    to: review
+    condition: "Implementation is ready for review."
+
+  - from: review
+    to: execute
+    condition: "Review found changes that need another execution pass."
+
+  - from: review
+    to: handoff
+    condition: "Review passed, or remaining issues and blockers are documented for the user."
+
+  - from: review
+    to: session_refresh
+    condition: "Review passed and another loop will continue in a cleaner session."
+
+  - from: session_refresh
+    to: plan
+    condition: "Session context is compacted or intentionally kept, and state was restored."

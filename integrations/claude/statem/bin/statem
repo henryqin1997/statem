@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ -n "${STATEM_REPO:-}" && -f "${STATEM_REPO}/pyproject.toml" ]]; then
+  cd "${STATEM_REPO}"
+  exec python3 -m statem "$@"
+fi
+
+if [[ -n "${CLAUDE_PROJECT_DIR:-}" && -f "${CLAUDE_PROJECT_DIR}/pyproject.toml" && -d "${CLAUDE_PROJECT_DIR}/statem" ]]; then
+  cd "${CLAUDE_PROJECT_DIR}"
+  exec python3 -m statem "$@"
+fi
+
+if python3 -c "import statem" >/dev/null 2>&1; then
+  exec python3 -m statem "$@"
+fi
+
+echo "statem CLI not found. Install statem or set STATEM_REPO to the repository containing the statem Python package." >&2
+exit 127
+

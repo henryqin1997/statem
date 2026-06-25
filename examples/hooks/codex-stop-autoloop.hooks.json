@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 integrations/hooks/statem_stop_hook.py",
+            "timeout": 15,
+            "statusMessage": "Checking active statem run"
+          }
+        ]
+      }
+    ]
+  }
+}
+

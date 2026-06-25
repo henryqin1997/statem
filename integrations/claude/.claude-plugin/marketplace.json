@@ -1,0 +1,19 @@
+{
+  "name": "statem-tools",
+  "owner": {
+    "name": "statem contributors"
+  },
+  "description": "Stateful runbooks for long-running coding agents.",
+  "plugins": [
+    {
+      "name": "statem",
+      "source": "./statem",
+      "description": "Use statem state-machine runbooks from Claude Code.",
+      "version": "0.1.0",
+      "author": {
+        "name": "statem contributors"
+      }
+    }
+  ]
+}
+
