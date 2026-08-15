@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f1eee7">
+  <meta name="description" content="StateM is an agent-native runtime for scaling the harness around long-horizon agents.">
+  <title>StateM — The Model Wasn't the Bottleneck</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="progress" aria-hidden="true"><span id="progressBar"></span></div>
+  <header class="nav-wrap">
+    <nav class="nav shell" aria-label="Primary navigation">
+      <a class="brand" href="#top" aria-label="StateM home"><span class="brand-mark">S:</span>StateM <span class="version">research preview</span></a>
+      <button class="menu" id="menuButton" type="button" aria-expanded="false" aria-controls="navLinks">Menu</button>
+      <div class="nav-links" id="navLinks">
+        <a href="#idea">Idea</a><a href="#system">System</a><a href="#evidence">Evidence</a><a href="#transfer">Transfer</a><a href="#paper">Paper</a>
+        <a class="nav-cta" href="https://github.com/henryqin1997/statem" target="_blank" rel="noreferrer">GitHub ↗</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero shell">
+      <div class="eyebrow"><span class="pulse"></span> Agent-native harness scaling</div>
+      <h1>The model wasn’t<br><em>the bottleneck.</em></h1>
+      <p class="hero-deck">StateM turns long-horizon execution into durable states, scoped instructions, checked transitions, and recoverable runbooks — so capable agents finish the job they already know how to do.</p>
+      <div class="hero-actions">
+        <a class="button primary" href="#evidence">Explore the results <span>↓</span></a>
+        <a class="button secondary" href="#paper">Read the paper <span>↗</span></a>
+      </div>
+      <div class="authors">Ziheng Qin · Yaxin Lu · Zhangyang “Atlas” Wang · Kai Wang</div>
+
+      <div class="scoreboard" aria-label="Key results">
+        <article class="score score-main"><span class="label">Terminal-Bench 2.1</span><strong>95.3<small>%</small></strong><p>raw accuracy · GPT-5.6 Sol xhigh + StateM</p></article>
+        <article class="score"><span class="label">Same model</span><strong>+9.0<small>pt</small></strong><p>92.1% vs 83.1% · GPT-5.5 xhigh</p></article>
+        <article class="score"><span class="label">Public submission</span><strong>424<small>/445</small></strong><p>successful trials · all 89 tasks covered</p></article>
+        <article class="score"><span class="label">Held-out workflow</span><strong>+2.39<small>pt</small></strong><p>86.11% vs 83.72% · 477 instances</p></article>
+      </div>
+      <p class="status-note"><span>STATUS</span> 95.28% is the raw, pre-adjudication score of a public submission as of Aug 2, 2026 — not an official leaderboard result. <a href="#notes">Read the evaluation note.</a></p>
+    </section>
+
+    <section class="marquee" aria-label="Core thesis"><div>MODEL SCALING <i>×</i> HARNESS SCALING <i>=</i> RELIABLE EXECUTION <span>·</span> MODEL SCALING <i>×</i> HARNESS SCALING <i>=</i> RELIABLE EXECUTION</div></section>
+
+    <section class="section shell" id="idea">
+      <div class="section-index">01 / THE THESIS</div>
+      <div class="split-heading"><h2>Capability and reliability are <em>different scaling axes.</em></h2><p>Long-horizon agents often solve every local step and still fail the run. The missing capability is frequently not inside the model — it is in the control layer that keeps execution oriented, verifiable, and recoverable.</p></div>
+      <div class="failure-grid">
+        <article><span>01</span><h3>Control signal dilution</h3><p>A compact plan fades inside a growing trace of commands, observations, retries, and repairs.</p></article>
+        <article><span>02</span><h3>Mutable-state ambiguity</h3><p>The agent must reconstruct what is done, what failed, and what remains from append-only history.</p></article>
+        <article><span>03</span><h3>Premature handoff</h3><p>“Looks complete” replaces evidence. Required checks are skipped and partial effects escape into delivery.</p></article>
+      </div>
+      <div class="thesis-card">
+        <div class="terminal-top"><span></span><span></span><span></span><code>statem / hypothesis</code></div>
+        <blockquote>Scale the system <em>around</em> the model.</blockquote>
+        <p>Externalize procedural state. Refresh the control context for the current phase. Require evidence before consequential transitions. Preserve the agent’s unified reasoning loop.</p>
+      </div>
+    </section>
+
+    <section class="section dark" id="system">
+      <div class="shell">
+        <div class="section-index">02 / THE CONTROL SURFACE</div>
+        <div class="split-heading"><h2>States are both context <em>and</em> contract.</h2><p>StateM is a lightweight runtime the agent operates through the same CLI it uses for the task. Humans and agents inspect, edit, version, and audit one shared YAML runbook.</p></div>
+        <div class="flow" aria-label="StateM workflow">
+          <div class="node mint"><small>01</small><b>Plan</b><span>load context</span></div><div class="edge"><code>goto</code><i>→</i></div>
+          <div class="node coral active"><small>02</small><b>Execute</b><span>open-ended work</span></div><div class="edge"><code>goto</code><i>→</i></div>
+          <div class="node amber"><small>03</small><b>Verify</b><span>check evidence</span></div><div class="edge"><code>pass</code><i>→</i></div>
+          <div class="node paper"><small>04</small><b>Handoff</b><span>terminal state</span></div>
+        </div>
+        <div class="node-detail">
+          <div class="code-panel">
+            <div class="terminal-top"><span></span><span></span><span></span><code>runbook.yaml</code></div>
+            <pre><code><span class="muted">execute:</span>
+  <span class="key">in_hook:</span> load durable context
+  <span class="key">prompt:</span> perform phase-local work
+  <span class="key">out_hook:</span> persist progress + receipts
+  <span class="key">before_transfer:</span>
+    - tests pass
+    - required effects observed
+    - scope is clean</code></pre>
+          </div>
+          <div class="principles">
+            <article><b>Context boundary</b><p>Entering a state refreshes the instructions, task facts, and durable progress relevant now.</p></article>
+            <article><b>Contract boundary</b><p>Leaving a state requires explicit conditions. Failed checks keep execution in the current node.</p></article>
+            <article><b>Recovery anchor</b><p>After interruption or compaction, the agent resumes from authoritative state — not a reconstructed transcript.</p></article>
+            <article><b>Shared control</b><p>The runbook is visible and editable to both user and agent, while runtime policy protects invariants.</p></article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section shell" id="evidence">
+      <div class="section-index">03 / THE EVIDENCE</div>
+      <div class="split-heading"><h2>A thin control layer delivered a <em>model-generation-sized gain.</em></h2><p>On Terminal-Bench 2.1, StateM improved GPT-5.5 xhigh from the published 83.1% baseline to 92.1% under the standard timeout budget — without changing model weights.</p></div>
+      <div class="chart-card">
+        <div class="chart-title"><div><span>Terminal-Bench 2.1</span><h3>Accuracy, higher is better</h3></div><div class="legend"><i class="ours"></i> + StateM <i class="base"></i> baseline / reference</div></div>
+        <div class="bars" role="img" aria-label="Accuracy comparison: GPT-5.6 Sol with StateM 95.3, GPT-5.5 with StateM 92.1, GPT-5.6 Sol Ultra 91.9, Claude Code Fable 5 extended 88.0, GPT-5.5 baseline 83.1">
+          <div class="bar ours" style="--value:95.3"><strong>95.3</strong><i></i><span>GPT-5.6 Sol<br>+ StateM</span></div>
+          <div class="bar ours" style="--value:92.1"><strong>92.1</strong><i></i><span>GPT-5.5 xhigh<br>+ StateM</span></div>
+          <div class="bar base" style="--value:91.9"><strong>91.9</strong><i></i><span>GPT-5.6<br>Sol Ultra</span></div>
+          <div class="bar base" style="--value:88"><strong>88.0</strong><i></i><span>Claude Code<br>Fable 5 ext.</span></div>
+          <div class="bar baseline" style="--value:83.1"><strong>83.1</strong><i></i><span>GPT-5.5 xhigh<br>baseline</span></div>
+        </div>
+      </div>
+      <div class="result-grid">
+        <article><span class="tag">FIXED MODEL</span><strong>83.1 → 92.1</strong><h3>Harness gain ≈ model upgrade</h3><p>The same GPT-5.5 base model recovers nine accuracy points when execution state and checks move outside the context.</p></article>
+        <article><span class="tag">TASK COVERAGE</span><strong>89 / 89</strong><h3>Every task solved at least once</h3><p>Across five attempts per task, the public GPT-5.6 submission recorded at least one success on all 89 tasks.</p></article>
+        <article><span class="tag">ONE FAILURE FLIPPED</span><strong>0 / 5 → 5 / 5</strong><h3>Fresh evidence before handoff</h3><p>On configure-git-webserver, service readiness and consumer-facing verification turned repeated failure into full success.</p></article>
+      </div>
+    </section>
+
+    <section class="section transfer" id="transfer">
+      <div class="shell">
+        <div class="section-index">04 / ZERO-RETUNING TRANSFER</div>
+        <div class="split-heading"><h2>The runbook crossed a model generation <em>unchanged.</em></h2><p>Developed with GPT-5.5, frozen, then applied to GPT-5.6 Sol xhigh with no modification. Procedural knowledge accumulated in the harness, not the weights.</p></div>
+        <div class="transfer-viz">
+          <div class="model-pair"><div class="model-label">Develop here</div><div class="mini-bars"><span style="--h:83.1"><b>83.1</b><i>base</i></span><span class="lift" style="--h:92.1"><b>92.1</b><i>+ StateM</i></span></div><h3>GPT-5.5 xhigh</h3><p>+9.0 points</p></div>
+          <div class="zero-cost"><span>SAME RUNBOOK</span><div>──────────→</div><b>ZERO RETUNING</b></div>
+          <div class="model-pair"><div class="model-label">Apply here</div><div class="mini-bars"><span style="--h:84.9"><b>84.9</b><i>base</i></span><span class="lift" style="--h:95.2"><b>95.2</b><i>+ StateM</i></span></div><h3>GPT-5.6 Sol xhigh</h3><p>+10.3 points</p></div>
+        </div>
+        <div class="quote">“A portable execution layer can preserve gains across model generations.”</div>
+      </div>
+    </section>
+
+    <section class="section shell" id="beyond">
+      <div class="section-index">05 / BEYOND THE BENCHMARK</div>
+      <div class="split-heading"><h2>From benchmark failures to <em>reusable engineering practice.</em></h2><p>A hyper-level agent analyzes failures, proposes generalized controls, and evolves versioned runbooks. Candidate changes are reviewed and tested; the model stays fixed.</p></div>
+      <div class="loop-grid">
+        <div class="evolution-loop">
+          <div><span>1</span><b>Observe failure</b><small>trajectory + receipts</small></div><i>→</i><div><span>2</span><b>Abstract cause</b><small>control-layer defect</small></div><i>→</i><div><span>3</span><b>Patch runbook</b><small>hooks + checks + states</small></div><i>→</i><div><span>4</span><b>Review & evaluate</b><small>regression + holdout</small></div>
+        </div>
+        <div class="holdout-card"><span>UNTOUCHED HOLDOUT</span><strong>83.72<small>%</small> <i>→</i> 86.11<small>%</small></strong><p>Separate 477-instance work-style evaluation with the lower-cost GPT-5.6 Luna model and family-specific runbooks.</p></div>
+      </div>
+      <div class="controls">
+        <article><span>service / session</span><h3>Verify from the consumer side</h3><p>Readiness means observable behavior and stable ownership — not a sleep or a shell-local PID.</p></article>
+        <article><span>consequential effects</span><h3>Close every required effect</h3><p>Reconcile declared, attempted, succeeded, failed, and freshly observed outcomes before handoff.</p></article>
+        <article><span>risk-aware checks</span><h3>Put checks where failures happen</h3><p>Use experience to predict downstream risk, then require compact evidence at the right boundary.</p></article>
+      </div>
+    </section>
+
+    <section class="section get-started" id="paper">
+      <div class="shell start-grid">
+        <div><div class="section-index">06 / TRY STATEM</div><h2>Give your agent a state it can <em>return to.</em></h2><p>StateM is a lightweight Python CLI. Write a small YAML runbook, start a durable run, and move only through checked transitions.</p><div class="hero-actions"><a class="button primary" href="https://github.com/henryqin1997/statem" target="_blank" rel="noreferrer">View code on GitHub ↗</a><a class="button secondary" href="https://github.com/henryqin1997/statem#quick-start" target="_blank" rel="noreferrer">Quick start ↗</a></div></div>
+        <div class="install"><div class="terminal-top"><span></span><span></span><span></span><code>terminal</code></div><pre id="installCode"><code><span>$</span> git clone https://github.com/henryqin1997/statem.git
+<span>$</span> cd statem && pip install -e .
+<span>$</span> statem start examples/coding-agent.yaml --run-id demo
+<span>$</span> statem cur
+<span>$</span> statem goto plan</code></pre><button class="copy" data-copy-target="installCode">Copy</button></div>
+      </div>
+    </section>
+
+    <section class="citation shell" id="citation">
+      <div><span class="tag">PAPER</span><h2>The Model Wasn’t the Bottleneck: Reaching 95.3% Raw Accuracy on Terminal-Bench 2.1 via Harness Scaling</h2><p>Ziheng Qin, Yaxin Lu, Zhangyang “Atlas” Wang, and Kai Wang · 2026</p></div>
+      <div class="bib"><pre id="bibCode"><code>@article{qin2026statem,
+  title  = {The Model Wasn't the Bottleneck},
+  author = {Qin, Ziheng and Lu, Yaxin and
+            Wang, Zhangyang and Wang, Kai},
+  year   = {2026}
+}</code></pre><button class="copy" data-copy-target="bibCode">Copy BibTeX</button></div>
+    </section>
+
+    <section class="notes shell" id="notes"><h2>Evaluation note</h2><p>The 95.28% figure is the raw, pre-adjudication accuracy (424/445) computed by the Terminal-Bench 2.1 submission pipeline in public PR #142 as of August 2, 2026. The submission passed automated checks but remains open and is not leaderboard-listed. Scoring four review-identified rewarded trajectories as zero yields 94.38%; scoring all nine currently flagged trajectories as zero yields 93.26%. The Terminal-Bench control profile was benchmark-adapted and then frozen before transfer to GPT-5.6. The paper reports these boundaries explicitly.</p></section>
+  </main>
+
+  <footer><div class="shell"><div class="brand"><span class="brand-mark">S:</span>StateM</div><p>Explicit state. Checked transitions. Reliable long runs.</p><a href="#top">Back to top ↑</a></div></footer>
+  <script src="script.js"></script>
+</body>
+</html>
