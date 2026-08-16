@@ -22,6 +22,9 @@ const bands = [
     title: 'The agent works here',
     body: 'Full autonomy inside the phase: any tool, any file, any number of iterations.',
     emphasis: true,
+    // The shading marks the one band StateM does not control; say so, rather
+    // than leaving the colour to be guessed at.
+    tag: 'not enforced',
   },
   {
     slot: 'out_hook',
@@ -46,6 +49,7 @@ const bands = [
           <span class="na-title">{band.title}</span>
           <span class="na-body">{band.body}</span>
         </div>
+        {band.tag && <span class="na-tag">{band.tag}</span>}
       </div>
     ))}
   </div>
@@ -94,6 +98,18 @@ const bands = [
     gap: 0.1rem;
     font-size: 0.85rem;
     line-height: 1.45;
+    flex: 1;
+  }
+
+  .na-tag {
+    flex: 0 0 auto;
+    align-self: center;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.45;
+    white-space: nowrap;
   }
 
   .na-title {
