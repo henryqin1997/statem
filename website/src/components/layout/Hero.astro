@@ -3,6 +3,7 @@
 
 import { Icon } from 'astro-icon/components'
 import { config } from '@/config'
+import { withBase } from '@utils/url'
 
 interface Props {
   tagline: string
@@ -22,7 +23,7 @@ const actions = [
 
 <header class="mt-10 mb-8">
   <div class="flex items-center gap-3">
-    <img src="/assets/logo.svg" alt="" width="40" height="40" class="w-10 h-10" />
+    <img src={withBase("/assets/logo.svg")} alt="" width="40" height="40" class="w-10 h-10" />
     <h1 class="text-4xl font-bold tracking-tight">StateM</h1>
   </div>
 

@@ -3,6 +3,7 @@ import "@fontsource-variable/ibm-plex-sans";
 import "@fontsource/merriweather";
 
 import { config } from "@/config";
+import { withBase } from "@utils/url";
 import "@/styles/main.css";
 import "@/styles/variables.styl";
 import "@/styles/transition.css";
@@ -17,12 +18,15 @@ interface Props {
 
 const { title, description, setOGTypeArticle, jsonLd } = Astro.props;
 
-// Astro.site comes from `site` in astro.config.mjs; the fallback only matters
-// if that is ever unset, and it must stay a relative-safe absolute URL.
-const siteUrl = Astro.site?.href || "/";
-
 const pageTitle = title ? `${title} - ${config.title}` : config.title;
 const pageDescription = description || pageTitle;
+
+// Astro.site carries the origin only, so the base has to be added back for
+// anything that must be an absolute URL (OG/Twitter cards, the feed link).
+const ogImagePath = withBase("/assets/web-app-manifest-512x512.png");
+const ogImage = Astro.site ? new URL(ogImagePath, Astro.site).href : ogImagePath;
+const feedPath = withBase("/rss.xml");
+const feedUrl = Astro.site ? new URL(feedPath, Astro.site).href : feedPath;
 ---
 
 <!doctype html>
@@ -52,21 +56,21 @@ const pageDescription = description || pageTitle;
       )
     }
 
-    <meta property="og:image" content={`${siteUrl}assets/web-app-manifest-512x512.png`} />
+    <meta property="og:image" content={ogImage} />
 
     <meta name="twitter:card" content="summary" />
     <meta property="twitter:url" content={Astro.url.href} />
     <meta name="twitter:title" content={pageTitle} />
     <meta name="twitter:description" content={pageDescription} />
-    <meta name="twitter:image" content={`${siteUrl}assets/web-app-manifest-512x512.png`} />
+    <meta name="twitter:image" content={ogImage} />
 
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
 
-    <link rel="icon" type="image/png" href="/assets/favicon-96x96.png" sizes="96x96" />
-    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png" />
-    <link rel="manifest" href="/assets/site.webmanifest" />
+    <link rel="icon" type="image/png" href={withBase("/assets/favicon-96x96.png")} sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href={withBase("/assets/favicon.svg")} />
+    <link rel="apple-touch-icon" sizes="180x180" href={withBase("/assets/apple-touch-icon.png")} />
+    <link rel="manifest" href={withBase("/assets/site.webmanifest")} />
 
     <style
     define:vars={{
@@ -91,7 +95,7 @@ const pageDescription = description || pageTitle;
       "@context": "https://schema.org",
       "@type": "WebSite",
       "name": config.title,
-      "url": siteUrl,
+      "url": Astro.site?.href ?? "/",
     })} />
     {jsonLd && (
       <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
@@ -103,7 +107,7 @@ const pageDescription = description || pageTitle;
       rel="alternate"
       type="application/rss+xml"
       title={config.name}
-      href={`${Astro.site}rss.xml`}
+      href={feedUrl}
     />
 
   </head>

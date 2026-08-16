@@ -1,3 +1,5 @@
+import { withBase } from "@utils/url";
+
 export const config = {
   name: "StateM",
   title: "StateM",
@@ -9,6 +11,6 @@ export const config = {
   // The header carries only the theme toggle; navigation lives in the page
   // itself (hero links, in-body links, and the left-margin outline).
   repo: "https://github.com/henryqin1997/statem",
-  paper: "/statem.pdf",
+  paper: withBase("/statem.pdf"),
   submission: "https://github.com/harbor-framework/terminal-bench-2-1/pull/142",
 };

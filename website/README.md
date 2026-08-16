@@ -62,17 +62,40 @@ Markdown extras: KaTeX math, GitHub alerts (`> [!NOTE]`, `> [!WARNING]`, `> [!CA
 
 ## Deploy
 
-Built as static files; `wrangler.jsonc` is set up for Cloudflare Workers static assets.
+GitHub Pages, via `.github/workflows/deploy-website.yml`. It builds this directory and publishes
+`dist/` on pushes to `main` or `website`. Enable it once per repository under
+**Settings → Pages → Source: GitHub Actions**.
+
+The site is served from a subpath, so `base` must match the repository name. Defaults live in
+`astro.config.mjs` and are overridable:
 
 ```bash
+# default: https://lizekai-richard.github.io/statem-web/
 pnpm build
-npx wrangler deploy
+
+# another account or repository name
+PUBLIC_SITE_URL=https://henryqin1997.github.io PUBLIC_BASE_PATH=/statem pnpm build
+
+# custom domain, or a <user>.github.io repository
+PUBLIC_BASE_PATH=/ pnpm build
 ```
+
+Paths written as `/assets/...` do not pick up the base on their own. Astro rewrites the routes it
+generates; everything else goes through `withBase()` in `src/utils/url.ts`, and root-relative
+links inside MDX are rewritten at build time by `src/plugins/rehype-base-url.mjs`.
+
+Cloudflare Workers also works (`wrangler.jsonc` is set up) and wants `PUBLIC_BASE_PATH=/`:
+
+```bash
+PUBLIC_BASE_PATH=/ pnpm build && npx wrangler deploy
+```
+
+Note that `public/_headers` only applies on Cloudflare; GitHub Pages ignores it, so the cache and
+security headers it sets are lost there.
 
 ## Before launch
 
-- [ ] Set the real domain in `astro.config.mjs` (`site:`) — it currently reads
-      `https://statem.dev` and feeds canonical URLs, OG tags, the sitemap, and the feed.
+- [ ] Confirm `site`/`base` in `astro.config.mjs` match where this is actually served.
 - [ ] Point `paper` in `src/config.ts` at the arXiv page once it exists, instead of the bundled
       `public/statem.pdf`.
 - [ ] Update the Terminal-Bench submission link if PR #142 is merged or superseded.

@@ -1,6 +1,7 @@
 ---
 import { Icon } from 'astro-icon/components'
 import { config } from '@/config'
+import { withBase } from '@utils/url'
 
 interface Props {
   class?: string
@@ -16,9 +17,9 @@ const className = Astro.props.class
     "!overflow-visible max-w-[var(--page-width)] h-[3.5rem] !rounded-t-none mx-auto flex items-center justify-between"]
   }>
     <div class="flex-grow basis-0">
-      <a href="/" class="rounded-lg h-[3.25rem] px-5 font-bold text-90 preserve-color">
+      <a href={withBase("/")} class="rounded-lg h-[3.25rem] px-5 font-bold text-90 preserve-color">
         <div class="flex flex-row font-bold items-center text-md gap-2">
-          <img src="/assets/logo.svg" alt="" width="20" height="20" class="w-5 h-5" />
+          <img src={withBase("/assets/logo.svg")} alt="" width="20" height="20" class="w-5 h-5" />
           {config.title}
         </div>
       </a>

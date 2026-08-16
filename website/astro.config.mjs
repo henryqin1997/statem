@@ -13,14 +13,22 @@ import remarkMath from "remark-math";
 import remarkSectionize from "remark-sectionize";
 import { AdmonitionComponent } from "./src/plugins/rehype-component-admonition.mjs";
 import { GithubCardComponent } from "./src/plugins/rehype-component-github-card.mjs";
+import { rehypeBaseUrl } from "./src/plugins/rehype-base-url.mjs";
 import { parseDirectiveNode } from "./src/plugins/remark-directive-rehype.js";
 import mdx from '@astrojs/mdx';
 
+// Deployed as a GitHub Pages project site:
+//   https://lizekai-richard.github.io/statem-web/
+// The base must match the repository name. Override either value to publish
+// elsewhere, e.g.
+//   PUBLIC_SITE_URL=https://henryqin1997.github.io PUBLIC_BASE_PATH=/statem pnpm build
+//   PUBLIC_BASE_PATH=/ pnpm build            # custom domain or <user>.github.io
+const site = process.env.PUBLIC_SITE_URL ?? "https://lizekai-richard.github.io";
+const base = process.env.PUBLIC_BASE_PATH ?? "/statem-web";
+
 export default defineConfig({
-  // TODO: replace with the real deployed domain before launch.
-  // Used for canonical URLs, OG tags, sitemap, and the RSS feed.
-  site: "https://statem.dev",
-  base: "/",
+  site,
+  base,
   trailingSlash: "always",
   integrations: [
     tailwind({
@@ -61,6 +69,7 @@ export default defineConfig({
     rehypePlugins: [
       rehypeKatex,
       rehypeSlug,
+      [rehypeBaseUrl, { base }],
       [
         rehypeComponents,
         {

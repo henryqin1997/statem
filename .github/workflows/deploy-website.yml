@@ -5,7 +5,7 @@ name: Deploy website
 # Until it is, the deploy job fails with "Get Pages site failed".
 on:
   push:
-    branches: [website]
+    branches: [main, website]
     paths:
       - 'website/**'
       - '.github/workflows/deploy-website.yml'

@@ -11,6 +11,7 @@
 import ContentBlock from './ContentBlock.astro'
 import { stripHtml } from '@utils/text'
 import { sizerStyle } from '@utils/chart'
+import { withBase } from '@utils/url'
 
 interface Props {
   src?: string
@@ -33,12 +34,13 @@ const {
 } = Astro.props
 const imgAlt = alt ?? (caption ? stripHtml(caption) : '')
 const imgStyle = sizerStyle(width)
+const imgSrc = src ? withBase(src) : undefined
 ---
 
 <ContentBlock class:list={["content-figure", { "invert-on-dark": invertOnDark }]} {caption} {align}>
   {src ? (
     <div class:list={["fig-frame", { "fig-framed": frame }]} style={imgStyle}>
-      <img src={src} alt={imgAlt} loading="lazy" />
+      <img src={imgSrc} alt={imgAlt} loading="lazy" />
     </div>
   ) : (
     <slot />
