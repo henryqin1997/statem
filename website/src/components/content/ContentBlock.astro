@@ -1,0 +1,28 @@
+---
+/** Base wrapper for captioned content blocks (figures, tables, videos, charts).
+ *  Handles the shared <figure> element, alignment, and <figcaption>.
+ */
+
+interface Props {
+  class?: string
+  caption?: string
+  align?: 'left' | 'center' | 'right'
+  [key: string]: any
+}
+
+const {
+  class: className,
+  caption,
+  align = 'center',
+  ...rest
+} = Astro.props
+---
+
+<figure
+  class:list={["content-block", className]}
+  style={align !== "center" ? `text-align: ${align}` : undefined}
+  {...rest}
+>
+  <slot />
+  {caption && <figcaption set:html={caption} />}
+</figure>

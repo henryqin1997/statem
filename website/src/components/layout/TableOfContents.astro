@@ -1,0 +1,195 @@
+---
+/** Left-margin table of contents for long pages.
+ *  Sticky, quiet, and scroll-spied: a small square marker slides to the
+ *  section currently in view. Hidden below the layout's wide breakpoint.
+ */
+
+import type { MarkdownHeading } from 'astro'
+
+interface Props {
+  headings: MarkdownHeading[]
+}
+
+const { headings } = Astro.props
+
+// Only h2/h3 belong in the outline; deeper levels are noise at this scale.
+const items = headings.filter((h) => h.depth === 2 || h.depth === 3)
+---
+
+{items.length > 1 && (
+  <nav class="left-toc" aria-label="Table of contents">
+    <span class="toc-marker" aria-hidden="true"></span>
+    <ul class="toc-list">
+      {items.map((item) => (
+        <li class="toc-item" data-depth={item.depth}>
+          <a href={`#${item.slug}`}>{item.text}</a>
+        </li>
+      ))}
+    </ul>
+  </nav>
+)}
+
+<script>
+  function initToc() {
+    const nav = document.querySelector<HTMLElement>('.left-toc')
+    if (!nav) return
+
+    const links = [...nav.querySelectorAll<HTMLAnchorElement>('.toc-item a')]
+    const marker = nav.querySelector<HTMLElement>('.toc-marker')
+    if (links.length === 0) return
+
+    const targets = links
+      .map((link) => {
+        const id = decodeURIComponent(link.hash.slice(1))
+        const el = document.getElementById(id)
+        return el ? { link, el } : null
+      })
+      .filter((x): x is { link: HTMLAnchorElement; el: HTMLElement } => x !== null)
+
+    if (targets.length === 0) return
+
+    let current: HTMLAnchorElement | null = null
+
+    function setActive(link: HTMLAnchorElement) {
+      if (link === current) return
+      current = link
+
+      for (const other of links) {
+        const active = other === link
+        other.classList.toggle('is-active', active)
+        other.parentElement?.classList.toggle('is-active', active)
+        if (active) {
+          other.setAttribute('aria-current', 'location')
+        } else {
+          other.removeAttribute('aria-current')
+        }
+      }
+
+      if (marker) {
+        // Center the marker on the first line of the active item.
+        const offset = link.offsetTop + link.offsetHeight / 2 - marker.offsetHeight / 2
+        marker.style.transform = `translateY(${offset}px)`
+        marker.style.opacity = '1'
+      }
+
+      // Keep the active item visible, but only when the outline itself
+      // scrolls — otherwise this would drag the whole page around.
+      const outline = nav!
+      if (outline.scrollHeight > outline.clientHeight) {
+        const navBox = outline.getBoundingClientRect()
+        const linkBox = link.getBoundingClientRect()
+        if (linkBox.top < navBox.top || linkBox.bottom > navBox.bottom) {
+          link.scrollIntoView({ block: 'nearest' })
+        }
+      }
+    }
+
+    function update() {
+      // The active section is the last heading that has passed the reading line.
+      const line = window.innerHeight * 0.25
+      let active = targets[0].link
+
+      for (const { link, el } of targets) {
+        if (el.getBoundingClientRect().top <= line) active = link
+        else break
+      }
+
+      // At the very bottom of the page, favour the last section.
+      if (window.scrollY + window.innerHeight >= document.body.scrollHeight - 4) {
+        active = targets[targets.length - 1].link
+      }
+
+      setActive(active)
+    }
+
+    // Time-based throttle rather than requestAnimationFrame: rAF is suspended
+    // in background tabs, which would leave the outline stuck on stale state.
+    let last = 0
+    let timer: ReturnType<typeof setTimeout> | undefined
+    function onScroll() {
+      const now = Date.now()
+      if (now - last >= 60) {
+        last = now
+        update()
+        return
+      }
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        last = Date.now()
+        update()
+      }, 60)
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    update()
+  }
+
+  initToc()
+  document.addEventListener('astro:after-swap', initToc)
+</script>
+
+<style>
+  .left-toc {
+    position: sticky;
+    top: 5rem;
+    max-height: calc(100vh - 7rem);
+    overflow-y: auto;
+    scrollbar-width: none;
+    padding: 0.15rem 0;
+  }
+
+  .left-toc::-webkit-scrollbar {
+    display: none;
+  }
+
+  .toc-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .toc-item {
+    margin: 0 0 0.7rem;
+    padding-left: 1.35rem;
+  }
+
+  .toc-item[data-depth='3'] {
+    padding-left: 2.35rem;
+  }
+
+  .toc-item a {
+    display: block;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    font-weight: 400;
+    color: var(--toc-idle);
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+
+  .toc-item[data-depth='3'] a {
+    font-size: 0.78rem;
+  }
+
+  .toc-item a:hover {
+    color: var(--toc-active);
+  }
+
+  .toc-item a.is-active {
+    color: var(--toc-active);
+  }
+
+  .toc-marker {
+    position: absolute;
+    left: 0.45rem;
+    top: 0.15rem;
+    width: 4px;
+    height: 4px;
+    background: var(--toc-active);
+    opacity: 0;
+    transition:
+      transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.2s ease;
+  }
+</style>

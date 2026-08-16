@@ -1,0 +1,67 @@
+---
+import { getEntry, getCollection, render } from "astro:content";
+import MainGridLayout from "@layouts/MainGridLayout.astro";
+import Markdown from "@components/layout/Markdown.astro";
+import BarChart from "@components/content/BarChart.astro";
+import ColumnChart from "@components/content/ColumnChart.astro";
+import Figure from "@components/content/Figure.astro";
+import Grid from "@components/content/Grid.astro";
+import LineChart from "@components/content/LineChart.astro";
+import NodeAnatomy from "@components/content/NodeAnatomy.astro";
+import StateGraph from "@components/content/StateGraph.astro";
+import StatGrid from "@components/content/StatGrid.astro";
+import Table from "@components/content/Table.astro";
+import Tabs from "@components/content/Tabs.astro";
+import Video from "@components/content/Video.astro";
+import "katex/dist/katex.css";
+import "@fontsource-variable/jetbrains-mono";
+import "@fontsource-variable/jetbrains-mono/wght-italic.css";
+
+export async function getStaticPaths() {
+  const pages = await getCollection("pages");
+  return pages.map((page) => ({
+    params: { slug: page.id },
+  }));
+}
+
+const page = await getEntry("pages", Astro.params.slug);
+if (!page) {
+  throw new Error(`Page not found: ${Astro.params.slug}`);
+}
+const { Content, headings } = await render(page);
+const mdxComponents = {
+  BarChart,
+  ColumnChart,
+  Figure,
+  Grid,
+  LineChart,
+  NodeAnatomy,
+  StateGraph,
+  StatGrid,
+  Table,
+  Tabs,
+  Video,
+};
+
+const { title, description, kicker } = page.data;
+---
+
+<MainGridLayout title={title} description={description} setOGTypeArticle={true} headings={headings}>
+  {kicker && (
+    <p class="mt-10 mb-2 text-sm font-semibold uppercase tracking-wider text-black/40 dark:text-white/40">
+      {kicker}
+    </p>
+  )}
+
+  <h1 class:list={["text-3xl font-bold mb-3", kicker ? "" : "mt-10"]}>
+    {title}
+  </h1>
+
+  <p class="text-black/60 dark:text-white/60 text-base mb-8">
+    {description}
+  </p>
+
+  <Markdown>
+    <Content components={mdxComponents} />
+  </Markdown>
+</MainGridLayout>

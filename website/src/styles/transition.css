@@ -1,0 +1,24 @@
+/* Fade-in animations for components */
+@keyframes fade-in-up {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.onload-animation {
+  opacity: 0;
+  animation: 300ms fade-in-up;
+  animation-fill-mode: forwards;
+}
+#navbar {
+  animation-delay: 0ms;
+}
+#content-wrapper {
+  animation-delay: var(--content-delay);
+}
+.footer {
+  animation-delay: 250ms;
+}

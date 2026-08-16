@@ -1,0 +1,137 @@
+/* Shared styles for all chart components (BarChart, ColumnChart, LineChart).
+ * Each component imports this and uses the .chart-* class names.
+ * Component-specific styles remain scoped in their own <style> blocks. */
+
+/* --- Tokens ---
+ * Three tiers of text/line intensity, plus a surface color.
+ * Tooltip inherits from site tokens for consistency. */
+:root {
+  --chart-faint: rgba(0, 0, 0, 0.1);
+  --chart-muted: rgba(0, 0, 0, 0.4);
+  --chart-strong: rgba(0, 0, 0, 0.8);
+  --chart-surface: rgba(0, 0, 0, 0.04);
+  --chart-hover-dim: 0.3;
+  --chart-hover-bg: rgba(0, 0, 0, 0.03);
+}
+.dark {
+  --chart-faint: rgba(255, 255, 255, 0.1);
+  --chart-muted: rgba(255, 255, 255, 0.4);
+  --chart-strong: rgba(255, 255, 255, 0.85);
+  --chart-surface: rgba(255, 255, 255, 0.06);
+  --chart-hover-bg: rgba(255, 255, 255, 0.04);
+}
+
+/* --- Base chart container --- */
+.sb, .bc, .lc {
+  position: relative;
+  overflow: visible;
+}
+
+/* --- Sizing wrapper --- */
+.chart-sizer {
+  width: 100%;
+  min-width: 0;
+  margin: 0 auto;
+}
+
+/* --- Title --- */
+.chart-title {
+  text-align: center;
+  font-weight: 700;
+  font-size: 1rem;
+  margin-bottom: 0.6rem;
+  color: var(--chart-strong);
+  letter-spacing: -0.01em;
+}
+
+/* --- Legend --- */
+.chart-legend {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--chart-muted);
+}
+
+.chart-leg {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.chart-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.chart-swatch {
+  display: inline-block;
+  width: 16px;
+  height: 4px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* --- Tooltip (uses site tokens for bg/border) --- */
+.chart-tip {
+  display: none;
+  position: absolute;
+  z-index: 10;
+  pointer-events: none;
+  text-align: left;
+  background: var(--float-panel-bg);
+  color: var(--chart-strong);
+  border: 1px solid var(--line-divider);
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.7rem;
+  line-height: 1;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.06);
+  min-width: 100px;
+  white-space: nowrap;
+}
+.dark .chart-tip {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+.chart-tip-title {
+  font-weight: 700;
+  font-size: 0.75rem;
+  padding-bottom: 0.35rem;
+  margin-bottom: 0.35rem;
+  border-bottom: 1px solid var(--line-divider);
+  color: inherit;
+  text-align: left;
+}
+.chart-tip-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 0;
+}
+.chart-tip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.chart-tip-name {
+  flex: 1;
+  opacity: 0.6;
+}
+.chart-tip-val {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  text-align: left;
+}
+
+/* --- Mobile --- */
+@media (max-width: 640px) {
+  .chart-legend { font-size: 0.7rem; gap: 1rem; }
+  .chart-tip { font-size: 0.68rem; min-width: 80px; }
+}

@@ -1,0 +1,312 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Shiki dual-theme: light by default, dark when .dark is on root */
+:root.dark .astro-code span {
+  color: var(--shiki-dark) !important;
+  background-color: transparent !important;
+}
+:root.dark .astro-code {
+  color: var(--shiki-dark) !important;
+}
+
+/* Code block polish */
+.astro-code {
+  border-radius: 0.375rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  border: 1px solid var(--line-divider);
+  margin: 0.75rem 0;
+  background-color: var(--btn-regular-bg) !important;
+}
+
+@layer base {
+  /* Global unified hyperlink styling */
+  a {
+    @apply text-blue-700 dark:text-blue-400 transition-colors no-underline;
+  }
+  
+  a:hover,
+  a:active {
+    @apply text-red-600 dark:text-red-400 no-underline;
+  }
+  
+  /* Special class for links that should keep their original color */
+  a.preserve-color {
+    @apply text-inherit transition-colors;
+  }
+  
+  a.preserve-color:hover,
+  a.preserve-color:active {
+    @apply text-red-600 dark:text-red-400 no-underline;
+  }
+}
+
+@layer components {
+  /* Common text element transitions */
+  h1, h2, h3, h4, h5, h6, p, a, span, li, ul, ol, 
+  blockquote, code, pre, table, th, td, strong {
+    @apply transition;
+  }
+
+  /* Button and link styles */
+  /* Panel styles */
+  .float-panel {
+    @apply top-[4.25rem] rounded-[var(--radius-medium)] overflow-hidden bg-[var(--float-panel-bg)] transition shadow-xl dark:shadow-none;
+  }
+  
+  .float-panel-closed {
+    @apply -translate-y-1 opacity-0 pointer-events-none;
+  }
+
+  .btn-card {
+    @apply transition flex items-center justify-center bg-[var(--card-bg)] hover:bg-[var(--btn-card-bg-hover)]
+        active:bg-[var(--btn-card-bg-active)];
+  }
+  .btn-card.disabled {
+    @apply pointer-events-none text-black/10 dark:text-white/10;
+  }
+  .btn-plain {
+    @apply transition relative flex items-center justify-center bg-none
+        text-black/75 hover:text-black/80 dark:text-white/75 dark:hover:text-white/80;
+  }
+  .text-90 {
+    @apply text-black/90 dark:text-white/90;
+  }
+  .text-75 {
+    @apply text-black/75 dark:text-white/75;
+  }
+  .text-50 {
+    @apply text-black/50 dark:text-white/50;
+  }
+
+  .btn-regular-dark {
+    @apply flex items-center justify-center
+        bg-[oklch(0.45_0.01_var(--hue))] hover:bg-[oklch(0.50_0.01_var(--hue))] active:bg-[oklch(0.55_0.01_var(--hue))]
+        dark:bg-[oklch(0.30_0.02_var(--hue))] dark:hover:bg-[oklch(0.35_0.03_var(--hue))] dark:active:bg-[oklch(0.40_0.03_var(--hue))];
+  }
+  .btn-regular-dark.success {
+    @apply bg-[oklch(0.75_0.14_var(--hue))] dark:bg-[oklch(0.75_0.14_var(--hue))];
+  }
+
+  .copy-btn-icon {
+    @apply absolute top-1/2 left-1/2 transition -translate-x-1/2 -translate-y-1/2;
+  }
+  .copy-btn .copy-icon {
+    @apply opacity-100 fill-white dark:fill-white/75;
+  }
+  .copy-btn.success .copy-icon {
+    @apply opacity-0 fill-[var(--deep-text)];
+  }
+  .copy-btn .success-icon {
+    @apply opacity-0;
+  }
+  .copy-btn.success .success-icon {
+    @apply opacity-100;
+  }
+
+  /* Theme toggle */
+  #theme-toggle {
+    @apply transition-all;
+  }
+  
+  #theme-toggle svg {
+    @apply text-black/75 dark:text-white/75 transition-colors duration-300;
+  }
+  
+  #theme-toggle:hover svg {
+    @apply text-red-600 dark:text-red-400;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   Shared content-block tokens
+   Used by figures, videos, and tables
+   ═══════════════════════════════════════════ */
+
+/* ─── Content blocks (shared across figure, video, table, chart) ─── */
+
+.content-block {
+  margin: 1.5rem 0;
+  text-align: center;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+/* Anchor jumps must clear the fixed header. */
+.prose h2,
+.prose h3,
+.prose h4 {
+  scroll-margin-top: 5rem;
+}
+
+/* ─── Admonitions (GitHub alerts and ::: directives) ─── */
+
+.prose .admonition {
+  --admonition-color: var(--admonitions-color-note);
+  margin: 1.5rem 0;
+  padding: 0.85rem 1.1rem;
+  border-left: 4px solid var(--admonition-color);
+  border-radius: var(--radius-medium);
+  background: color-mix(in oklch, var(--admonition-color) 9%, transparent);
+  color: inherit;
+  font-style: normal;
+}
+
+.prose .admonition .bdm-title {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--admonition-color);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.prose .admonition > p:first-of-type {
+  margin-top: 0;
+}
+
+/* typography's blockquote decoration would add stray curly quotes */
+.prose .admonition p:first-of-type::before,
+.prose .admonition p:last-of-type::after {
+  content: none;
+}
+
+.prose .admonition > p:last-child {
+  margin-bottom: 0;
+}
+
+.prose .bdm-tip {
+  --admonition-color: var(--admonitions-color-tip);
+}
+.prose .bdm-note {
+  --admonition-color: var(--admonitions-color-note);
+}
+.prose .bdm-important {
+  --admonition-color: var(--admonitions-color-important);
+}
+.prose .bdm-warning {
+  --admonition-color: var(--admonitions-color-warning);
+}
+.prose .bdm-caution {
+  --admonition-color: var(--admonitions-color-caution);
+}
+
+/* ─── Captions ─── */
+
+figcaption {
+  font-size: 0.84rem;
+  line-height: 1.6;
+  margin-top: 0.6rem;
+  color: rgba(0, 0, 0, 0.5);
+  text-align: left;
+}
+
+:root.dark figcaption {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+
+
+/* ─── Tables ───
+   Rule-based, booktabs-style: no card, no fill, no outer box. The structure
+   comes from three horizontal rules and hairline row separators. */
+
+:root {
+  --toc-idle: rgba(0, 0, 0, 0.42);
+  --toc-active: rgba(0, 0, 0, 0.85);
+  --table-rule: rgba(0, 0, 0, 0.55);
+  --table-hairline: rgba(0, 0, 0, 0.09);
+  --table-head: rgba(0, 0, 0, 0.5);
+  --table-hover: rgba(0, 0, 0, 0.028);
+}
+
+:root.dark {
+  --toc-idle: rgba(255, 255, 255, 0.42);
+  --toc-active: rgba(255, 255, 255, 0.9);
+  --table-rule: rgba(255, 255, 255, 0.5);
+  --table-hairline: rgba(255, 255, 255, 0.1);
+  --table-head: rgba(255, 255, 255, 0.5);
+  --table-hover: rgba(255, 255, 255, 0.04);
+}
+
+.prose table:not(.bc-table) {
+  border-collapse: collapse;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  width: auto;
+  max-width: 100%;
+  margin: 0 auto;
+  background: none;
+  border: none;
+  border-top: 1.5px solid var(--table-rule);
+  border-bottom: 1.5px solid var(--table-rule);
+}
+
+.prose :not(.bc-table) > thead th {
+  padding: 0.45rem 0.9rem 0.5rem;
+  background: none;
+  color: var(--table-head);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  vertical-align: bottom;
+  border-bottom: 1.5px solid var(--table-rule);
+}
+
+.prose :not(.bc-table) > tbody td {
+  padding: 0.42rem 0.9rem;
+  vertical-align: top;
+  border-bottom: 1px solid var(--table-hairline);
+}
+
+.prose :not(.bc-table) > thead th:first-child,
+.prose :not(.bc-table) > tbody td:first-child {
+  padding-left: 0;
+}
+
+.prose :not(.bc-table) > thead th:last-child,
+.prose :not(.bc-table) > tbody td:last-child {
+  padding-right: 0;
+}
+
+.prose :not(.bc-table) > tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.prose :not(.bc-table) > tbody tr {
+  transition: background 0.15s ease;
+}
+
+.prose :not(.bc-table) > tbody tr:hover {
+  background: var(--table-hover);
+}
+
+::selection {
+  background-color: var(--selection-bg);
+}
+
+/* Fixed header styles */
+html {
+  height: 100%;
+  overscroll-behavior-y: contain;
+}
+
+body {
+  min-height: 100vh;
+  position: relative;
+}
+
+#top-row {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: transform;
+}

@@ -1,0 +1,234 @@
+---
+title: How StateM works
+description: A YAML runbook, a CLI, and a transition protocol — plus the failure-driven loop that turns execution experience into durable control.
+kicker: Method
+date: 2026-08-11
+---
+
+## Two layers that should not be conflated
+
+StateM separates the **runtime** from the **control profile**, and the distinction matters for
+reading any result reported with it.
+
+The *runtime* provides the generic mechanisms: state persistence, transition validation, hook
+execution, history, and recovery. It is meant to be reusable across agents and workflows.
+
+The *control profile* is a runbook: the phases, instructions, checks, routing, and repair
+policies used for one class of work. A runbook can encode a lot of workflow-specific,
+experience-derived procedural knowledge.
+
+Every benchmark number reported for StateM measures the **combined system** — base agent,
+runtime, and an evolved profile. None of them isolates the state-machine abstraction on its own.
+
+## States as context-and-contract boundaries
+
+The central abstraction is a *phase-level state*: a meaningful stage of work, not a single model
+call or tool action. A coding runbook might have planning, implementation, contract checking,
+self-review, repair, and handoff. The agent reasons, invokes tools, edits files, and iterates
+freely inside each one.
+
+<NodeAnatomy caption="A state is a context boundary on entry and a contract boundary on exit." />
+
+**As a context boundary**, entering a state exposes the current phase, the valid outgoing
+transitions, the state-local instructions, and the relevant durable progress. The `in_hook`
+performs the entry procedure: inject a prompt, run setup code, initialize state-local files, or
+load a compact progress record. This creates a fresh control anchor so the agent does not have
+to infer its phase and outstanding obligations from the preceding terminal trace.
+
+This does not erase prior context or guarantee lossless compaction. It makes the authoritative
+phase and its local obligations explicit and recent. It can repair a missing-context problem
+when the runbook has the information — it cannot supply task knowledge that neither the model
+nor the environment possesses.
+
+**As a contract boundary**, the state prompt describes the work expected in the phase, the
+`out_hook` persists progress and prepares artifacts, and `before_transfer` evaluates the exit
+conditions before StateM commits a transition.
+
+### Checks differ in what they prove
+
+<Table caption="StateM makes claims visible and auditable. Their reliability still depends on the mechanism that produced them.">
+
+| Check type | Evidentiary strength |
+| :--- | :--- |
+| `command` | Runs a shell command in the host; the exit code decides. Independently reproducible, subject to the command being right. |
+| `predicate` | Declarative file or JSON-state inspection without shell. Same strength as `command`, easier to audit. |
+| `manual` | Requires an explicit user or operator decision. |
+| `checklist` | The agent confirms multiple named obligations. Structured self-attestation. |
+| `message` | Shows an instruction or reminder. Usually non-blocking. |
+| `llm_review` | Calls a separate reviewer model or command. A second judgment, not deterministic verification. |
+
+</Table>
+
+The point of the taxonomy is to stop a receipt or a model declaration from being treated as
+proof merely because it appears in a structured field.
+
+> [!NOTE]
+> In unattended agent runs, `--yes` auto-confirms `manual` and `checklist` items. Under that
+> flag they function as prompts, not as gates. Reserve `command` and `predicate` for the
+> boundaries where a violation would actually be consequential.
+
+## The transition protocol
+
+A runbook is a tuple of states, an initial state, terminal states, permitted edges, and a
+per-state specification containing the phase-local prompt, the entry and exit hooks, and the
+transfer checks. Edges can carry their own guard or transfer hook, which is how repair routing
+becomes explicit in the graph instead of an instruction the agent has to remember.
+
+All phase changes go through one operation. When the agent runs `statem goto TARGET`:
+
+1. Verify that an edge from the current state to `TARGET` exists.
+2. Evaluate the current state's `before_transfer` checks.
+3. Evaluate the edge `condition`.
+4. If a blocking check failed, stay in the source state and record the attempt.
+5. Run the current state's `out_hook`.
+6. Run the edge `hook` as prepare-transfer work.
+7. If a blocking hook failed, stay in the source state and record the attempt.
+8. Commit `current = TARGET` and append the transition to history.
+9. Create the target state entry and run its `in_hook`.
+
+Retry behavior falls out of this: fix the failed check, then rerun the same `goto`. With
+`--json`, a blocked transition returns the failed checklist, command, predicate, or review
+output in the error payload, so the agent can repair without re-running a second command just to
+see what broke.
+
+> [!IMPORTANT]
+> This protocol is **checked, logged, and recoverable — not transactional.** StateM delays its
+> own state commit until the required pre-commit steps succeed, but it cannot roll back
+> arbitrary external side effects produced by hooks. Hooks that touch external services should
+> be idempotent and should record enough information for explicit compensation.
+
+## Per-run state and recovery
+
+The runbook is reusable control logic; each execution keeps its own record: run id, current
+state, current state-entry id, transition history, hook and check outcomes, timestamps, and
+references to state-local evidence. Because the record is separate from the spec, one profile
+can support several agents or concurrent runs without conflating their progress.
+
+That record is also the recovery anchor. After a restart, a context refresh, or a model-side
+compaction, the agent queries the current state, prior transitions, unresolved checks, and
+recorded evidence rather than reconstructing the workflow from a long transcript.
+
+Recovery has a precise scope. StateM restores its recorded control state and re-executes
+configured recovery steps. It cannot reconstruct work that was never persisted, restore hidden
+model context, or reverse arbitrary external actions. Reliable recovery therefore depends on
+putting persistence hooks at the right phase boundaries and designing repeated hooks to tolerate
+retry.
+
+A run is in one of three situations: active in a non-terminal state, paused because an external
+condition is unresolved, or complete in a terminal state. **A non-terminal pause is not
+success** — that distinction is what separates a genuine handoff from a temporary inability to
+proceed.
+
+## Shared control, and its limits
+
+StateM is agent-native in a specific sense: the executing agent operates the control layer
+through the same CLI environment in which it does the work. The runbook is a normal workspace
+artifact, not hidden controller code. The agent inspects its state, follows transitions,
+examines failures, and can propose runbook changes; the user can read, edit, review, and version
+the same artifact.
+
+Shared ownership is not unrestricted self-modification. StateM distinguishes the versioned base
+runbook, run-local additions, and host-owned constraints. An agent may register additional
+dynamic checks when the runbook permits it — useful when it discovers a risk that was not known
+when the runbook was written — and the addition is recorded in run history so a human can decide
+whether to promote it. Adding a stricter run-local check is categorically different from
+weakening or deleting an existing requirement; changes to user-owned invariants, permissions, or
+blocking checks should require a privileged decision. YAML editability is not a security
+boundary, and deployments have to define what the agent may modify.
+
+### Stop hooks
+
+Hosts with a Stop hook (Codex, Claude Code) can opt into auto-loop behavior. When the host is
+about to return control to the user, the hook inspects the active run: if it is terminal or
+explicitly blocked on an external dependency, stopping proceeds. Otherwise the hook returns the
+current phase and unmet obligations and asks the agent to continue.
+
+A stop hook does not guarantee eventual success or termination. The agent can remain unable to
+satisfy a check, exhaust its budget, or repeat an ineffective repair, so stop-hook behavior
+should stay subject to retry, time, and resource limits. What it buys is execution persistence
+and an explicit stopping condition — not more reasoning capability.
+
+## Context hygiene as a node in the graph
+
+Avoid `/clear` inside a normal loop. It flushes the conversation, including the instruction that
+was supposed to run after it. For cyclic runbooks, model context cleanup as an explicit state —
+usually after a complete review pass, only when another cycle will continue:
+
+```bash
+# generate a compaction instruction that keeps durable state and
+# drops stale attempts, noisy tool output, and superseded plans
+statem compact-prompt --run-id ID
+
+# after compacting, restore attention to the graph
+statem cur --run-id ID
+statem history --tail 10 --run-id ID
+```
+
+If a hard clear is genuinely necessary, generate a recovery prompt with `statem prompt --run-id
+ID` first and paste it immediately after the clear so the next context can rebuild itself from
+`.statem`.
+
+## Failure-driven harness optimization
+
+Because the control layer is an explicit artifact, it can be optimized. After a run, failures
+are classified — missing context, invalid transition, weak check, premature handoff, ineffective
+recovery — and the working agent or a separate hyper-agent proposes changes to state boundaries,
+prompts, hooks, checks, recovery rules, and practice activation conditions. Candidates are
+reviewed, tested for regressions, and folded into a new runbook version. The weights never
+change; procedural knowledge accumulates outside them.
+
+A reusable, experience-derived intervention is what we call a **practice**: a state-local
+instruction, a check, a constraint, an activation condition, or a verification action triggered
+when visible evidence indicates elevated downstream risk.
+
+Profile development is governed by human-specified **golden rules**, which are distinct from the
+checks that run inside a task:
+
+- Prefer minimal reusable control over accumulated procedure.
+- Route from **visible task semantics**, never from task identity.
+- Keep development feedback separate from frozen evaluation.
+
+Concretely, in every reported setting, profile construction may use the visible task
+specification, workspace artifacts, public documentation, and observable execution feedback. It
+does not use hidden tests, verifier implementations, public solutions, answer artifacts, task
+hashes, or manually enumerated task identifiers as routing keys.
+
+### Memory has to be selective
+
+More remembered procedure is not better memory. Across task families we saw the same lesson from
+three directions: RefactorBench improved only when repeated compatibility review was *replaced*
+by a smaller obligation-and-closure practice; WooCommerce improved when generic procedure was
+*replaced* by the actual cross-system invariants; and for one family the correct decision was to
+introduce no StateM workflow at all. Effective procedural memory requires addition, revision,
+and removal.
+
+Failure-driven optimization can also preserve the wrong lesson, in at least three ways we
+observed directly:
+
+- **Post-hoc disambiguation.** Terminal-Bench video tasks do not fully specify target-frame
+  precision. During development the hyper-agent introduced default precision values after
+  observing benchmark behavior — operationally useful, but an ambiguous spec resolved after the
+  fact and then stored as if it were universal.
+- **Evaluator semantics leaking into the profile.** In the DNA insertion tasks the verifier picks
+  the left-most valid insertion boundary, a convention absent from the visible task description.
+  Repeated feedback can teach the profile that convention without anyone reading verifier code.
+  The behavior then agrees with the evaluator rather than with the stated task contract.
+- **Correct failure, wrong abstraction.** A real failure can still be generalized incorrectly, as
+  the first BusinessBench profiles showed. Deciding which abstraction deserves to become durable
+  control is itself a hard reasoning task, and it benefits from stronger-agent or human review.
+
+## Scope of the control guarantee
+
+StateM provides control points, not a correctness oracle.
+
+Its guarantees are strongest where a transition condition can be checked independently by a
+command, a predicate, or a human decision. Semantic self-review and agent-authored receipts
+remain fallible. It can prevent a *configured* requirement from being silently skipped; it
+cannot detect a *missing* requirement that neither the runbook nor the agent introduced.
+
+Understood correctly, the framework plays three roles at once: a runtime that maintains
+procedural state and controls transitions, an audit surface that exposes progress and failure,
+and an optimization target where experience-derived procedural knowledge can be preserved
+outside model weights.
+
+[See what this buys on real benchmarks →](/results/)

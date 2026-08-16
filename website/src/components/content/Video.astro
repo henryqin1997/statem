@@ -1,0 +1,50 @@
+---
+/** <Video src="https://www.youtube.com/embed/..." caption="Description." />
+ *  Auto-adds autoplay, mute, loop params for YouTube embeds.
+ */
+
+import ContentBlock from './ContentBlock.astro'
+import { stripHtml } from '@utils/text'
+import { buildEmbedUrl } from '@utils/youtube'
+
+interface Props {
+  src: string
+  caption?: string
+  align?: 'left' | 'center' | 'right'
+}
+
+const { src, caption, align } = Astro.props
+const embedUrl = buildEmbedUrl(src)
+---
+
+<ContentBlock class="video-embed" {caption} {align}>
+  <div class="video-embed-wrap">
+    <iframe
+      src={embedUrl}
+      title={caption ? stripHtml(caption) : "Embedded video"}
+      allow="autoplay; encrypted-media; picture-in-picture"
+      allowfullscreen
+      loading="lazy"
+    ></iframe>
+  </div>
+</ContentBlock>
+
+<style>
+  .video-embed-wrap {
+    position: relative;
+    width: 100%;
+    padding-top: 56.25%;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: #000;
+    border: 1px solid var(--line-divider);
+  }
+
+  .video-embed-wrap iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+</style>

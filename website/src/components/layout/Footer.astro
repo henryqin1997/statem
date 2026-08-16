@@ -1,0 +1,31 @@
+---
+import { config } from '@/config'
+
+const currentYear = new Date().getFullYear()
+
+const links = [
+  { name: 'Paper', url: config.paper },
+  { name: 'GitHub', url: config.repo },
+  { name: 'Terminal-Bench submission', url: config.submission },
+]
+---
+
+<div
+  class="transition border-t border-black/10 dark:border-white/15 my-10 border-dashed mx-32"
+>
+</div>
+
+<div
+  class="transition border-dashed border-[oklch(85%_0.01_var(--hue))] dark:border-white/15 rounded-2xl mb-12 flex flex-col items-center justify-center gap-2 px-6"
+>
+  <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-sm">
+    {links.map((link) => (
+      <a href={link.url} target="_blank" rel="noopener">{link.name}</a>
+    ))}
+  </div>
+
+  <div class="transition text-50 text-sm text-center">
+    &copy; <span id="copyright-year">{currentYear}</span>
+    {config.name} authors &middot; Code under Apache License 2.0
+  </div>
+</div>

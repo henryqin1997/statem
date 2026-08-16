@@ -1,0 +1,28 @@
+---
+/** <Table caption="Description."> markdown table or HTML </Table>
+ *  Wraps content in a scrollable container.
+ */
+
+import ContentBlock from './ContentBlock.astro'
+
+interface Props {
+  caption?: string
+  align?: 'left' | 'center' | 'right'
+}
+
+const { caption, align } = Astro.props
+---
+
+<ContentBlock class="table-figure" {caption} {align}>
+  <slot />
+</ContentBlock>
+
+<style>
+  :global(.table-figure) :global(table) {
+    margin-bottom: 0;
+  }
+
+  :global(.table-figure) :global(p) {
+    margin: 0;
+  }
+</style>

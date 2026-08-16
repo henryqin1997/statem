@@ -1,0 +1,15 @@
+# Hashed assets (fonts, CSS, JS, images in _astro/) -- immutable, cache forever
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Static assets (favicons, manifests, figures)
+/assets/*
+  Cache-Control: public, max-age=604800
+
+# HTML pages -- short cache, always revalidate
+/*
+  Cache-Control: public, max-age=0, must-revalidate
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=()

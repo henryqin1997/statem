@@ -1,0 +1,229 @@
+---
+/** Horizontal stacked bar chart with animated segments and hover tooltips.
+ *  Supports single-row (segments) or multi-row (rows) comparison mode. */
+
+import ContentBlock from './ContentBlock.astro'
+import { sizerStyle } from '@utils/chart'
+import '@/styles/chart.css'
+
+interface Segment {
+  label: string
+  value: number
+  color: string
+}
+
+interface Row {
+  name: string
+  segments: Segment[]
+}
+
+interface Props {
+  title?: string
+  segments?: Segment[]
+  rows?: Row[]
+  unit?: string
+  width?: number
+  caption?: string
+  showLegend?: boolean
+  align?: 'left' | 'center' | 'right'
+}
+
+const { title, segments, rows: rowsProp, unit = '', width, caption, showLegend = true, align } = Astro.props
+
+const rows: Row[] = rowsProp ?? (segments ? [{ name: '', segments }] : [])
+const hasLabels = rows.some(r => r.name)
+const maxTotal = Math.max(1, ...rows.map(r => r.segments.reduce((s, seg) => s + seg.value, 0)))
+
+const allLabels = new Map<string, string>()
+for (const row of rows) {
+  for (const seg of row.segments) {
+    if (!allLabels.has(seg.label)) allLabels.set(seg.label, seg.color)
+  }
+}
+---
+
+<div class="chart-sizer" style={sizerStyle(width)}>
+<ContentBlock class="sb" {caption} {align}>
+  {title && <div class="chart-title">{title}</div>}
+
+  {showLegend && (
+    <div class="chart-legend">
+      {[...allLabels.entries()].map(([label, color]) => (
+        <span class="chart-leg">
+          <span class="chart-dot" style={`background:${color}`} />
+          {label}
+        </span>
+      ))}
+    </div>
+  )}
+
+  {rows.map((row, ri) => {
+    const rowTotal = row.segments.reduce((s, seg) => s + seg.value, 0);
+    const barPct = (rowTotal / maxTotal) * 100;
+
+    return (
+      <div class="sb-row">
+        {hasLabels && <div class="sb-row-label">{row.name}</div>}
+        <div class="sb-bar-track">
+          <div class="sb-bar-row" style={`width:${barPct}%`}>
+            {row.segments.map((seg, i) => {
+              const pct = rowTotal > 0 ? (seg.value / rowTotal) * 100 : 0;
+              return (
+                <div
+                  class="sb-seg"
+                  style={`width:${pct}%;background:${seg.color};animation-delay:${ri * 200 + i * 80}ms`}
+                  data-label={seg.label}
+                  data-value={`${seg.value}${unit}`}
+                >
+                  <span class="sb-seg-label">{seg.value}</span>
+                </div>
+              );
+            })}
+          </div>
+          {row.segments.length > 1 && (
+            <span class="sb-row-total">{rowTotal.toFixed(0)}{unit}</span>
+          )}
+        </div>
+      </div>
+    );
+  })}
+</ContentBlock>
+</div>
+
+<script>
+  import { observeCharts, createTooltip, attachTooltip } from '@utils/chart'
+
+  function initBarCharts() {
+    function hideOverflowLabels(bar: Element) {
+      bar.querySelectorAll<HTMLElement>('.sb-seg').forEach(seg => {
+        const lbl = seg.querySelector<HTMLElement>('.sb-seg-label');
+        if (!lbl) return;
+        lbl.style.display = seg.clientWidth < lbl.scrollWidth + 8 ? 'none' : '';
+      });
+    }
+
+    observeCharts(".sb", {
+      onVisible: (el) => setTimeout(() => hideOverflowLabels(el), 600),
+    });
+
+    document.querySelectorAll(".sb").forEach((bar) => {
+      const tooltip = createTooltip(bar);
+
+      bar.querySelectorAll<HTMLElement>('.sb-seg').forEach((seg) => {
+        attachTooltip(seg, tooltip, {
+          onEnter() {
+            bar.classList.add('sb-has-hover');
+            seg.classList.add('sb-seg-active');
+            const rowLabelEl = seg.closest('.sb-row')?.querySelector('.sb-row-label');
+            if (rowLabelEl) rowLabelEl.classList.add('sb-label-active');
+            const color = seg.style.backgroundColor || seg.style.background || 'var(--chart-muted)';
+            const rowLabel = rowLabelEl?.textContent?.trim() || '';
+            const nameHtml = rowLabel ? `<span class="chart-tip-name">${rowLabel}</span>` : '';
+            return `<div class="chart-tip-title">${seg.dataset.label}</div>` +
+              `<div class="chart-tip-row"><span class="chart-tip-dot" style="background:${color}"></span>${nameHtml}<span class="chart-tip-val">${seg.dataset.value}</span></div>`;
+          },
+          onLeave() {
+            bar.classList.remove('sb-has-hover');
+            seg.classList.remove('sb-seg-active');
+            bar.querySelectorAll('.sb-label-active').forEach(el => el.classList.remove('sb-label-active'));
+          },
+        });
+      });
+    });
+  }
+  document.addEventListener("DOMContentLoaded", initBarCharts);
+  document.addEventListener("astro:after-swap", initBarCharts);
+</script>
+
+<style>
+  .sb {
+    padding: 1rem 0;
+  }
+
+  .sb-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+  .sb-row:last-child { margin-bottom: 0; }
+
+  .sb-row-label {
+    width: 6rem;
+    flex-shrink: 0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--chart-strong);
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: opacity 0.15s ease;
+  }
+
+  .sb-bar-track {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .sb-bar-row {
+    display: flex;
+    height: 2.5rem;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--chart-surface);
+    transition: width 0.6s ease;
+  }
+
+  .sb-row-total {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--chart-muted);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    opacity: 0;
+  }
+  .sb.is-visible .sb-row-total { animation: sb-fade 0.3s ease 0.6s forwards; }
+
+  .sb-seg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    overflow: hidden;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: opacity 0.15s ease;
+    cursor: pointer;
+    position: relative;
+  }
+
+  .sb.is-visible .sb-seg { animation: sb-grow 0.5s ease forwards; }
+
+  @keyframes sb-grow {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+  }
+
+  .sb-seg-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: white;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    pointer-events: none;
+    opacity: 0;
+  }
+  .sb.is-visible .sb-seg-label { animation: sb-fade 0.3s ease 0.5s forwards; }
+
+  @keyframes sb-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .sb.sb-has-hover .sb-seg:not(.sb-seg-active) { opacity: var(--chart-hover-dim); }
+  .sb.sb-has-hover .sb-row-label { opacity: var(--chart-hover-dim); }
+  .sb.sb-has-hover .sb-row-label.sb-label-active { opacity: 1; }
+</style>

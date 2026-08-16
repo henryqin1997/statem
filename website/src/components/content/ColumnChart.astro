@@ -1,0 +1,329 @@
+---
+/** Animated grouped vertical bar chart with hover tooltips. */
+
+import ContentBlock from './ContentBlock.astro'
+import { sizerStyle, fmtValue } from '@utils/chart'
+import '@/styles/chart.css'
+
+interface Series {
+  name: string
+  color: string
+  values: number[]
+}
+
+interface Props {
+  title?: string
+  yLabel?: string
+  categories: string[]
+  series: Series[]
+  maxValue?: number
+  /** Baseline of the y axis. Defaults to 0; set it higher only when the tick
+   *  labels make the truncation obvious to the reader. */
+  minValue?: number
+  barWidth?: number
+  width?: number
+  caption?: string
+  showLegend?: boolean
+  align?: 'left' | 'center' | 'right'
+}
+
+const {
+  title,
+  yLabel,
+  categories,
+  series,
+  maxValue: maxValueProp,
+  minValue = 0,
+  barWidth,
+  width,
+  caption,
+  showLegend = true,
+  align,
+} = Astro.props
+
+const allValues = series.flatMap(s => s.values)
+const dataMax = allValues.length > 0 ? Math.max(...allValues) : 0
+const maxValue = maxValueProp ?? (Math.ceil(dataMax * 1.15) || 1)
+
+const span = maxValue - minValue || 1
+const tickCount = 5
+const ticks = Array.from({ length: tickCount + 1 }, (_, i) => {
+  const val = minValue + (span / tickCount) * i
+  return Number.isInteger(val) ? val : Math.round(val * 10) / 10
+})
+---
+
+<div class="chart-sizer" style={sizerStyle(width)}>
+<ContentBlock class="bc" {caption} {align}>
+  {title && <div class="chart-title">{title}</div>}
+
+  {showLegend && (
+    <div class="chart-legend">
+      {series.filter((s) => s.name).map((s) => (
+        <span class="chart-leg">
+          <span class="chart-dot" style={`background:${s.color}`} />
+          {s.name}
+        </span>
+      ))}
+    </div>
+  )}
+
+  <div class="bc-wrap">
+    {yLabel && (
+      <div class="bc-ylabel"><span>{yLabel}</span></div>
+    )}
+
+    <div class="bc-scroll">
+      <table class="bc-table" role="img" aria-label={title || "Chart"}>
+        <tbody>
+          <tr>
+            <td class="bc-yaxis">
+              <div class="bc-yticks">
+                {[...ticks].reverse().map((t) => (
+                  <div class="bc-ytick">{t}</div>
+                ))}
+              </div>
+            </td>
+            {categories.map((_, ci) => (
+              <td class="bc-cell">
+                <div class="bc-col">
+                  {ticks.map((_, ti) => (
+                    ti > 0 && <div class="bc-gridline" style={`bottom:${(ti / tickCount) * 100}%`} />
+                  ))}
+                  <div class="bc-bars">
+                    {series.map((s, si) => {
+                      const v = s.values[ci] ?? 0;
+                      const delay = ci * 60 + si * 30;
+                      return (
+                        <div class="bc-bw" style={barWidth ? `max-width:${barWidth}px` : undefined}>
+                          <div class="bc-lbl" style={`animation-delay:${delay + 400}ms`}>{fmtValue(v)}</div>
+                          <div
+                            class="bc-bar"
+                            style={`height:${Math.max(0, Math.min(1, (v - minValue) / span)) * 100}%;background:${s.color}`}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </td>
+            ))}
+          </tr>
+          <tr>
+            <td></td>
+            {categories.map((cat) => (
+              <td class="bc-cat">{cat}</td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</ContentBlock>
+</div>
+
+<script>
+  import { observeCharts, createTooltip, attachTooltip } from '@utils/chart'
+
+  function initColumnCharts() {
+    observeCharts(".bc");
+
+    document.querySelectorAll(".bc").forEach((chart) => {
+      const cells = chart.querySelectorAll<HTMLTableCellElement>('.bc-cell');
+      const cats = chart.querySelectorAll<HTMLTableCellElement>('.bc-cat');
+      const tooltip = createTooltip(chart);
+
+      cells.forEach((cell, ci) => {
+        attachTooltip(cell, tooltip, {
+          onEnter() {
+            chart.classList.add('bc-has-hover');
+            cell.classList.add('bc-col-active');
+            if (cats[ci]) cats[ci].classList.add('bc-col-active');
+            const bars = cell.querySelectorAll('.bc-bw');
+            const legend = chart.querySelectorAll('.chart-leg');
+            let html = `<div class="chart-tip-title">${cats[ci]?.textContent || ''}</div>`;
+            bars.forEach((bar, si) => {
+              const lbl = bar.querySelector('.bc-lbl');
+              const dot = legend[si]?.querySelector('.chart-dot') as HTMLElement;
+              const name = legend[si]?.textContent?.trim() || '';
+              const val = lbl?.textContent || '';
+              const color = dot?.style.background || 'var(--chart-muted)';
+              html += `<div class="chart-tip-row"><span class="chart-tip-dot" style="background:${color}"></span><span class="chart-tip-name">${name}</span><span class="chart-tip-val">${val}</span></div>`;
+            });
+            return html;
+          },
+          onLeave() {
+            chart.classList.remove('bc-has-hover');
+            cell.classList.remove('bc-col-active');
+            if (cats[ci]) cats[ci].classList.remove('bc-col-active');
+          },
+        });
+      });
+    });
+  }
+  document.addEventListener("DOMContentLoaded", initColumnCharts);
+  document.addEventListener("astro:after-swap", initColumnCharts);
+</script>
+
+<style>
+  .bc {
+    padding: 1rem 0;
+  }
+
+  .bc-wrap {
+    display: flex;
+    align-items: stretch;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .bc-ylabel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.1rem;
+    flex-shrink: 0;
+  }
+  .bc-ylabel span {
+    writing-mode: vertical-lr;
+    transform: rotate(180deg);
+    font-size: 0.68rem;
+    color: var(--chart-muted);
+    white-space: nowrap;
+    font-weight: 500;
+  }
+
+  .bc-scroll { flex: 1; }
+
+  .bc-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .bc-yaxis {
+    vertical-align: top;
+    padding: 0;
+    width: 2.5rem;
+  }
+  .bc-yticks {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: clamp(160px, 35vw, 250px);
+    text-align: right;
+    padding-right: 8px;
+    font-size: 0.65rem;
+    color: var(--chart-muted);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .bc-ytick { line-height: 1; }
+
+  .bc-cell {
+    vertical-align: bottom;
+    padding: 1rem 0 0;
+    height: clamp(160px, 35vw, 250px);
+    position: relative;
+    border-bottom: 1.5px solid var(--chart-faint);
+  }
+  .bc-cell:first-of-type { border-left: 1.5px solid var(--chart-faint); }
+
+  .bc-col {
+    position: relative;
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+
+  .bc-gridline {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 1px dashed var(--chart-faint);
+    pointer-events: none;
+  }
+
+  .bc-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    padding: 0 8px;
+    height: 100%;
+    position: relative;
+    z-index: 1;
+  }
+
+  .bc-bw {
+    flex: 1;
+    max-width: 30px;
+    min-width: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    height: 100%;
+  }
+
+  .bc-lbl {
+    font-size: 0.58rem;
+    color: var(--chart-muted);
+    margin-bottom: 3px;
+    white-space: nowrap;
+    line-height: 1;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    opacity: 0;
+  }
+
+  .bc-bar {
+    width: 100%;
+    border-radius: 4px 4px 0 0;
+    min-height: 2px;
+    transition: opacity 0.15s ease;
+    cursor: pointer;
+  }
+
+  .bc.bc-has-hover .bc-cell:not(.bc-col-active) .bc-bar { opacity: var(--chart-hover-dim); }
+  .bc.bc-has-hover .bc-cell:not(.bc-col-active) .bc-lbl { opacity: 0.2; }
+  .bc.bc-has-hover .bc-cat:not(.bc-col-active) { opacity: var(--chart-hover-dim); }
+
+  .bc-cell.bc-col-active::before {
+    content: '';
+    position: absolute;
+    inset: -4px -2px;
+    background: var(--chart-hover-bg);
+    border-radius: 6px;
+    pointer-events: none;
+  }
+
+  .bc-cat.bc-col-active { color: var(--chart-strong); }
+
+  .bc.is-visible .bc-lbl {
+    animation: bc-fade-in 0.3s ease forwards;
+  }
+
+  @keyframes bc-fade-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .bc-cat {
+    text-align: center;
+    font-size: 0.68rem;
+    color: var(--chart-muted);
+    padding: 8px 2px 0;
+    line-height: 1.2;
+    white-space: nowrap;
+    font-weight: 500;
+    transition: opacity 0.15s ease;
+  }
+
+  @media (max-width: 640px) {
+    .bc-yticks { font-size: 0.6rem; }
+    .bc-lbl { font-size: 0.55rem; }
+    .bc-cat { font-size: 0.6rem; }
+    .bc-ylabel span { font-size: 0.6rem; }
+  }
+</style>

@@ -1,0 +1,79 @@
+---
+/** Row of headline numbers. Each item is a value, a short label, and an
+ *  optional qualifier that keeps the number honest about its measurement.
+ */
+
+interface Stat {
+  value: string
+  label: string
+  note?: string
+}
+
+interface Props {
+  stats: Stat[]
+  cols?: number
+}
+
+const { stats, cols = 4 } = Astro.props
+---
+
+<div class="stat-grid" style={`--stat-cols:${cols}`}>
+  {stats.map((stat) => (
+    <div class="stat">
+      <div class="stat-value">{stat.value}</div>
+      <div class="stat-label">{stat.label}</div>
+      {stat.note && <div class="stat-note">{stat.note}</div>}
+    </div>
+  ))}
+</div>
+
+<style>
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--stat-cols), minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 1.75rem 0;
+  }
+
+  .stat {
+    border: 1.5px solid var(--line-divider);
+    border-radius: var(--radius-large);
+    background: var(--card-bg);
+    padding: 0.9rem 1rem;
+    text-align: left;
+  }
+
+  .stat-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat-label {
+    margin-top: 0.35rem;
+    font-size: 0.84rem;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .stat-note {
+    margin-top: 0.2rem;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    opacity: 0.55;
+  }
+
+  @media (max-width: 860px) {
+    .stat-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 420px) {
+    .stat-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

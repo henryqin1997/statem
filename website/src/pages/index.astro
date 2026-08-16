@@ -1,0 +1,89 @@
+---
+import MainGridLayout from '@layouts/MainGridLayout.astro'
+import Markdown from '@components/layout/Markdown.astro'
+import Hero from '@components/layout/Hero.astro'
+import StatGrid from '@components/content/StatGrid.astro'
+import BarChart from '@components/content/BarChart.astro'
+import ColumnChart from '@components/content/ColumnChart.astro'
+import Figure from '@components/content/Figure.astro'
+import Grid from '@components/content/Grid.astro'
+import LineChart from '@components/content/LineChart.astro'
+import NodeAnatomy from '@components/content/NodeAnatomy.astro'
+import StateGraph from '@components/content/StateGraph.astro'
+import Table from '@components/content/Table.astro'
+import Tabs from '@components/content/Tabs.astro'
+import Video from '@components/content/Video.astro'
+import { config } from '@/config'
+import 'katex/dist/katex.css'
+import '@fontsource-variable/jetbrains-mono'
+import '@fontsource-variable/jetbrains-mono/wght-italic.css'
+
+import HomeContent, { getHeadings } from 'src/content/main/home.mdx'
+
+const headings = getHeadings()
+
+const mdxComponents = {
+  BarChart,
+  ColumnChart,
+  Figure,
+  Grid,
+  LineChart,
+  NodeAnatomy,
+  StateGraph,
+  StatGrid,
+  Table,
+  Tabs,
+  Video,
+}
+
+const authors = ['Ziheng Qin', 'Yaxin Lu', 'Zhangyang "Atlas" Wang', 'Kai Wang']
+
+const stats = [
+  {
+    value: '95.3%',
+    label: 'Raw accuracy on Terminal-Bench 2.1',
+    note: 'GPT-5.6 Sol xhigh + StateM, 424/445 trials. Public pre-adjudication submission.',
+  },
+  {
+    value: '+9.0 pts',
+    label: 'Same model, better harness',
+    note: 'GPT-5.5 xhigh goes from 83.1% to 92.1% with no change to model weights.',
+  },
+  {
+    value: '$15',
+    label: 'Cost of a frontier-level evaluation run',
+    note: 'DeepSeek-V4-Flash final-score evidence, against $574.68 for the matched public GPT submission.',
+  },
+  {
+    value: 'zero',
+    label: 'Runbook edits to cross a model generation',
+    note: 'The GPT-5.5 profile is frozen before any GPT-5.6 result is observed.',
+  },
+]
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareSourceCode',
+  name: 'StateM',
+  description: config.description,
+  codeRepository: config.repo,
+  programmingLanguage: 'Python',
+  license: 'https://www.apache.org/licenses/LICENSE-2.0',
+  author: authors.map((name) => ({ '@type': 'Person', name })),
+}
+---
+
+<MainGridLayout description={config.description} jsonLd={jsonLd} headings={headings}>
+  <Hero
+    tagline="An agent-native state machine for long-horizon agents."
+    summary="Long runs fail even when the model can solve every step: the agent loses track of mutable state, skips a check it knows about, or stops before the job is verifiably done. StateM keeps the procedural state outside the model context — durable states, phase-local instructions, checked transitions, and versioned practices — and lets the agent operate all of it through the same CLI it uses to do the work."
+    authors={authors}
+    affiliation="Independent research, conducted in the authors' personal time."
+  />
+
+  <StatGrid stats={stats} />
+
+  <Markdown>
+    <HomeContent components={mdxComponents} />
+  </Markdown>
+</MainGridLayout>

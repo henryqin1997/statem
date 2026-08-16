@@ -1,0 +1,153 @@
+---
+/** The StateM control surface: a phase-level runbook graph.
+ *  Theme-aware inline SVG — strokes and text inherit currentColor,
+ *  node fills use the site's card token, accents use --primary.
+ */
+
+import ContentBlock from './ContentBlock.astro'
+
+interface Props {
+  caption?: string
+}
+
+const { caption } = Astro.props
+
+const nodes = [
+  { x: 16, y: 40, label: 'Plan' },
+  { x: 186, y: 40, label: 'Execute' },
+  { x: 356, y: 40, label: 'Verify' },
+]
+---
+
+<ContentBlock class="state-graph" {caption}>
+  <svg viewBox="0 0 740 250" role="img" aria-label="StateM runbook graph: Plan to Execute to Verify, then pass to Handoff or fail to Repair and back to Execute" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="sg-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M0 0 10 5 0 10z" class="sg-head" />
+      </marker>
+      <marker id="sg-arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M0 0 10 5 0 10z" class="sg-head-accent" />
+      </marker>
+    </defs>
+
+    {nodes.map((n) => (
+      <>
+        <rect x={n.x} y={n.y} width="128" height="52" rx="10" class="sg-node" />
+        <text x={n.x + 64} y={n.y + 31} class="sg-node-label">{n.label}</text>
+      </>
+    ))}
+
+    <!-- terminal state: double outline -->
+    <rect x="580" y="40" width="128" height="52" rx="10" class="sg-node sg-terminal" />
+    <rect x="584" y="44" width="120" height="44" rx="7" class="sg-node-inner" />
+    <text x="644" y="71" class="sg-node-label">Handoff</text>
+    <text x="644" y="110" class="sg-hint">terminal</text>
+
+    <!-- repair state -->
+    <rect x="356" y="160" width="128" height="52" rx="10" class="sg-node sg-repair" />
+    <text x="420" y="191" class="sg-node-label">Repair</text>
+
+    <!-- edges -->
+    <path d="M144 66 H186" class="sg-edge" marker-end="url(#sg-arrow)" />
+    <text x="165" y="56" class="sg-edge-label">goto</text>
+
+    <path d="M314 66 H356" class="sg-edge" marker-end="url(#sg-arrow)" />
+    <text x="335" y="56" class="sg-edge-label">goto</text>
+
+    <path d="M484 66 H580" class="sg-edge sg-edge-accent" marker-end="url(#sg-arrow-accent)" />
+    <text x="532" y="56" class="sg-edge-label sg-accent-text">checks pass</text>
+
+    <path d="M420 92 V160" class="sg-edge" marker-end="url(#sg-arrow)" />
+    <text x="432" y="130" class="sg-edge-label sg-edge-label-left">check fails</text>
+
+    <path d="M356 186 H250 V92" class="sg-edge" marker-end="url(#sg-arrow)" fill="none" />
+    <text x="250" y="207" class="sg-edge-label">retry / repair</text>
+  </svg>
+</ContentBlock>
+
+<style>
+  .state-graph :global(svg) {
+    width: 100%;
+    height: auto;
+    color: inherit;
+    overflow: visible;
+  }
+
+  /* Below this width the labels stop being legible, so scroll instead of shrink.
+     The surrounding .content-block already provides overflow-x: auto. */
+  @media (max-width: 700px) {
+    .state-graph :global(svg) {
+      min-width: 620px;
+    }
+  }
+
+  .sg-node {
+    fill: var(--card-bg);
+    stroke: currentColor;
+    stroke-opacity: 0.22;
+    stroke-width: 1.5;
+  }
+
+  .sg-node-inner {
+    fill: none;
+    stroke: currentColor;
+    stroke-opacity: 0.22;
+    stroke-width: 1.5;
+  }
+
+  .sg-terminal {
+    stroke: var(--primary);
+    stroke-opacity: 0.9;
+  }
+
+  .sg-repair {
+    stroke-dasharray: 5 4;
+  }
+
+  .sg-node-label {
+    fill: currentColor;
+    font-size: 15px;
+    font-weight: 600;
+    text-anchor: middle;
+    font-family: inherit;
+  }
+
+  .sg-hint,
+  .sg-edge-label {
+    fill: currentColor;
+    fill-opacity: 0.45;
+    font-size: 11.5px;
+    text-anchor: middle;
+    font-family: inherit;
+  }
+
+  .sg-edge-label-left {
+    text-anchor: start;
+  }
+
+  .sg-edge {
+    fill: none;
+    stroke: currentColor;
+    stroke-opacity: 0.4;
+    stroke-width: 1.6;
+  }
+
+  .sg-edge-accent {
+    stroke: var(--primary);
+    stroke-opacity: 1;
+  }
+
+  .sg-accent-text {
+    fill: var(--primary);
+    fill-opacity: 1;
+  }
+
+  .sg-head {
+    fill: currentColor;
+    fill-opacity: 0.4;
+  }
+
+  .sg-head-accent {
+    fill: var(--primary);
+  }
+</style>

@@ -1,0 +1,57 @@
+---
+/** Generic responsive grid for placing content blocks side by side.
+ *  Supports equal columns (cols=2) or custom ratios (cols="3fr 2fr").
+ *  Scrolls horizontally on narrow screens. Optional shared caption. */
+
+import ContentBlock from './ContentBlock.astro'
+import { sizerStyle } from '@utils/chart'
+
+interface Props {
+  cols?: number | string
+  gap?: string
+  align?: 'top' | 'center' | 'bottom'
+  width?: number
+  caption?: string
+}
+
+const { cols = 2, gap = '1.5rem', align = 'top', width, caption } = Astro.props
+const template = typeof cols === 'string' ? cols : `repeat(${cols}, 1fr)`
+const alignMap = { top: 'start', center: 'center', bottom: 'end' } as const
+const cssAlign = alignMap[align]
+---
+
+<div class="chart-sizer" style={sizerStyle(width)}>
+  {caption ? (
+    <ContentBlock {caption}>
+      <div
+        class="content-grid"
+        style={`--grid-tpl:${template};--grid-gap:${gap};--grid-align:${cssAlign}`}
+      >
+        <slot />
+      </div>
+    </ContentBlock>
+  ) : (
+    <div
+      class="content-grid"
+      style={`--grid-tpl:${template};--grid-gap:${gap};--grid-align:${cssAlign}`}
+    >
+      <slot />
+    </div>
+  )}
+</div>
+
+<style>
+  .content-grid {
+    display: grid;
+    grid-template-columns: var(--grid-tpl);
+    gap: var(--grid-gap);
+    align-items: var(--grid-align);
+    min-width: min-content;
+  }
+  .content-grid > :global(*) {
+    min-width: 0;
+  }
+  .content-grid :global(.content-block) {
+    margin: 0;
+  }
+</style>

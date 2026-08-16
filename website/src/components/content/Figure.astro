@@ -1,0 +1,76 @@
+---
+/** <Figure src="/path/to/image.png" caption="Description." />
+ *  Alt text is derived from caption unless explicitly provided.
+ *  Supports slot for custom content (e.g. side-by-side images).
+ *  Images auto-invert in dark mode. Use invertOnDark={false} to disable.
+ *  Inversion suits line art; for a colored plot or a photo, pass
+ *  invertOnDark={false} with frame so it sits on its own light card instead.
+ *  Use width to set image width as a fraction, e.g. width={0.6} for 60%.
+ */
+
+import ContentBlock from './ContentBlock.astro'
+import { stripHtml } from '@utils/text'
+import { sizerStyle } from '@utils/chart'
+
+interface Props {
+  src?: string
+  alt?: string
+  invertOnDark?: boolean
+  frame?: boolean
+  width?: number
+  caption?: string
+  align?: 'left' | 'center' | 'right'
+}
+
+const {
+  src,
+  alt,
+  invertOnDark = true,
+  frame = false,
+  width,
+  caption,
+  align,
+} = Astro.props
+const imgAlt = alt ?? (caption ? stripHtml(caption) : '')
+const imgStyle = sizerStyle(width)
+---
+
+<ContentBlock class:list={["content-figure", { "invert-on-dark": invertOnDark }]} {caption} {align}>
+  {src ? (
+    <div class:list={["fig-frame", { "fig-framed": frame }]} style={imgStyle}>
+      <img src={src} alt={imgAlt} loading="lazy" />
+    </div>
+  ) : (
+    <slot />
+  )}
+</ContentBlock>
+
+<style>
+  .fig-frame {
+    display: inline-block;
+    line-height: 0;
+    font-size: 0;
+  }
+
+  .fig-frame img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* For colored plots that should keep their palette in dark mode. */
+  .fig-framed {
+    background: #fff;
+    padding: 0.6rem;
+    border: 1px solid var(--line-divider);
+    border-radius: var(--radius-medium);
+  }
+
+  .fig-framed img {
+    border-radius: calc(var(--radius-medium) - 0.35rem);
+  }
+
+  :global(.dark) .invert-on-dark img {
+    filter: invert(1) hue-rotate(180deg);
+  }
+</style>

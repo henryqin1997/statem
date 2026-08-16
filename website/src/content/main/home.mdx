@@ -1,0 +1,217 @@
+## The model is often not the bottleneck
+
+Long-horizon agents fail in a revealing way: the model can solve each local step, yet the
+complete run still fails. The agent drifts from its plan, loses track of mutable task state,
+skips a check it already knows about, repeats an unproductive action, or stops before the
+deliverable is verifiably complete. Benchmarks and real workflows score the finished job, not
+whether the model knew how to do most of it.
+
+The usual response is to improve the model. We ask an orthogonal question: **how much apparent
+model failure is actually failure of the harness** that maintains state, constrains execution,
+verifies progress, and recovers from errors? Improving that layer systematically is what we
+call *harness scaling*.
+
+Two pressures make long runs hard, and both are properties of the execution system rather than
+of the weights:
+
+- **Control-signal dilution.** A plan is short and critical. As the run grows, it is surrounded
+  by thousands of tokens of commands, observations, and repairs — and the thread back to the
+  plan gets thin.
+- **Mutable-state ambiguity.** With loops and branches, an append-only history accumulates many
+  interleaved versions of the same item. "What is true right now" has to be reconstructed
+  instead of read from an authoritative record.
+
+They surface as three distinct gaps, and StateM gives each one a control point:
+
+<Table caption="Three operational gaps between a capable model and a completed job.">
+
+| Gap | What goes wrong | StateM control point |
+| :--- | :--- | :--- |
+| **Epistemic** | The knowledge or method is not available at the decision point | State-local `in_hook` reactivates it exactly where it matters |
+| **Procedural memory** | A lesson from an earlier run is never retained or invoked | A versioned *practice* in the runbook, activated by visible task evidence |
+| **Procedural compliance** | The right procedure is active but is left incomplete | `before_transfer` checks and edge guards block the handoff |
+
+</Table>
+
+## The control layer is a runbook the agent can operate
+
+A StateM runbook is a directed state machine over coarse phases of work — not a decomposition
+of the agent into node-local model calls. Inside a phase the agent keeps its full action space.
+Between phases, progress becomes explicit, persistent, and checkable.
+
+<StateGraph caption="Each <code>goto</code> is a checked and logged transition. Verification failures route to a repair state; a run is only complete at a terminal state." />
+
+Expanding one node shows why a state is both a *context boundary* and a *contract boundary*:
+entering it refreshes what the agent should know, and leaving it requires satisfying what the
+agent must have done.
+
+<NodeAnatomy caption="Entry refreshes the phase-local control signal; exit is gated on evidence." />
+
+The whole thing is a small YAML file that a human can review in minutes and an agent can edit
+through its normal tools:
+
+```yaml
+execute:
+  prompt: |
+    Execute the plan while keeping edits scoped. Update progress before
+    leaving this state.
+  before_transfer:
+    type: checklist
+    items:
+      - Implementation matches the plan
+      - Tests or verification were run
+      - No unrelated files were changed
+  out_hook:
+    type: message
+    text: "Update progress.md before moving on."
+
+edges:
+  - from: execute
+    to: review
+    condition: "Implementation is ready for review."
+```
+
+Runtime state lives outside the model context in `.statem/`: current state, transition history,
+hook and check outcomes, and references to evidence files. After a crash, a context refresh, or
+a compaction, the agent asks the runtime where it is instead of re-deriving it from a terminal
+transcript.
+
+### Not every check proves the same thing
+
+StateM makes the strength of each check explicit, because a structured field is not evidence by
+itself:
+
+<Table caption="Evidentiary strength differs by check type. StateM makes the claim auditable; it does not make a self-attestation into a proof.">
+
+| Check | What it establishes |
+| :--- | :--- |
+| `command`, `predicate` | Independently reproducible evidence, evaluated by the host |
+| `manual` | An explicit human or operator decision |
+| `checklist`, `message` | Structured self-attestation by the agent |
+| `llm_review` | A separate semantic judgment, not deterministic verification |
+
+</Table>
+
+[Read the method in full →](/method/)
+
+## Results
+
+The same runbook mechanism improves four different models. The GPT-5.6 columns use the profile
+developed on GPT-5.5 and **frozen** before any GPT-5.6 outcome was observed; DeepSeek required
+provider-specific adaptation, which is where exact-profile transfer stops working.
+
+<ColumnChart
+  title="Terminal-Bench 2.1 accuracy (89 tasks, 5 trials each)"
+  yLabel="Accuracy (%)"
+  categories={["GPT-5.5 xhigh", "GPT-5.6 Luna", "GPT-5.6 Sol xhigh", "DeepSeek-V4-Flash"]}
+  series={[
+    { name: "Reference harness", color: "#9aa0a6", values: [83.1, 76.7, 84.9, 82.7] },
+    { name: "+ StateM", color: "#5566d8", values: [92.1, 85.4, 95.3, 88.1] },
+  ]}
+  minValue={70}
+  maxValue={100}
+  caption="The y axis starts at 70. Reference rows reproduce published or public-submission results; StateM rows are our runs. The 95.3% figure is raw, pre-adjudication accuracy from an open public submission. The DeepSeek bar is the adapted profile under standard timeouts (88.09%)."
+/>
+
+Three findings are worth separating:
+
+1. **A harness change can be the size of a model generation.** Under the reference harness,
+   GPT-5.5 → GPT-5.6 Sol is worth 1.8 points. StateM is worth 9.0 points on GPT-5.5 and 10.4 on
+   GPT-5.6 Sol, without touching the weights.
+2. **Transfer follows distance.** The exact profile moves across GPT generations unchanged. It
+   does *not* survive the provider boundary — applied verbatim to DeepSeek-V4-Flash it scores
+   82.0%, slightly below that model's own 82.7% baseline. What transfers across providers is the
+   runtime, the runbook structure, and the failure-analysis method.
+3. **The cost frontier moves too.** Re-adapting the concrete practices for DeepSeek cost
+   \$37.02, and the final-score evidence cost \$15.20 in API charges — against \$574.68 for the
+   matched public GPT submission.
+
+<Figure
+  invertOnDark={false}
+  frame
+  src="/assets/figures/cost-accuracy-frontier.png"
+  caption="Cost–accuracy tradeoff on Terminal-Bench 2.1. Upper-left is better. Harness scaling moves a cheap model sharply up the frontier."
+/>
+
+[See all results, including the negative ones →](/results/)
+
+## Quick start
+
+<Tabs>
+<div data-label="Install">
+
+```bash
+git clone https://github.com/henryqin1997/statem.git
+cd statem
+pip install -e .
+```
+
+Or run straight from a checkout without installing, using `python3 -m statem` in place of
+`statem` below.
+
+</div>
+<div data-label="Run a runbook">
+
+```bash
+# check the graph before trusting it
+statem validate examples/coding-agent.yaml --json
+
+# start a run
+statem start examples/coding-agent.yaml --run-id demo --json
+
+# where am I, and where may I go?
+statem cur --run-id demo
+statem next --run-id demo
+
+# move only through an allowed, checked edge
+statem goto plan --run-id demo
+```
+
+</div>
+<div data-label="Recover a run">
+
+```bash
+# durable history, compact enough to scan
+statem history --tail 10 --json
+
+# regenerate a recovery prompt if a hard /clear was unavoidable
+statem prompt --run-id demo
+
+# safe compaction for cyclic runbooks — model it as a node, not a reflex
+statem compact-prompt --run-id demo
+```
+
+</div>
+</Tabs>
+
+Hosts with a Stop hook can opt into auto-loop behavior: when the agent tries to hand control
+back, the hook checks the active run and, if the current node still has outgoing transitions and
+is not a terminal handoff, returns the current phase and unmet obligations instead of stopping.
+The hook never advances state and never issues `/clear` or `/compact`.
+
+## What StateM does not do
+
+> [!CAUTION]
+> StateM provides control points, not a correctness oracle. Its guarantees are strongest when a
+> transition condition can be checked independently by a command, a predicate, or a human
+> decision. Agent-authored receipts and semantic self-review remain fallible. It can stop a
+> configured requirement from being silently skipped; it cannot detect a requirement that
+> neither the runbook nor the agent ever introduced. And a runbook cannot supply knowledge that
+> neither the model nor the environment has.
+
+Failure-driven optimization can also preserve the wrong lesson. In our own development runs, an
+ambiguous task specification got resolved post hoc into a stored default, and repeated verifier
+feedback taught a profile a convention that appears nowhere in the visible task description.
+Experience has to be filtered before it becomes memory: the objective is to remember the
+consequential boundary, not every failure trace.
+
+## Citation
+
+```bibtex
+@misc{qin2026statem,
+  title  = {StateM: Reaching 95.3\% Raw Accuracy, or a \$15 Frontier Run,
+            on Terminal-Bench 2.1 via Harness Scaling},
+  author = {Qin, Ziheng and Lu, Yaxin and Wang, Zhangyang and Wang, Kai},
+  year   = {2026}
+}
+```

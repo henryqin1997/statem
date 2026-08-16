@@ -1,0 +1,110 @@
+---
+import Footer from "@components/layout/Footer.astro";
+import BackToTop from "@components/control/BackToTop.astro";
+import Layout from "./Layout.astro";
+import Header from "@components/layout/Header.astro";
+import TableOfContents from "@components/layout/TableOfContents.astro";
+import type { MarkdownHeading } from "astro";
+
+interface Props {
+  title?: string;
+  description?: string;
+  setOGTypeArticle?: boolean;
+  jsonLd?: Record<string, unknown>;
+  /** Page outline; renders a left-margin TOC on wide viewports. */
+  headings?: MarkdownHeading[];
+}
+
+const {
+  title,
+  description,
+  setOGTypeArticle,
+  jsonLd,
+  headings = [],
+} = Astro.props;
+
+const hasToc = headings.filter((h) => h.depth === 2 || h.depth === 3).length > 1;
+---
+
+<Layout
+  title={title}
+  description={description}
+  setOGTypeArticle={setOGTypeArticle}
+  jsonLd={jsonLd}
+>
+  <!-- Navbar -->
+  <slot slot="head" name="head" />
+  <div
+    id="top-row"
+    class="z-50 pointer-events-none fixed w-full left-0 right-0 top-0 transition-all duration-700"
+  >
+    <div
+      id="navbar-wrapper"
+      class="pointer-events-auto sticky top-0 transition-all w-full bg-white/85 dark:bg-gray-900/80 backdrop-blur-md backdrop-saturate-150 shadow-sm"
+    >
+      <div class="max-w-[var(--page-width)] px-0 md:px-4 mx-auto">
+        <Header />
+      </div>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div
+    class="w-full mx-auto z-30 pointer-events-none mt-[3.5rem] top-[4.5rem]"
+  >
+    <!-- The pointer-events-none here prevent blocking the click event of the TOC -->
+    <div class:list={["relative mx-auto pointer-events-auto page-shell", { "has-toc": hasToc }]}>
+      <div
+        id="main-grid"
+        class="transition duration-700 w-full left-0 right-0 mx-auto gap-4 px-0 md:px-4"
+      >
+        {hasToc && <TableOfContents headings={headings} />}
+
+        <main class="overflow-hidden">
+          <div id="content-wrapper" class="px-4 mx-auto text-black dark:text-white onload-animation">
+            <slot />
+            <div class="footer col-span-2 onload-animation hidden lg:block">
+              <Footer />
+            </div>
+          </div>
+        </main>
+
+        <div class="footer col-span-2 onload-animation block lg:hidden">
+          <Footer />
+        </div>
+      </div>
+
+      <BackToTop />
+    </div>
+  </div>
+
+</Layout>
+
+<style>
+  .page-shell {
+    max-width: var(--page-width);
+  }
+
+  /* The outline lives in the left margin, so it only appears once the
+     viewport can hold it beside a full-width content column. */
+  .page-shell :global(.left-toc) {
+    display: none;
+  }
+
+  @media (min-width: 1200px) {
+    .page-shell.has-toc {
+      max-width: calc(var(--page-width) + 15rem);
+    }
+
+    .page-shell.has-toc #main-grid {
+      display: grid;
+      grid-template-columns: 12.5rem minmax(0, 1fr);
+      gap: 2.5rem;
+      align-items: start;
+    }
+
+    .page-shell.has-toc :global(.left-toc) {
+      display: block;
+    }
+  }
+</style>

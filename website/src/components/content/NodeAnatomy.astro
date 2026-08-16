@@ -1,0 +1,116 @@
+---
+/** Anatomy of a single StateM state: entry hook, free-form body, exit hook,
+ *  and the blocking pre-transition checks. Plain HTML so it reflows on mobile.
+ */
+
+import ContentBlock from './ContentBlock.astro'
+
+interface Props {
+  caption?: string
+}
+
+const { caption } = Astro.props
+
+const bands = [
+  {
+    slot: 'in_hook',
+    title: 'Setup',
+    body: 'Load durable context, refresh progress, reactivate the practices this phase needs.',
+  },
+  {
+    slot: 'state body',
+    title: 'The agent works here',
+    body: 'Full autonomy inside the phase: any tool, any file, any number of iterations.',
+    emphasis: true,
+  },
+  {
+    slot: 'out_hook',
+    title: 'Persist',
+    body: 'Write progress and receipts before the phase is allowed to end.',
+  },
+  {
+    slot: 'before_transfer',
+    title: 'Blocking checks',
+    body: 'A failed pre-commit check keeps the run in this node, repairable and logged.',
+    gate: true,
+  },
+]
+---
+
+<ContentBlock class="node-anatomy" {caption}>
+  <div class="na-card">
+    {bands.map((band) => (
+      <div class:list={["na-band", { "na-emph": band.emphasis, "na-gate": band.gate }]}>
+        <code class="na-slot">{band.slot}</code>
+        <div class="na-text">
+          <span class="na-title">{band.title}</span>
+          <span class="na-body">{band.body}</span>
+        </div>
+      </div>
+    ))}
+  </div>
+</ContentBlock>
+
+<style>
+  .na-card {
+    border: 1.5px solid var(--line-divider);
+    border-radius: var(--radius-large);
+    overflow: hidden;
+    text-align: left;
+    background: var(--card-bg);
+  }
+
+  .na-band {
+    display: flex;
+    gap: 0.9rem;
+    align-items: baseline;
+    padding: 0.7rem 0.95rem;
+    border-bottom: 1px solid var(--line-divider);
+  }
+
+  .na-band:last-child {
+    border-bottom: none;
+  }
+
+  .na-emph {
+    background: var(--btn-regular-bg);
+  }
+
+  .na-gate {
+    border-top: 1.5px dashed var(--line-divider);
+  }
+
+  .na-slot {
+    flex: 0 0 8.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--btn-content);
+    white-space: nowrap;
+  }
+
+  .na-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    font-size: 0.85rem;
+    line-height: 1.45;
+  }
+
+  .na-title {
+    font-weight: 600;
+  }
+
+  .na-body {
+    opacity: 0.65;
+  }
+
+  @media (max-width: 640px) {
+    .na-band {
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .na-slot {
+      flex: none;
+    }
+  }
+</style>

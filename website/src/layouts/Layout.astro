@@ -1,0 +1,134 @@
+---
+import "@fontsource-variable/ibm-plex-sans";
+import "@fontsource/merriweather";
+
+import { config } from "@/config";
+import "@/styles/main.css";
+import "@/styles/variables.styl";
+import "@/styles/transition.css";
+import "@/styles/markdown-extend.styl";
+
+interface Props {
+  title?: string;
+  description?: string;
+  setOGTypeArticle?: boolean;
+  jsonLd?: Record<string, unknown>;
+}
+
+const { title, description, setOGTypeArticle, jsonLd } = Astro.props;
+
+// Astro.site comes from `site` in astro.config.mjs; the fallback only matters
+// if that is ever unset, and it must stay a relative-safe absolute URL.
+const siteUrl = Astro.site?.href || "/";
+
+const pageTitle = title ? `${title} - ${config.title}` : config.title;
+const pageDescription = description || pageTitle;
+---
+
+<!doctype html>
+<html
+  lang="en"
+  class="bg-[var(--page-bg)] transition text-[14px] md:text-[16px]"
+>
+  <head>
+    <title>{pageTitle}</title>
+
+    <meta charset="UTF-8" />
+    <meta name="description" content={pageDescription} />
+    <meta name="author" content={config.name} />
+
+    <link rel="canonical" href={Astro.url.href} />
+
+    <meta property="og:site_name" content={config.title} />
+    <meta property="og:url" content={Astro.url.href} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={pageDescription} />
+    <meta property="og:locale" content="en_US" />
+    {
+      setOGTypeArticle ? (
+        <meta property="og:type" content="article" />
+      ) : (
+        <meta property="og:type" content="website" />
+      )
+    }
+
+    <meta property="og:image" content={`${siteUrl}assets/web-app-manifest-512x512.png`} />
+
+    <meta name="twitter:card" content="summary" />
+    <meta property="twitter:url" content={Astro.url.href} />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={pageDescription} />
+    <meta name="twitter:image" content={`${siteUrl}assets/web-app-manifest-512x512.png`} />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+
+    <link rel="icon" type="image/png" href="/assets/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png" />
+    <link rel="manifest" href="/assets/site.webmanifest" />
+
+    <style
+    define:vars={{
+      "page-width": `${config.page_width}`,
+    }}
+    ></style>
+
+    <!-- Set the theme before the page is rendered to avoid a flash -->
+    <script is:inline>
+      const theme = localStorage.getItem("theme") || "light";
+      switch (theme) {
+        case "light":
+          document.documentElement.classList.remove("dark");
+          break;
+        case "dark":
+          document.documentElement.classList.add("dark");
+          break;
+      }
+    </script>
+
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": config.title,
+      "url": siteUrl,
+    })} />
+    {jsonLd && (
+      <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+    )}
+
+    <slot name="head" />
+
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title={config.name}
+      href={`${Astro.site}rss.xml`}
+    />
+
+  </head>
+  <body class="min-h-screen transition">
+    <slot />
+  </body>
+</html>
+
+<script>
+  let backToTopBtn = document.getElementById("back-to-top-btn");
+  
+  function scrollFunction() {
+    let bannerHeight = window.innerHeight * (1 / 100);
+
+    if (backToTopBtn) {
+      if (
+        document.body.scrollTop > bannerHeight ||
+        document.documentElement.scrollTop > bannerHeight
+      ) {
+        backToTopBtn.classList.remove("hide");
+      } else {
+        backToTopBtn.classList.add("hide");
+      }
+    }
+  }
+
+  window.onscroll = scrollFunction;
+</script>

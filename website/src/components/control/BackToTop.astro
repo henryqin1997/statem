@@ -1,0 +1,68 @@
+---
+import { Icon } from 'astro-icon/components'
+---
+
+<!-- There can't be a filter on parent element, or it will break `fixed` -->
+<div class="back-to-top-wrapper">
+  <div
+    id="back-to-top-btn"
+    class="back-to-top-btn hide flex items-center rounded-full overflow-hidden transition"
+    onclick="backToTop()"
+  >
+    <button aria-label="Back to Top" class="btn-card h-[2.75rem] w-[2.75rem]">
+      <Icon name="material-symbols:keyboard-arrow-up-rounded" class="mx-auto" />
+    </button>
+  </div>
+</div>
+
+<style>
+  .back-to-top-wrapper {
+    width: 3.75rem;
+    height: 3.75rem;
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+  }
+
+  .back-to-top-btn {
+    color: var(--line-color);
+    font-size: 2.25rem;
+    font-weight: bold;
+    border: 2px solid var(--line-color);
+    position: fixed;
+    right: 8rem;
+    bottom: 5rem;
+    opacity: 1;
+    cursor: pointer;
+    transform: translateX(5rem);
+    pointer-events: auto;
+  }
+
+  @media (min-width: 1024px) {
+    .back-to-top-btn {
+      bottom: 10rem;
+      right: auto;
+    }
+  }
+
+  .back-to-top-btn i {
+    font-size: 1.75rem;
+  }
+
+  .back-to-top-btn.hide {
+    transform: translateX(5rem) scale(0.9);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .back-to-top-btn:active {
+    transform: translateX(5rem) scale(0.9);
+  }
+</style>
+
+<script is:inline>
+  function backToTop() {
+    window.scroll({ top: 0, behavior: "smooth" });
+  }
+</script>

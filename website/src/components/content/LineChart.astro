@@ -1,0 +1,354 @@
+---
+/** SVG line chart. Supports single or multi-panel layout, confidence bands
+ *  per line or per panel, auto-ranging, and optional dots/legend/axes labels. */
+
+import ContentBlock from './ContentBlock.astro'
+import { sizerStyle, fmtValue } from '@utils/chart'
+import '@/styles/chart.css'
+
+interface Band {
+  upper: number[]
+  lower: number[]
+  color: string
+}
+
+interface Line {
+  values: number[]
+  color: string
+  label?: string
+  band?: Band
+  dotRadius?: number
+  dash?: boolean
+}
+
+interface Panel {
+  xLabel?: string
+  yLabel?: string
+  yRange?: [number, number]
+  yTicks?: number
+  lines: Line[]
+  band?: Band
+}
+
+interface Props {
+  /** Simple: pass lines directly for a single chart */
+  lines?: Line[]
+  /** Simple: panel-level band (shorthand when using flat API) */
+  band?: Band
+  /** Advanced: multi-panel layout */
+  panels?: Panel[]
+  xLabels: string[]
+  xLabel?: string
+  yLabel?: string
+  yRange?: [number, number]
+  yTicks?: number
+  showDots?: boolean
+  showLegend?: boolean
+  title?: string
+  width?: number
+  caption?: string
+  align?: 'left' | 'center' | 'right'
+}
+
+const {
+  lines: linesProp,
+  band: bandProp,
+  panels: panelsProp,
+  xLabels,
+  xLabel: xLabelProp,
+  yLabel: yLabelProp,
+  yRange: yRangeProp,
+  yTicks: yTicksProp,
+  showDots = true,
+  showLegend = true,
+  title, width, caption, align,
+} = Astro.props
+
+const panels: Panel[] = panelsProp ?? [{
+  lines: linesProp ?? [],
+  band: bandProp,
+  xLabel: xLabelProp,
+  yLabel: yLabelProp,
+  yRange: yRangeProp,
+  yTicks: yTicksProp,
+}]
+
+const W = 320
+const H = 220
+const pad = { top: 24, right: 20, bottom: 35, left: 55 }
+const plotW = W - pad.left - pad.right
+const plotH = H - pad.top - pad.bottom
+
+function autoRange(panel: Panel): [number, number] {
+  if (panel.yRange) return panel.yRange
+  const allVals = [
+    ...panel.lines.flatMap(l => l.values),
+    ...(panel.band ? [...panel.band.upper, ...panel.band.lower] : []),
+    ...panel.lines.flatMap(l => l.band ? [...l.band.upper, ...l.band.lower] : []),
+  ]
+  if (allVals.length === 0) return [0, 1]
+  const min = Math.min(...allVals)
+  const max = Math.max(...allVals)
+  const margin = (max - min) * 0.1 || 1
+  return [Math.floor((min - margin) * 100) / 100, Math.ceil((max + margin) * 100) / 100]
+}
+
+function toXY(values: number[], yMin: number, yMax: number) {
+  return values.map((v, i) => ({
+    x: pad.left + (i / Math.max(values.length - 1, 1)) * plotW,
+    y: pad.top + (1 - (v - yMin) / (yMax - yMin || 1)) * plotH,
+  }))
+}
+
+function buildPath(values: number[], yMin: number, yMax: number): string {
+  return toXY(values, yMin, yMax)
+    .map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`)
+    .join(' ')
+}
+
+function buildBandPath(upper: number[], lower: number[], yMin: number, yMax: number): string {
+  const top = toXY(upper, yMin, yMax)
+  const bot = toXY(lower, yMin, yMax).reverse()
+  const pts = [...top, ...bot].map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`)
+  return `M${pts.join(' L')} Z`
+}
+
+function genTicks(yMin: number, yMax: number, count: number): number[] {
+  const step = (yMax - yMin) / count
+  return Array.from({ length: count + 1 }, (_, i) => {
+    const v = yMin + step * i
+    return Math.round(v * 1000) / 1000
+  })
+}
+
+const uniqueLines = panels.flatMap(p => p.lines)
+  .filter(l => l.label)
+  .filter((l, i, arr) => arr.findIndex(x => x.label === l.label && x.color === l.color) === i)
+
+const clipId = `lc-clip-${Math.random().toString(36).slice(2, 8)}`
+---
+
+<div class="chart-sizer" style={sizerStyle(width)}>
+<ContentBlock class="lc" {caption} {align}>
+  {title && <div class="chart-title">{title}</div>}
+
+  {showLegend && uniqueLines.length > 0 && (
+    <div class="chart-legend">
+      {uniqueLines.map(l => (
+        <span class="chart-leg">
+          <span class="chart-swatch" style={`background:${l.color}`} />
+          {l.label}
+        </span>
+      ))}
+    </div>
+  )}
+
+  <div class="lc-panels">
+    {panels.map((panel, pi) => {
+      const [yMin, yMax] = autoRange(panel);
+      const ticks = genTicks(yMin, yMax, panel.yTicks ?? 5);
+      const n = xLabels.length;
+      const panelXLabel = panel.xLabel ?? xLabelProp;
+      const maxTickChars = Math.max(...ticks.map(t => fmtValue(t).length));
+      const tickWidth = maxTickChars * 5.5;
+      const yLabelX = pad.left - tickWidth - 14;
+
+      return (
+        <div class="lc-panel" data-panel={pi}>
+          <svg viewBox={`0 0 ${W} ${H}`} class="lc-svg">
+            {panel.yLabel && (
+              <text
+                x={yLabelX} y={pad.top + plotH / 2}
+                text-anchor="middle"
+                transform={`rotate(-90, ${yLabelX}, ${pad.top + plotH / 2})`}
+                class="lc-axis-label"
+              >{panel.yLabel}</text>
+            )}
+
+            {ticks.map(t => {
+              const y = pad.top + (1 - (t - yMin) / (yMax - yMin || 1)) * plotH;
+              return (
+                <>
+                  <line x1={pad.left} x2={pad.left + plotW} y1={y} y2={y} class="lc-grid" />
+                  <text x={pad.left - 6} y={y + 3} text-anchor="end" class="lc-tick">{fmtValue(t)}</text>
+                </>
+              );
+            })}
+
+            {xLabels.map((label, i) => {
+              const x = pad.left + (i / Math.max(n - 1, 1)) * plotW;
+              return <text x={x} y={H - (panelXLabel ? 18 : 8)} text-anchor="middle" class="lc-tick">{label}</text>;
+            })}
+
+            {panelXLabel && (
+              <text x={pad.left + plotW / 2} y={H - 2} text-anchor="middle" class="lc-axis-label">{panelXLabel}</text>
+            )}
+
+            <line x1={pad.left} x2={pad.left + plotW} y1={pad.top + plotH} y2={pad.top + plotH} class="lc-axis" />
+            <line x1={pad.left} x2={pad.left} y1={pad.top} y2={pad.top + plotH} class="lc-axis" />
+
+            <defs>
+              <clipPath id={`${clipId}-${pi}`}>
+                <rect x={pad.left - 6} y={pad.top - 6} width={plotW + 12} height={plotH + 12} />
+              </clipPath>
+            </defs>
+
+            <g clip-path={`url(#${clipId}-${pi})`}>
+              {/* Panel-level band */}
+              {panel.band && (
+                <path d={buildBandPath(panel.band.upper, panel.band.lower, yMin, yMax)} fill={panel.band.color} />
+              )}
+
+              {panel.lines.map(line => (
+                <>
+                  {/* Per-line band */}
+                  {line.band && (
+                    <path d={buildBandPath(line.band.upper, line.band.lower, yMin, yMax)} fill={line.band.color} />
+                  )}
+
+                  <path
+                    d={buildPath(line.values, yMin, yMax)}
+                    fill="none"
+                    stroke={line.color}
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-dasharray={line.dash ? "6 4" : undefined}
+                    class="lc-line"
+                  />
+
+                  {showDots && line.values.map((v, i) => {
+                    const cx = pad.left + (i / Math.max(line.values.length - 1, 1)) * plotW;
+                    const cy = pad.top + (1 - (v - yMin) / (yMax - yMin || 1)) * plotH;
+                    return (
+                      <g class="lc-dot-group">
+                        <circle cx={cx} cy={cy} r={line.dotRadius ?? 4} fill={line.color} class="lc-dot" />
+                        <circle
+                          cx={cx} cy={cy} r={14}
+                          fill="transparent"
+                          class="lc-dot-hit"
+                          data-color={line.color}
+                          data-label={line.label ?? ''}
+                          data-x={xLabels[i]}
+                          data-value={fmtValue(v)}
+                        />
+                      </g>
+                    );
+                  })}
+                </>
+              ))}
+            </g>
+
+          </svg>
+        </div>
+      );
+    })}
+  </div>
+</ContentBlock>
+</div>
+
+<script>
+  import { observeCharts, createTooltip, attachTooltip } from '@utils/chart'
+
+  function initLineCharts() {
+    observeCharts(".lc");
+
+    document.querySelectorAll(".lc").forEach((chart) => {
+      const tooltip = createTooltip(chart);
+
+      chart.querySelectorAll<SVGCircleElement>('.lc-dot-hit').forEach((hit) => {
+        const dotGroup = hit.closest('.lc-dot-group') as SVGGElement;
+        const dot = dotGroup?.querySelector('.lc-dot') as SVGCircleElement;
+        const parentLine = dotGroup?.parentElement?.querySelector('.lc-line') as SVGPathElement;
+
+        const origR = dot?.getAttribute('r') || '4';
+
+        attachTooltip(hit, tooltip, {
+          onEnter() {
+            chart.classList.add('lc-has-hover');
+            if (parentLine) parentLine.classList.add('lc-line-active');
+            dotGroup?.parentElement?.querySelectorAll('.lc-dot-group').forEach(g => g.classList.add('lc-dot-active'));
+            if (dot) dot.setAttribute('r', '6');
+            const color = hit.dataset.color || 'var(--chart-muted)';
+            const label = hit.dataset.label || '';
+            const nameHtml = label ? `<span class="chart-tip-name">${label}</span>` : '';
+            return `<div class="chart-tip-title">${hit.dataset.x}</div>` +
+              `<div class="chart-tip-row"><span class="chart-tip-dot" style="background:${color}"></span>${nameHtml}<span class="chart-tip-val">${hit.dataset.value}</span></div>`;
+          },
+          onLeave() {
+            chart.classList.remove('lc-has-hover');
+            chart.querySelectorAll('.lc-line-active').forEach(el => el.classList.remove('lc-line-active'));
+            chart.querySelectorAll('.lc-dot-active').forEach(el => el.classList.remove('lc-dot-active'));
+            if (dot) dot.setAttribute('r', origR);
+          },
+        });
+      });
+    });
+  }
+  document.addEventListener("DOMContentLoaded", initLineCharts);
+  document.addEventListener("astro:after-swap", initLineCharts);
+</script>
+
+<style>
+  .lc {
+    padding: 1rem 0;
+  }
+
+  .lc-panels {
+    display: flex;
+    gap: 0;
+  }
+  .lc-panel {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .lc-svg {
+    width: 100%;
+    height: auto;
+  }
+
+  .lc-grid {
+    stroke: var(--chart-faint);
+    stroke-width: 0.5;
+    stroke-dasharray: 4 3;
+  }
+
+  .lc-axis {
+    stroke: var(--chart-faint);
+    stroke-width: 1;
+  }
+
+  .lc-tick {
+    font-size: 9px;
+    fill: var(--chart-muted);
+    font-family: inherit;
+  }
+
+  .lc-axis-label {
+    font-size: 9.5px;
+    fill: var(--chart-muted);
+    font-family: inherit;
+    font-weight: 500;
+  }
+
+  .lc-line {
+    transition: opacity 0.15s ease;
+  }
+  .lc-dot-group {
+    transition: opacity 0.15s ease;
+  }
+  .lc.lc-has-hover .lc-line { opacity: var(--chart-hover-dim); }
+  .lc.lc-has-hover .lc-dot-group { opacity: var(--chart-hover-dim); }
+  .lc.lc-has-hover .lc-line.lc-line-active { opacity: 1; }
+  .lc.lc-has-hover .lc-dot-group.lc-dot-active { opacity: 1; }
+
+  .lc-dot {
+    pointer-events: none;
+    transition: r 0.15s ease;
+  }
+  .lc-dot-hit {
+    cursor: pointer;
+  }
+
+</style>

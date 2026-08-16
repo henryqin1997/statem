@@ -1,0 +1,59 @@
+---
+/** Landing hero: project name, one-line claim, authors, and primary links. */
+
+import { Icon } from 'astro-icon/components'
+import { config } from '@/config'
+
+interface Props {
+  tagline: string
+  summary: string
+  authors: string[]
+  affiliation?: string
+}
+
+const { tagline, summary, authors, affiliation } = Astro.props
+
+const actions = [
+  { name: 'Paper', url: config.paper, icon: 'material-symbols:article' },
+  { name: 'GitHub', url: config.repo, icon: 'fa6-brands:github' },
+  { name: 'Benchmark submission', url: config.submission, icon: 'material-symbols:leaderboard' },
+]
+---
+
+<header class="mt-10 mb-8">
+  <div class="flex items-center gap-3">
+    <img src="/assets/logo.svg" alt="" width="40" height="40" class="w-10 h-10" />
+    <h1 class="text-4xl font-bold tracking-tight">StateM</h1>
+  </div>
+
+  <p class="mt-4 text-xl font-semibold leading-snug text-black/85 dark:text-white/85">
+    {tagline}
+  </p>
+
+  <p class="mt-3 text-base leading-relaxed text-black/65 dark:text-white/65">
+    {summary}
+  </p>
+
+  <p class="mt-4 text-sm text-black/50 dark:text-white/50">
+    {authors.map((author, i) => (
+      <><span class="whitespace-nowrap">{author}</span>{i < authors.length - 1 ? ", " : ""}</>
+    ))}
+    {affiliation && <span class="block mt-1">{affiliation}</span>}
+  </p>
+
+  <div class="mt-5 flex flex-wrap gap-2">
+    {actions.map((action) => (
+      <a
+        href={action.url}
+        target="_blank"
+        rel="noopener"
+        class="preserve-color inline-flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold
+               bg-[var(--btn-regular-bg)] hover:bg-[var(--btn-regular-bg-hover)]
+               active:bg-[var(--btn-regular-bg-active)] active:scale-95 transition"
+      >
+        <Icon name={action.icon} />
+        {action.name}
+      </a>
+    ))}
+  </div>
+</header>

@@ -1,0 +1,147 @@
+---
+/** <Tabs> <div data-label="Label">content</div> ... </Tabs>
+ *  Each child with data-label becomes a tab panel.
+ */
+
+---
+
+<div class="tabs-container">
+  <div class="tabs-header">
+    <div class="tabs-nav" role="tablist"></div>
+  </div>
+  <div class="tabs-body">
+    <slot />
+  </div>
+</div>
+
+<script>
+  function initTabs() {
+    document.querySelectorAll<HTMLDivElement>('.tabs-container').forEach((container) => {
+      if (container.dataset.init) return
+      container.dataset.init = 'true'
+
+      const nav = container.querySelector<HTMLDivElement>('.tabs-nav')!
+      const panels = container.querySelectorAll<HTMLDivElement>('.tabs-body > [data-label]')
+
+      if (panels.length === 0) return
+
+      panels.forEach((panel, i) => {
+        const label = panel.dataset.label || `Tab ${i + 1}`
+        panel.setAttribute('role', 'tabpanel')
+        panel.id = `tabpanel-${i}-${Math.random().toString(36).slice(2, 6)}`
+
+        const btn = document.createElement('button')
+        btn.className = 'tab-btn'
+        btn.textContent = label
+        btn.setAttribute('role', 'tab')
+        btn.setAttribute('aria-controls', panel.id)
+        btn.addEventListener('click', () => activate(i))
+        nav.appendChild(btn)
+      })
+
+      const buttons = nav.querySelectorAll<HTMLButtonElement>('.tab-btn')
+
+      nav.addEventListener('keydown', (e: KeyboardEvent) => {
+        const active = Array.from(buttons).findIndex((b) => b.classList.contains('active'))
+        let next = active
+        if (e.key === 'ArrowRight') next = (active + 1) % buttons.length
+        else if (e.key === 'ArrowLeft') next = (active - 1 + buttons.length) % buttons.length
+        else return
+        e.preventDefault()
+        activate(next)
+        buttons[next].focus()
+      })
+
+      function activate(index: number) {
+        buttons.forEach((btn, i) => {
+          const isActive = i === index
+          btn.classList.toggle('active', isActive)
+          btn.setAttribute('aria-selected', String(isActive))
+          btn.setAttribute('tabindex', isActive ? '0' : '-1')
+        })
+        panels.forEach((panel, i) => {
+          panel.hidden = i !== index
+        })
+      }
+
+      activate(0)
+    })
+  }
+
+  initTabs()
+  document.addEventListener('astro:after-swap', initTabs)
+</script>
+
+<style>
+  .tabs-container {
+    margin: 1.75rem 0;
+    border: 1.5px solid var(--line-divider);
+    border-radius: var(--radius-large);
+    overflow: hidden;
+  }
+
+  .tabs-header {
+    padding: 0 0.75rem;
+    border-bottom: 1.5px solid var(--line-divider);
+  }
+
+  .tabs-nav {
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tabs-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tabs-nav :global(.tab-btn) {
+    position: relative;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: inherit;
+    opacity: 0.4;
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+    outline: none;
+  }
+
+  .tabs-nav :global(.tab-btn:hover) {
+    opacity: 0.65;
+  }
+
+  .tabs-nav :global(.tab-btn:focus-visible) {
+    opacity: 0.65;
+    box-shadow: inset 0 -2px 0 var(--primary);
+  }
+
+  .tabs-nav :global(.tab-btn.active) {
+    opacity: 1;
+  }
+
+  .tabs-nav :global(.tab-btn.active::after) {
+    content: '';
+    position: absolute;
+    bottom: -1.5px;
+    left: 0.4rem;
+    right: 0.4rem;
+    height: 2.5px;
+    background: var(--primary);
+    border-radius: 2px;
+  }
+
+  .tabs-body {
+    padding: 0.75rem 1rem 0.25rem;
+  }
+
+  .tabs-body :global(p:first-child) {
+    margin-top: 0;
+  }
+
+  .tabs-body :global(p:last-child) {
+    margin-bottom: 0;
+  }
+</style>

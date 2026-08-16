@@ -1,0 +1,278 @@
+---
+title: Results
+description: Four empirical regimes on Terminal-Bench 2.1 and BusinessBench — fixed-model lift, frozen cross-generation transfer, adapted cross-provider transfer, and held-out task generalization — with the negative results and the disclosure that goes with them.
+kicker: Evidence
+date: 2026-08-11
+---
+
+## How to read these numbers
+
+Terminal-Bench 2.1 contains 89 tasks. We run five trials per task, so a full evaluation is 445
+trials, and the primary metric is trial-level success rate. We also report *five-trial task
+coverage*: the number of tasks solved at least once. Coverage is sometimes reported as Pass@5,
+but it measures empirical coverage over five observed trials — **it is not a measure of
+single-run reliability.**
+
+Rows labelled *reference* reproduce a published or public-submission result. Rows labelled with
+StateM are our runs. Unless stated otherwise, a StateM system is the base agent plus the generic
+runtime plus an identified control profile, and the numbers measure that combination — not the
+state-machine abstraction in isolation.
+
+The Terminal-Bench profile was developed with GPT-5.5. For the GPT-5.6 evaluations it is
+**frozen**: no prompt, state, routing, check catalog, default, or repair policy was revised
+using target-model outcomes.
+
+## Terminal-Bench 2.1
+
+<Table caption="System-level results and transfer regimes. The descriptive DeepSeek aggregate replaces only the five gpt2-codegolf trials with the disclosed extended-timeout evaluation.">
+
+| System | Profile status | Scope | Score |
+| :--- | :--- | :--- | :--- |
+| GPT-5.5 xhigh + Codex | Published reference | 445 trials | 83.1% |
+| **GPT-5.5 xhigh + StateM** | Our developed profile | 445 trials | **92.1%** — 88/89 coverage |
+| GPT-5.6 Sol xhigh + Codex | Published reference | 445 trials | 84.9% |
+| **GPT-5.6 Sol xhigh + StateM** | Frozen GPT profile, public submission | 445 trials | **95.28% raw** — 89/89 coverage |
+| GPT-5.6 Luna + Codex | Published reference | 445 trials | 76.7% |
+| **GPT-5.6 Luna + StateM** | Frozen GPT profile | 445 trials | **85.4%** |
+| DeepSeek-V4-Flash | Our baseline | Standard timeout | 82.7% |
+| DeepSeek-V4-Flash + StateM | Frozen GPT profile | Standard timeout | 82.0% |
+| **DeepSeek-V4-Flash + StateM** | Adapted profile | Standard timeout | **88.09%** (392/445) |
+| DeepSeek-V4-Flash + StateM | Adapted profile | 88-task common core | 89.09% (392/440) |
+| DeepSeek-V4-Flash + StateM | Adapted, descriptive aggregate | One extended-timeout task | 88.76% (395/445) |
+
+</Table>
+
+### Same model, better harness
+
+Holding the weights fixed isolates the harness. GPT-5.5 xhigh with StateM records 92.1% against
+the 83.1% reference — a nine-point difference that closes a model-generation-sized gap without
+changing the model. Across five trials it solves 88 of 89 tasks at least once.
+
+The gain persists on the stronger model: GPT-5.6 Sol xhigh with StateM records 424/445 = 95.28%
+raw, against the 84.9% reference, and solves every task at least once.
+
+Put those side by side with the generation shift itself. Under the reference harness,
+GPT-5.5 → GPT-5.6 Sol is worth 1.8 points. StateM is worth 9.0 points on GPT-5.5 and 10.4 points
+on GPT-5.6 Sol. In this setting the execution harness moves completed-task performance
+substantially more than the observed model-generation change.
+
+<Figure
+  invertOnDark={false}
+  frame
+  src="/assets/figures/terminal-bench-leaderboard.jpg"
+  caption="Terminal-Bench 2.1, official leaderboard entries from tbench.ai plus reported results. StateM configurations are the two dark-red bars."
+/>
+
+### Frozen transfer within a model family
+
+<Figure
+  invertOnDark={false}
+  frame
+  src="/assets/figures/cross-version-transfer.jpg"
+  width={0.8}
+  caption="The profile developed with GPT-5.5 transfers unchanged to GPT-5.6 Sol xhigh. It is frozen before any GPT-5.6 outcome is observed."
+/>
+
+With no GPT-5.6-specific change to its control logic, the same profile accompanies the 84.9% →
+95.28% Sol xhigh difference and raises GPT-5.6 Luna from 76.7% to 85.4% (+8.7). Luna with StateM
+therefore lands numerically above the 84.9% Sol xhigh reference while using the lower-cost model
+tier.
+
+Closely related GPT generations share enough recurring execution failures for the same
+executable profile to keep working. The transferred object here is concrete: states, activation
+policy, routing, checks, and repair structure, all unchanged. "Frozen transfer" means zero
+target-model runbook changes — not zero evaluation cost.
+
+### The provider boundary changes what transfers
+
+Applying the frozen GPT profile directly to DeepSeek-V4-Flash moves the full-suite score from
+82.7% to **82.0%**. Exact-profile transfer fails across the provider boundary. Because StateM
+preserves substantial autonomy in the base agent, provider-specific behavior stays consequential
+even with the task set and control interface held fixed.
+
+Adaptation does not start from scratch, though. The runtime, the high-level runbook structure,
+the routing strategy, the already-applicable controls, the failure-analysis loop, and the golden
+rules all carry over. Only the concrete practices need to be re-fitted to DeepSeek's residual
+failure distribution.
+
+### A \$15 frontier run
+
+After provider-specific adaptation, DeepSeek-V4-Flash reaches 392/445 = **88.09%** on the full
+89-task benchmark under standard timeouts, a 5.39-point gain over its 82.7% baseline. On the
+disclosed 88-task common core — excluding only the latency-sensitive `gpt2-codegolf` — the same
+392 successes give 89.09%.
+
+That remaining task is limited by the standard timeout rather than by solvability: it is 0/5
+under the standard timeout, but DeepSeek-V4-Flash with StateM solves it in 3 of 5 trials under
+an extended per-task timeout. Combining those disclosed trials with the common-core result gives
+a descriptive full-suite aggregate of 395/445 = 88.76%, which rounds to 88.8% and matches the
+separately reported GPT-5.6 Sol max score at one-decimal precision.
+
+<StatGrid
+  cols={3}
+  stats={[
+    { value: "\$15.20", label: "Final-score evidence", note: "Realized DeepSeek API charges for the reported result." },
+    { value: "\$37.02", label: "Provider adaptation", note: "All recorded API charges for profile development on DeepSeek." },
+    { value: "\$574.68", label: "Matched public GPT submission", note: "Reported model cost for the comparator artifact, which scores 83.37% raw." },
+  ]}
+/>
+
+The DeepSeek evidence uses 2.65% of the comparator's recorded cost — about 1/37.8 as much — and
+the entire \$52.22 adaptation-and-evaluation campaign uses roughly 1/11 of it. Exact controls did
+not survive the provider boundary, but the reusable structure and development method made
+adaptation cheap enough to move a low-cost model sharply up the quality–cost frontier.
+
+<Figure
+  invertOnDark={false}
+  frame
+  src="/assets/figures/cost-accuracy-frontier.png"
+  caption="Cost–accuracy tradeoff. The \$1,062.95 attached to the GPT-5.6 submission is the pipeline's API-equivalent model-cost estimate, not the authors' realized out-of-pocket spend under a Codex Pro plan."
+/>
+
+### Where the gains actually come from
+
+<Table caption="Representative task-level improvements for GPT-5.5, in successful trials out of five. The associated control is an association, not a component ablation.">
+
+| Task | Codex CLI | StateM | Δ | Associated control |
+| :--- | :---: | :---: | :---: | :--- |
+| `configure-git-webserver` | 0/5 | 5/5 | +5 | Service state and consumer-facing verification |
+| `dna-insert` | 0/5 | 5/5 | +5 | State-local biological and primer contract checks |
+| `dna-assembly` | 1/5 | 5/5 | +4 | Transition gate for primer, Tm, assembly invariants |
+| `filter-js-from-html` | 0/5 | 4/5 | +4 | Extraction boundary checks and negative controls |
+| `db-wal-recovery` | 2/5 | 5/5 | +3 | Preflight preservation before destructive consumers |
+| `protein-assembly` | 2/5 | 5/5 | +3 | Constraint checklist and self-review |
+| `pypi-server` | 3/5 | 5/5 | +2 | Service-lifetime and readiness gate |
+| `qemu-alpine-ssh` | 2/5 | 4/5 | +2 | Service readiness and repeated consumer check |
+| `extract-moves-from-video` | 0/5 | 2/5 | +2 | Candidate-first bounded refinement |
+| `sanitize-git-repo` | 4/5 | 5/5 | +1 | Modification-range verification |
+
+</Table>
+
+The gains cluster at consequential boundaries: service readiness before handoff, contract
+satisfaction before committing a transformation, preservation before destructive operations,
+evidence closure before completion.
+
+`configure-git-webserver` isolates the mechanism. The baseline agent can configure Git, SSH,
+hooks, and an HTTP server — and still scores 0/5, because it does not reliably preserve and
+validate the required end-to-end live state. With StateM, the final handoff is gated on fresh
+consumer-facing evidence: the agent must materialize a clone–commit–push–curl path before
+leaving verification, and if verification perturbs the environment the run stays in a repairable
+state until consistency is restored. **StateM adds no new component-level capability here.** It
+composes, checks, and closes capabilities the model already had, at the boundary where a
+recoverable error would otherwise have become final. The task moves from 0/5 to 5/5.
+
+## BusinessBench: generalization follows mechanism, not diversity
+
+BusinessBench tests transfer at the task-family level. We build one profile per treated family,
+refine it on development instances, and freeze it before the first held-out evaluation. The
+benchmark has 477 eligible instances across seven families; the protocol **abstains** from
+applying any workflow to `attendance-payroll`, so the treated set is 405 instances across six
+families.
+
+<Table caption="Frozen one-shot BusinessBench results with Codex + GPT-5.6 Luna. Attendance is excluded because no StateM workflow was applied.">
+
+| Scope / family | Codex CLI | StateM–Codex | Δ |
+| :--- | :---: | :---: | :---: |
+| Held-out, family macro | 84.67 | 85.22 | +0.55 |
+| Held-out, instance micro | 84.44 | 85.78 | +1.34 |
+| Development | 86.07 | 91.71 | +5.64 |
+| All StateM-treated | 84.76 | 88.72 | +3.96 |
+| *Budget Approval + Machine Operating, macro* | 71.91 | 81.94 | +10.04 |
+| `budget-approval` | 62.91 | 75.12 | +12.21 |
+| `machine-operating` | 90.79 | 100.00 | +9.21 |
+| `webarena` | 88.00 | 92.00 | +4.00 |
+| `webtest` | 98.25 | 98.75 | +0.50 |
+| `refactorbench` | 80.56 | 77.78 | −2.78 |
+| `woocommerce-stock` | 92.59 | 88.89 | −3.70 |
+
+</Table>
+
+The aggregate held-out gain is small: +0.55 macro, +1.34 micro. The interesting structure is
+underneath it. Two structurally matched families move a lot — Budget Approval and Machine
+Operating, whose combined held-out macro rises 10.04 points — and both are families where the
+workflow must preserve explicit constraints, intermediate state, and completion conditions
+across standardized tools.
+
+### Negative transfer identifies the wrong boundary
+
+Two families got worse. In neither case was the problem too little control; the control was
+attached to the wrong execution boundary.
+
+RefactorBench initially over-weighted minimality and backward compatibility while failing to
+close explicit code-migration obligations. A later, thinner profile tracks visible obligations,
+verifies required signature and call-shape changes, and performs one repository-wide
+stale-reference closure. WooCommerce's first profile had plenty of procedure but did not
+preserve the cross-system invariants governing inventory entities, destination-specific
+deduplication, irreversible email actions, and receipts.
+
+<Table caption="Post-evaluation diagnostic validation after selective refinement. These runs use aggregate evaluation feedback and are deliberately separated from the untouched one-shot evidence above.">
+
+| Scope | Prior arm | Refined StateM |
+| :--- | :---: | :---: |
+| `refactorbench`, overall | 76.39 | 79.17 |
+| `refactorbench`, development | 75.00 | 80.56 |
+| `refactorbench`, reused held-out | 77.78 | 77.78 |
+| `woocommerce-stock`, overall | 86.42 | 90.12 |
+| `woocommerce-stock`, reused held-out | 85.37 | 90.24 |
+| `webtest`, overall | 99.75 | 99.75 (saturated) |
+
+</Table>
+
+Across the seven families the pattern is consistent: **harness generalization follows mechanism
+match, not task diversity.** RefactorBench needs code-contract and stale-reference closure;
+WebArena needs query and page-state control; WebTest mostly needs a tool-execution boundary;
+WooCommerce needs entity, destination, and irreversible-side-effect invariants; and Attendance
+shows that abstention can be the correct control decision. A strong profile is not a maximal
+universal workflow — it binds the minimum invariants likely to drift and verifies them where a
+violation becomes consequential.
+
+## Operational endurance
+
+StateM was built for a requirement that benchmarks do not capture: a long-running agent has to
+keep its place and its obligations as the interaction grows. In one profile-development run the
+hyper-agent continued for **22 hours** across long interaction history, context refresh or
+compaction, and stop-hook continuation, with the durable record supplying the current phase,
+transition history, unresolved obligations, and recovery anchor throughout. The slowdown we
+observed came from accumulated unfolded terminal output in the interface, not from loss of
+control state. This sustains a day-scale loop; it does not imply unbounded execution.
+
+## Disclosure
+
+> [!WARNING]
+> **The 95.28% figure is raw, pre-adjudication accuracy** from a public Terminal-Bench 2.1
+> submission (PR #142) that has not been merged into the leaderboard. We agree that four
+> rewarded trajectories identified during review should not count; scoring those as zero gives
+> 420/445 = 94.38%. Scoring all nine trajectories currently flagged for possible reward hacking
+> as zero gives 415/445 = 93.26%. The submission passed ten automated configuration checks and
+> reports 1.178 billion tokens and \$1,062.95 in model cost. Evaluation status as of
+> August 11, 2026.
+
+A few more boundaries worth stating plainly:
+
+- **The Terminal-Bench profile is benchmark-adapted, and we say so.** It was evolved by
+  failure-driven optimization on this benchmark, under the golden rules described in the
+  [method](/method/). Two lessons it absorbed are arguably evaluator semantics rather than task
+  semantics — see *Memory has to be selective*.
+- **No component ablation.** The task-level table associates each gain with the control that was
+  active, which is an association, not an ablation. Reference rows are model-matched public
+  results, not agent-version-matched A/B controls rerun by us.
+- **Five-trial coverage is not reliability.** Solving every task at least once across five trials
+  says nothing about single-run success probability.
+- **Cost figures use different accounting.** Submission-reported model cost is not the authors'
+  realized out-of-pocket expenditure. The 88.8% Sol max score and the \$574.68 public submission
+  come from different evaluations; that submission reports 83.37% raw before adjudication and
+  76.18% after.
+- **BusinessBench caveats.** Family sizes are unequal and each instance has one stochastic
+  trajectory per arm. Only the first frozen held-out evaluation is untouched; everything labelled
+  post-evaluation used aggregate feedback.
+
+## What we take from this
+
+Model capability and execution reliability make separate contributions to system performance,
+and procedural control is hierarchical rather than universal: exact runbooks transfer across
+nearby models, development principles transfer across providers, and control-boundary
+abstractions transfer across tasks.
+
+None of this says model scaling has stopped mattering, or that one static runbook dominates
+every model and task. It says that in the settings studied here, the model was not the main
+bottleneck.

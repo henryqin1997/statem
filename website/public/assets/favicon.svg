@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="StateM">
+  <defs>
+    <linearGradient id="statem-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7b8cf0"/>
+      <stop offset="1" stop-color="#5566d8"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#statem-bg)"/>
+  <!-- source state -->
+  <circle cx="17" cy="32" r="7" fill="#fff"/>
+  <!-- checked transition: edge, gate, arrowhead -->
+  <path d="M26 32h20" stroke="#fff" stroke-width="3.2" stroke-linecap="round" opacity="0.95"/>
+  <path d="M36 24.5v15" stroke="#5566d8" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M43 26.5 48.5 32 43 37.5" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- target state -->
+  <circle cx="52" cy="32" r="4" fill="#fff" opacity="0.35"/>
+</svg>
