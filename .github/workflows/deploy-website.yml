@@ -1,0 +1,45 @@
+name: Deploy website
+
+# The site lives in website/ and is published to GitHub Pages from this branch.
+# Pages must be enabled first: repo Settings -> Pages -> Source: "GitHub Actions".
+# Until it is, the deploy job fails with "Get Pages site failed".
+on:
+  push:
+    branches: [website]
+    paths:
+      - 'website/**'
+      - '.github/workflows/deploy-website.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a running deploy finish; queue at most one more.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Astro site
+        uses: withastro/action@v3
+        with:
+          path: ./website
+          node-version: 22
+          package-manager: pnpm@10.6.5
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
