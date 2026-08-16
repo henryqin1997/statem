@@ -76,6 +76,11 @@ hook and check outcomes, and references to evidence files. After a crash, a cont
 a compaction, the agent asks the runtime where it is instead of re-deriving it from a terminal
 transcript.
 
+Hosts with a Stop hook can also opt into auto-loop behavior: when the agent tries to hand control
+back, the hook checks the active run and, if the current node still has outgoing transitions and
+is not a terminal handoff, returns the current phase and unmet obligations instead of stopping.
+The hook never advances state and never issues `/clear` or `/compact`.
+
 ### Not every check proves the same thing
 
 StateM makes the strength of each check explicit, because a structured field is not evidence by
@@ -92,7 +97,8 @@ itself:
 
 </Table>
 
-[Read the method in full →](/method/)
+[Read the method in full →](/method/) &nbsp; Install steps and the CLI reference are in the
+[repository](https://github.com/henryqin1997/statem).
 
 ## Results
 
@@ -134,60 +140,6 @@ Three findings are worth separating:
 />
 
 [See all results, including the negative ones →](/results/)
-
-## Quick start
-
-<Tabs>
-<div data-label="Install">
-
-```bash
-git clone https://github.com/henryqin1997/statem.git
-cd statem
-pip install -e .
-```
-
-Or run straight from a checkout without installing, using `python3 -m statem` in place of
-`statem` below.
-
-</div>
-<div data-label="Run a runbook">
-
-```bash
-# check the graph before trusting it
-statem validate examples/coding-agent.yaml --json
-
-# start a run
-statem start examples/coding-agent.yaml --run-id demo --json
-
-# where am I, and where may I go?
-statem cur --run-id demo
-statem next --run-id demo
-
-# move only through an allowed, checked edge
-statem goto plan --run-id demo
-```
-
-</div>
-<div data-label="Recover a run">
-
-```bash
-# durable history, compact enough to scan
-statem history --tail 10 --json
-
-# regenerate a recovery prompt if a hard /clear was unavoidable
-statem prompt --run-id demo
-
-# safe compaction for cyclic runbooks — model it as a node, not a reflex
-statem compact-prompt --run-id demo
-```
-
-</div>
-</Tabs>
-
-Hosts with a Stop hook can opt into auto-loop behavior: when the agent tries to hand control
-back, the hook checks the active run and, if the current node still has outgoing transitions and
-is not a terminal handoff, returns the current phase and unmet obligations instead of stopping.
-The hook never advances state and never issues `/clear` or `/compact`.
 
 ## What StateM does not do
 
