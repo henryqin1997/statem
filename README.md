@@ -255,6 +255,7 @@ Runbooks belong in version control. Runtime state does not. Add `.statem/` to `.
 | --- | --- |
 | Codex | [`plugins/statem/skills/statem/SKILL.md`](plugins/statem/skills/statem/SKILL.md) |
 | Claude Code | [`integrations/claude/statem/`](integrations/claude/statem/) |
+| Harbor / Terminal-Bench | [Executable `git_webserver_deploy` family guide](examples/terminal-bench-2.1-git-webserver-deploy-family.md) |
 | Stop-hook auto loop | [`examples/hooks/README.md`](examples/hooks/README.md) |
 
 StateM's core remains host-agnostic: any agent that can run shell commands can query and advance a runbook.
@@ -264,7 +265,8 @@ StateM's core remains host-agnostic: any agent that can run shell commands can q
 | Example | What it demonstrates |
 | --- | --- |
 | [`coding-agent.yaml`](examples/coding-agent.yaml) | Plan, execute, review, context refresh, and handoff |
-| [DeepSeek server-readiness runbook](examples/terminal-bench-2.1-deepseek-server-readiness-subset.yaml) · [guide](examples/terminal-bench-2.1-deepseek-server-readiness-subset.md) | Auditable single-family selection and receipt validation |
+| [`git_webserver_deploy` family](examples/terminal-bench-2.1-git-webserver-deploy-family.yaml) · [reproduction guide](examples/terminal-bench-2.1-git-webserver-deploy-family.md) | Executable single-family graph, task-visible routing, fixed end-to-end gate, and Harbor adapters |
+| [DeepSeek server-readiness policy extract](examples/terminal-bench-2.1-deepseek-server-readiness-subset.yaml) · [guide](examples/terminal-bench-2.1-deepseek-server-readiness-subset.md) | Auditable, non-executable policy boundary and receipt schema |
 
 For advanced guidance on evidence receipts, consumer-facing checks, adaptive verifier plans, freshness, recovery, and benchmark integrity, read the [verification guide](docs/verification-guide.md).
 

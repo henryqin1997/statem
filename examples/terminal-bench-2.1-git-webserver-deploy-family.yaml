@@ -1,0 +1,242 @@
+name: terminal-bench-2.1-git-webserver-deploy-family
+initial: direct_solve
+
+nodes:
+  direct_solve:
+    prompt: |
+      Solve the visible task normally. Do not inspect or execute the optional
+      family gate yet. Build the required Git server, deployment behavior, and
+      web service from the prompt and task-visible files.
+
+      Keep progress.md concise: visible contract, service and repository
+      identity, commands tried, checks run, current result, and remaining risk.
+      Prefer the task's own checks and direct public consumer commands.
+    in_hook:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py select --task /tmp/statem-verification-checks/task.txt --selection /tmp/statem-verification-checks/git-webserver-selection.json --quiet"
+      timeout: 5
+    before_transfer:
+      type: checklist
+      confirmation: none
+      items:
+        - A runnable candidate or concrete partial implementation exists
+        - progress.md records the visible contract and current service/repository identity
+        - Task-visible checks were run before optional family review practice was loaded
+  task_contract_check:
+    prompt: |
+      Check the current candidate against the visible task contract without
+      loading family-specific practice. Fill
+      /tmp/statem-verification-checks/task-contract-receipt.json.
+
+      Set source to agent. Set status to passed or failed. Record the current
+      artifact_or_service_identity, concrete checks, remaining_risk, and
+      next_action as self_review or repair. A configuration listing or open
+      port alone is not a complete consumer check.
+    in_hook:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py init-contract --contract /tmp/statem-verification-checks/task-contract-receipt.json"
+      timeout: 5
+    before_transfer:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py validate-contract --contract /tmp/statem-verification-checks/task-contract-receipt.json"
+      timeout: 10
+  self_review:
+    prompt: |
+      Perform one bounded reviewer pass over the current candidate. The entry
+      hook prints a family practice only when the visible task exactly matches
+      the immutable git_webserver_deploy route. Do not broaden that practice to
+      near-match service, repository, or HTTP tasks.
+
+      Fill /tmp/statem-verification-checks/self-review.json from concrete
+      current evidence. Review task_contract, evidence_freshness, edge_risk,
+      and, when present, consumer_path. Use clean only when no issue remains;
+      use issues_found with a concrete next_fix for repairable defects; use
+      needs_evidence when the selected fixed gate must resolve an evidence gap.
+      Under real handoff pressure, use deadline_handoff with mode
+      deadline_bounded and a specific residual_risk.
+    in_hook:
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py validate-selection --task /tmp/statem-verification-checks/task.txt --selection /tmp/statem-verification-checks/git-webserver-selection.json"
+        timeout: 5
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py init-review --task /tmp/statem-verification-checks/task.txt --selection /tmp/statem-verification-checks/git-webserver-selection.json --review /tmp/statem-verification-checks/self-review.json"
+        timeout: 5
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py render-practice --task /tmp/statem-verification-checks/task.txt --selection /tmp/statem-verification-checks/git-webserver-selection.json"
+        timeout: 5
+    before_transfer:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py validate-review --task /tmp/statem-verification-checks/task.txt --selection /tmp/statem-verification-checks/git-webserver-selection.json --review /tmp/statem-verification-checks/self-review.json"
+      timeout: 10
+  family_evidence_check:
+    prompt: |
+      Read /tmp/statem-verification-checks/git-webserver-receipt.json. The entry
+      hook has executed the fixed stateful gate once for this evidence-state
+      entry. It uses a fresh SSH clone, commit, push, HTTP body check, cleanup,
+      and post-check freshness observations.
+
+      If the receipt passed, do not rerun the stateful gate or make late
+      changes. If it failed, identify the concrete broken consumer-path link
+      from its short messages and move to repair. Do not substitute an open
+      port, process listing, direct web-root write, or prose claim for this gate.
+    in_hook:
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py validate-selection --task /tmp/statem-verification-checks/task.txt --selection /tmp/statem-verification-checks/git-webserver-selection.json"
+        timeout: 5
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py run-gate --task /tmp/statem-verification-checks/task.txt --selection /tmp/statem-verification-checks/git-webserver-selection.json --receipt /tmp/statem-verification-checks/git-webserver-receipt.json"
+        timeout: 120
+        on_failure: continue
+    before_transfer:
+      type: checklist
+      confirmation: none
+      items:
+        - The fixed family gate produced a passed or failed receipt for this evidence-state entry
+        - A failed receipt is routed to targeted repair rather than replaced by proxy evidence
+        - A passed receipt is preserved without late service or repository mutation
+  repair:
+    prompt: |
+      Apply the smallest non-destructive repair for the failed visible contract,
+      reviewer finding, or fixed gate receipt. Preserve working behavior and
+      diagnose which consumer-path link failed before changing it. Rollback is
+      available only when the candidate is irrecoverably destructive and a
+      known-good snapshot exists; it is not the default response to a failed
+      check. Return to task_contract_check after repair.
+    before_transfer:
+      type: checklist
+      confirmation: none
+      items:
+        - The failure was attributed to a concrete contract or consumer-path link
+        - A targeted repair was applied, or deadline residual risk was recorded
+        - Working behavior was not discarded without evidence that repair was unsafe
+  deadline_handoff:
+    prompt: |
+      Preserve the best runnable candidate under genuine deadline pressure.
+      Record the skipped review or family-gate evidence and specific residual
+      risk in progress.md, then move directly to handoff. Do not start new
+      stateful work in the deadline reserve.
+    in_hook:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py deadline --deadline /tmp/statem-verification-checks/deadline.json --handoff-due-or-expired"
+      timeout: 5
+  handoff:
+    prompt: |
+      Finish the benchmark task. Preserve the required final filesystem and
+      service state. Reply concisely from the recorded contract, review, and
+      family gate receipts; do not rerun a stateful gate during final handoff.
+    in_hook:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py deadline --deadline /tmp/statem-verification-checks/deadline.json"
+      timeout: 5
+
+edges:
+  - from: direct_solve
+    to: task_contract_check
+    condition: "A bounded candidate exists and its visible contract should be recorded."
+
+  - from: direct_solve
+    to: handoff
+    condition:
+      - type: message
+        text: "The deadline reserve has begun and progress.md records the best runnable candidate."
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py deadline --deadline /tmp/statem-verification-checks/deadline.json --heavy-work-closed-or-worse"
+        timeout: 5
+
+  - from: task_contract_check
+    to: repair
+    condition:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py contract-status --contract /tmp/statem-verification-checks/task-contract-receipt.json --status failed"
+      timeout: 5
+
+  - from: task_contract_check
+    to: self_review
+    condition:
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py contract-status --contract /tmp/statem-verification-checks/task-contract-receipt.json --status passed"
+        timeout: 5
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py deadline --deadline /tmp/statem-verification-checks/deadline.json --require-mode normal,heavy_work_closed --min-remaining 90"
+        timeout: 5
+
+  - from: task_contract_check
+    to: handoff
+    condition:
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py contract-status --contract /tmp/statem-verification-checks/task-contract-receipt.json --status passed"
+        timeout: 5
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py deadline --deadline /tmp/statem-verification-checks/deadline.json --handoff-due-or-expired"
+        timeout: 5
+
+  - from: self_review
+    to: repair
+    condition:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py review-status --task /tmp/statem-verification-checks/task.txt --selection /tmp/statem-verification-checks/git-webserver-selection.json --review /tmp/statem-verification-checks/self-review.json --target repair"
+      timeout: 10
+
+  - from: self_review
+    to: family_evidence_check
+    condition:
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py route --task /tmp/statem-verification-checks/task.txt --selection /tmp/statem-verification-checks/git-webserver-selection.json --target family_evidence"
+        timeout: 5
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py review-status --task /tmp/statem-verification-checks/task.txt --selection /tmp/statem-verification-checks/git-webserver-selection.json --review /tmp/statem-verification-checks/self-review.json --target family_evidence"
+        timeout: 10
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py deadline --deadline /tmp/statem-verification-checks/deadline.json --require-mode normal,heavy_work_closed --min-remaining 90"
+        timeout: 5
+
+  - from: self_review
+    to: handoff
+    condition:
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py route --task /tmp/statem-verification-checks/task.txt --selection /tmp/statem-verification-checks/git-webserver-selection.json --target handoff"
+        timeout: 5
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py review-status --task /tmp/statem-verification-checks/task.txt --selection /tmp/statem-verification-checks/git-webserver-selection.json --review /tmp/statem-verification-checks/self-review.json --target handoff"
+        timeout: 10
+
+  - from: self_review
+    to: deadline_handoff
+    condition:
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py review-status --task /tmp/statem-verification-checks/task.txt --selection /tmp/statem-verification-checks/git-webserver-selection.json --review /tmp/statem-verification-checks/self-review.json --target deadline_handoff"
+        timeout: 10
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py deadline --deadline /tmp/statem-verification-checks/deadline.json --handoff-due-or-expired"
+        timeout: 5
+
+  - from: deadline_handoff
+    to: handoff
+    condition: "Deadline residual risk is recorded and no new stateful work should start."
+
+  - from: family_evidence_check
+    to: handoff
+    condition:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py validate-receipt --task /tmp/statem-verification-checks/task.txt --selection /tmp/statem-verification-checks/git-webserver-selection.json --receipt /tmp/statem-verification-checks/git-webserver-receipt.json --max-age-seconds 900"
+      timeout: 15
+
+  - from: family_evidence_check
+    to: repair
+    condition:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py receipt-status --receipt /tmp/statem-verification-checks/git-webserver-receipt.json --status failed"
+      timeout: 5
+
+  - from: repair
+    to: task_contract_check
+    condition: "A targeted repair was applied and the visible contract should be checked again."
+
+  - from: repair
+    to: handoff
+    condition:
+      - type: message
+        text: "The deadline reserve has begun and progress.md records the best runnable candidate plus residual risk."
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/git_webserver_deploy_family.py deadline --deadline /tmp/statem-verification-checks/deadline.json --handoff-due-or-expired"
+        timeout: 5

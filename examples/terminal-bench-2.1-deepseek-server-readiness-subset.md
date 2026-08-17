@@ -15,6 +15,11 @@ It intentionally excludes every other DeepSeek route, selector, reviewer
 practice, task name, benchmark solution, provider setting, and credential. It
 is a policy extract, not a replacement for the generic StateM/Harbor harness.
 
+`configure-git-webserver` is not part of this lifecycle lens. Its contract is
+the separate `git_webserver_deploy` family. Use
+`terminal-bench-2.1-git-webserver-deploy-family.yaml` for the executable,
+externally reproducible single-family graph and fixed Git-push-to-HTTP gate.
+
 ## Files
 
 - `terminal-bench-2.1-deepseek-server-readiness-subset.yaml` is the auditable
