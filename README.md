@@ -1,376 +1,319 @@
-# statem
+# StateM
 
-`statem` is a command line state machine for agent long runs. It turns an
-execution graph into an agent-readable interactive runbook: the agent can inspect the
-current node, see allowed next states, run checks and hooks, save progress, and
-resume after changes. It provides state-aware soft/hard hooks to effectively
-direct the behavoir of agents in long run.
+<div align="center">
 
-It is an agent-native runbook, not a hard workflow harness. The goal is to keep
-smart agents oriented during long coding, research, and review loops without
-forcing every step into a large orchestration framework.
+**A command-line state machine for reliable, long-running AI agents.**
 
-## Why
+[![Project Page](https://img.shields.io/badge/Project-Page-4c6ef5)](https://henryqin1997.github.io/statem/)
+[![Paper](https://img.shields.io/badge/Paper-PDF-b31b1b)](https://henryqin1997.github.io/statem/statem-paper.pdf)
+[![Version](https://img.shields.io/badge/version-0.1.0-2ea44f)](https://github.com/henryqin1997/statem)
+[![Python](https://img.shields.io/badge/python-%E2%89%A53.11-3776ab)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-Prompt-only long runs drift. Recent context gets too much attention, old
-instructions fade, and agents lose track of what was already checked. Heavy
-graph orchestration frameworks aim to solve these, but they can also be awkward 
-to author, debug, and repair inside a live agent session.
+[![StateM demo](https://henryqin1997.github.io/media/statem/statem-demo-poster.jpg)](https://henryqin1997.github.io/media/statem/statem-demo.mp4)
 
-`statem` keeps the procedural state outside the model context:
+[Watch or download the 40-second demo](https://henryqin1997.github.io/media/statem/statem-demo.mp4)
 
-- static graph in a small spec file
-- runtime state in `.statem/`
-- durable history of transitions, checks, and hooks
-- explicit `goto` transitions instead of implicit "keep working" prompts
-- optional host Stop hook for auto-loop behavior
+</div>
 
-## Why Not Just Skills or LangGraph
+StateM turns an agent workflow into an inspectable graph of states, transitions, and executable checks. It keeps planning, execution, verification, repair, and handoff from collapsing into one long prompt.
 
-Skills and prompt files are excellent for reusable knowledge, conventions, and
-local procedures, but long workflows can still drift because the active phase of
-the work lives in the model context. In long server-side or production
-workflows, the agent may ask for clarification, leave the terminal blocked in
-the background, skip a late-stage check, or forget which step should happen
-next.
+## Overview
 
-Heavy graph frameworks solve a different problem. They can be powerful once a
-workflow is stable, but they are often expensive to author, debug, and revise
-while the agent is still discovering the real process.
+Long agent runs often fail for ordinary reasons: the original goal fades from attention, progress lives only in chat history, verification is postponed, or a new session cannot reconstruct what happened. StateM moves that procedural state out of the model context and into a lightweight, versioned runbook.
 
-`statem` is meant to sit in the middle:
+```text
+prepare -> execute -> verify -> handoff
+              ^          |
+              +-- repair-+
+```
 
-- setup is light enough that an agent can draft a runbook and a human can
-  review it in minutes
-- execution is explicit enough to keep an 11-step, multi-hour workflow from
-  drifting
-- blocked states can ask the human to unblock instead of silently hanging
-- learnings from the run can be written back into both skills and the runbook
-  by the same agent that performed the work
-- each revision improves the reusable workflow for future runs
+At every state, the agent can ask:
 
-This makes `statem` useful for developing coding, research,
-training, experiment-launch, and operational workflows. Once a workflow becomes
-stable enough to harden, the YAML runbook is also easy to map into a heavier
-LangGraph-style pipeline: nodes become graph states, edges become transitions,
-and hooks/checks become guards or actions. 
+- What should I do now?
+- Which transitions are legal?
+- What evidence is required before I move?
+- What happened earlier in this run?
 
-As a cli tool with codex/claude-code support, it can be easily interagted.
+The answer is stored in files and runtime history rather than relying on the model to remember everything.
 
+## Why StateM?
 
-## Install
+| Approach | Remembers phase | Blocks invalid transitions | Supports repair loops | Survives context refresh | Agent-editable |
+| --- | :---: | :---: | :---: | :---: | :---: |
+| Prompt-only workflow | Partial | No | Informal | No | Yes |
+| TODO list | Partial | No | Informal | Yes | Yes |
+| CI pipeline | Yes | Yes | Limited | Yes | Usually no |
+| General workflow engine | Yes | Yes | Yes | Yes | Rarely |
+| **StateM** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** |
 
-Clone repository:
+StateM is deliberately smaller than a workflow engine. It is a state-aware runbook that an agent can read, author, inspect, and repair from the command line.
+
+## Highlights
+
+- **Explicit phase boundaries** — model planning, implementation, review, recovery, and handoff as real states.
+- **Executable transition gates** — use checklists, commands, predicates, manual approval, and LLM review before leaving a state.
+- **Dynamic checks** — let an agent register task-specific checks for the current state entry without mutating the shared runbook.
+- **Durable runtime history** — persist the current node, transitions, hook results, evidence, timestamps, and spec identity.
+- **Context lifecycle support** — generate safe resume and compaction prompts for long cyclic runs.
+- **Zero runtime dependencies** — the core package requires only Python 3.11 or newer.
+
+## Installation
+
+Clone the repository and install it in editable mode:
 
 ```bash
 git clone https://github.com/henryqin1997/statem.git
 cd statem
+python3 -m pip install -e .
 ```
 
-From this repository:
-
-```bash
-pip install -e .
-```
-
-That installs the `statem` CLI command:
+Check the CLI:
 
 ```bash
 statem --help
 ```
 
-You can also run the same CLI without installing, which is useful during local
-development:
+## Quick start
+
+Validate and start the included coding-agent runbook:
 
 ```bash
-python3 -m statem --help
-```
-
-All examples below use `statem`. Replace it with `python3 -m statem` if you are
-running directly from a checkout without installing.
-
-## Quick Start
-
-Validate the example coding-agent runbook:
-
-```bash
-statem validate examples/coding-agent.yaml --json
-```
-
-Start a run:
-
-```bash
-statem start examples/coding-agent.yaml --run-id demo --json
-```
-
-Inspect current state:
-
-```bash
+statem validate examples/coding-agent.yaml
+statem start examples/coding-agent.yaml --run-id demo
 statem cur --run-id demo
 statem next --run-id demo
 ```
 
-Move only through allowed edges:
+Move only when the current state's checks pass:
 
 ```bash
 statem goto plan --run-id demo
+statem history --run-id demo
 ```
 
-Use `--yes` only when you intentionally want to auto-confirm manual checks and
-checklists:
+Runtime data defaults to `.statem/`. For durable machine-local state that survives disposable checkouts, place it outside the repository:
 
 ```bash
-statem goto plan --run-id demo --yes
+export STATEM_STATE_DIR="$HOME/.local/state/statem/my-project"
+statem start examples/coding-agent.yaml --run-id demo
 ```
 
-## CLI
-
-Common commands:
-
-- `statem start SPEC [--run-id ID]`: create or resume a run.
-- `statem cur [--json]`: show current node, prompt, hooks, and outgoing edges.
-- `statem state [--json]`: show the full runbook graph.
-- `statem next [--json]`: show allowed next states.
-- `statem goto TARGET`: move through a checked transition.
-- `statem save`: persist state and run the current node `out_hook`.
-- `statem history [--tail N] [--json]`: show transition and hook history.
-- `statem prompt`: print a durable post-`/clear` recovery prompt.
-- `statem compact-prompt`: print a safe `/compact` prompt for cyclic runbooks.
-- `statem validate SPEC`: validate graph shape and references.
-- `statem dynamic path|write|list`: manage current-entry dynamic checks.
-
-`statem transfer TARGET` is kept as an alias for `goto`.
-
-## Spec Fields
-
-Top-level fields:
-
-- `name`: runbook name.
-- `initial`: starting node.
-- `nodes`: mapping of node names to node definitions.
-- `edges`: list of directed transitions.
-
-Node fields:
-
-- `prompt`: instructions for the agent while in this state.
-- `in_hook`: setup after entering the node.
-- `before_transfer`: checks and redo gates before leaving the node.
-- `dynamic_before_transfer`: current-entry checks generated from the concrete task.
-- `out_hook`: persistence work before leaving the node.
-
-Edge fields:
-
-- `from`: source node.
-- `to`: target node.
-- `condition`: gate that decides whether transition is allowed.
-- `hook`: prepare-transfer work after `out_hook` and before entering target.
-
-Hook/check types:
-
-- `manual`: ask the agent to confirm yes/no.
-- `message`: show an instruction or reminder.
-- `checklist`: ask the agent to confirm multiple items.
-- `command`: run a shell command; exit code controls success.
-- `predicate`: check files or JSON state without shell.
-- `llm_review`: call another model, agent, or reviewer command.
-
-## Dynamic Before Transfer
-
-Nodes may define `dynamic_before_transfer` when the agent should generate
-custom exit checks from state-local research, component memory, architecture
-notes, or the final implementation approach.
+## A minimal runbook
 
 ```yaml
+name: implementation-loop
+initial: plan
+
 nodes:
+  plan:
+    prompt: |
+      Read the task and write a concrete implementation plan.
+    before_transfer:
+      type: checklist
+      items:
+        - Scope and constraints are recorded
+        - Verification steps are defined
+
   execute:
-    prompt: Execute the plan.
-    in_hook:
-      type: message
-      text: "Load component memory and write customized dynamic exit checks."
-    dynamic_before_transfer:
-      path: current_entry
-      required: true
-      min_items: 1
-      require_reason: true
-      require_basis: true
-      allow_types:
-        - manual
-        - predicate
-      stale_policy: require_confirmation
+    prompt: |
+      Implement the plan and keep the change scoped.
+    before_transfer:
+      - type: command
+        run: "python3 -m pytest -q"
+      - type: checklist
+        items:
+          - Relevant tests pass
+          - Unrelated files were not changed
+
+  handoff:
+    prompt: |
+      Summarize the change, verification, and remaining risks.
+
+edges:
+  - from: plan
+    to: execute
+    condition: The plan is ready.
+  - from: execute
+    to: plan
+    condition: Verification found a fixable gap.
+  - from: execute
+    to: handoff
+    condition: The implementation and verification are complete.
 ```
 
-Version 1 supports only `path: current_entry`. Each time a run enters a node,
-`statem` creates a new entry id and dynamic check directory:
-
-```text
-.statem/runs/<run-id>/nodes/<node>/<entry-id>/dynamic_before_transfer/
-  manifest.json
-  checks.<agent-id>.json
-```
-
-Use the CLI instead of hand-building paths:
+Save it as `runbook.yaml`, then run:
 
 ```bash
-statem dynamic path --run-id ID --json
-statem dynamic write checks.json --run-id ID --agent-id agent-a --agent-role executor --json
-statem dynamic list --run-id ID --json
+statem validate runbook.yaml
+statem start runbook.yaml --run-id my-run
+statem cur --run-id my-run
 ```
 
-The dynamic check file should normally use this shape:
+## How it works
 
-```json
-{
-  "basis": {
-    "implementation_summary": "Changed worker retry behavior after loading queue memory."
-  },
-  "checks": [
-    {
-      "type": "predicate",
-      "path": "tests/worker/test_retry_queue.py",
-      "exists": true,
-      "non_empty": true,
-      "reason": "Prior memory marks retry semantics as fragile."
-    }
-  ]
+StateM separates the shared workflow definition from per-run execution state:
+
+| Layer | Contents | Commit to git? |
+| --- | --- | --- |
+| Static runbook | Nodes, edges, prompts, hooks, gates | Yes |
+| Runtime state | Current node, history, results, timestamps | No |
+| Dynamic checks | Task-specific current-entry verification | No |
+| Durable project notes | Plans, decisions, progress, artifacts | Usually yes |
+
+A transition is a transaction:
+
+1. Resolve the requested outgoing edge.
+2. Run the current node's `before_transfer` checks.
+3. Load and run current-entry dynamic checks.
+4. Evaluate the edge's `condition`.
+5. Run the current node's `out_hook` and the edge `hook`.
+6. Record the transition, create a new target entry, and run the target node's `in_hook`.
+
+If a blocking check fails, the agent remains in the current state with the failure recorded for repair.
+
+## Runbook reference
+
+### Top-level fields
+
+| Field | Purpose |
+| --- | --- |
+| `name` | Human-readable graph name |
+| `initial` | Node entered when a new run starts |
+| `nodes` | Named state definitions |
+| `edges` | Directed transitions between states |
+
+### Node fields
+
+| Field | When it runs | Typical use |
+| --- | --- | --- |
+| `prompt` / `pre_request` | While the node is active | State-local instructions |
+| `in_hook` | After entering | Load context or initialize evidence |
+| `before_transfer` | Before leaving | Block on required verification |
+| `dynamic_before_transfer` | Before leaving | Run task-specific current-entry checks |
+| `out_hook` | Before the transition commits | Persist progress or handoff notes |
+
+### Check and hook types
+
+| Type | Behavior |
+| --- | --- |
+| `message` | Display non-blocking guidance |
+| `manual` | Ask for explicit confirmation |
+| `checklist` | Confirm a set of completion conditions |
+| `command` | Run a shell command and use its exit code |
+| `predicate` | Inspect files declaratively |
+| `llm_review` | Delegate a structured review to an external command/model |
+
+Checks can be configured with fields such as `blocking`, `on_failure`, `timeout`, and `cwd`. Prefer checks that exercise the same interface the task promises to its eventual consumer.
+
+## CLI at a glance
+
+| Command | Purpose |
+| --- | --- |
+| `statem start SPEC` | Create or resume a run |
+| `statem cur` | Show the current node and its prompt |
+| `statem state` | Show the full graph |
+| `statem ls NODE` | Inspect one node |
+| `statem next` | Show outgoing transitions |
+| `statem goto TARGET` | Attempt a checked transition |
+| `statem save` | Persist state and run the current `out_hook` |
+| `statem history` | Inspect prior transitions and results |
+| `statem prompt` | Generate a durable post-clear resume prompt |
+| `statem compact-prompt` | Generate a safe compaction prompt |
+| `statem validate SPEC` | Validate graph structure and references |
+| `statem dynamic ...` | Manage current-entry dynamic checks |
+
+Most commands accept `--run-id`, `--state-dir`, and `--json` for explicit run selection, isolated state, and machine-readable output.
+
+## Dynamic checks
+
+Static gates cover invariants known when the runbook is authored. Dynamic checks cover verification discovered during the concrete task—for example, a regression test for the exact bug just fixed.
+
+```bash
+statem dynamic path --run-id demo
+statem dynamic write checks.json --run-id demo --agent-id implementer
+statem dynamic list --run-id demo --json
+```
+
+Dynamic checks are scoped to the current node entry. StateM records who registered them and runs them before the transition is allowed to commit.
+
+## Context and recovery
+
+Long runs should keep durable facts in project files and use the model context for the current decision. StateM supports that split with:
+
+- `statem history` for the durable transition record;
+- `statem prompt` for restoring attention after a cleared session;
+- `statem compact-prompt` for safe compaction inside cyclic runbooks;
+- explicit recovery or session-refresh nodes when another loop should continue;
+- spec hashes and run identifiers to detect or deliberately rebind edited runbooks.
+
+Runbooks belong in version control. Runtime state does not. Add `.statem/` to `.gitignore` when using the default local state directory.
+
+## Integrations
+
+| Host / environment | Entry point |
+| --- | --- |
+| Codex | [`plugins/statem/skills/statem/SKILL.md`](plugins/statem/skills/statem/SKILL.md) |
+| Claude Code | [`integrations/claude/statem/`](integrations/claude/statem/) |
+| Stop-hook auto loop | [`examples/hooks/README.md`](examples/hooks/README.md) |
+
+StateM's core remains host-agnostic: any agent that can run shell commands can query and advance a runbook.
+
+## Examples
+
+| Example | What it demonstrates |
+| --- | --- |
+| [`coding-agent.yaml`](examples/coding-agent.yaml) | Plan, execute, review, context refresh, and handoff |
+
+For advanced guidance on evidence receipts, consumer-facing checks, adaptive verifier plans, freshness, recovery, and benchmark integrity, read the [verification guide](docs/verification-guide.md).
+
+## Evaluation snapshot
+
+The accompanying paper evaluates StateM as an execution harness on Terminal-Bench 2.1. These are system-level results, not claims about a new base model:
+
+| Configuration | Result | Operating condition |
+| --- | ---: | --- |
+| GPT-5.5 xhigh + StateM | 92.1% | 89 tasks, 445 trials; 88/89 five-trial coverage |
+| GPT-5.6 Sol xhigh + frozen StateM profile | 95.28% raw | 424/445 public-submission trials; 89/89 coverage |
+| DeepSeek-V4-Flash + adapted StateM profile | 88.09% | 392/445 under standard timeouts |
+| DeepSeek-V4-Flash + adapted StateM profile | 88.76% descriptive | 395/445, replacing one task with disclosed extended-timeout trials |
+
+The 95.28% value is the raw pre-adjudication public-submission score. The DeepSeek descriptive aggregate is reported separately from the standard-timeout result. See the [paper](https://henryqin1997.github.io/statem/statem-paper.pdf) for experimental protocol, references, costs, and limitations.
+
+## Project layout
+
+```text
+statem/                  Core state machine and CLI
+examples/                Runbooks and hook examples
+integrations/            Host adapters
+plugins/statem/          Codex skill packaging
+tests/                   Unit and integration tests
+design.md                Detailed runtime and schema design
+docs/verification-guide.md
+                        Advanced verification patterns
+```
+
+README media is served from the separate `henryqin1997.github.io` repository, so cloning or installing StateM does not download the demo video.
+
+## Where to go next
+
+1. Start with [`examples/coding-agent.yaml`](examples/coding-agent.yaml) and remove any states your workflow does not need.
+2. Read [`design.md`](design.md) when you need the full runtime, transition, hook, and recovery semantics.
+3. Add deterministic `before_transfer` checks at consequential boundaries.
+4. Use dynamic checks only when the concrete task reveals a verification need the shared runbook could not know in advance.
+5. Keep large outputs and durable decisions in files; keep the active model context focused on the current state.
+
+## Citation
+
+```bibtex
+@article{qin2026statem,
+  title  = {StateM: Reaching 95.3\% Raw Accuracy, or a \$15 Frontier Run,
+            on Terminal-Bench 2.1 via Harness Scaling},
+  author = {Qin, Ziheng and Lu, Yaxin and Wang, Zhangyang and Wang, Kai},
+  year   = {2026}
 }
 ```
 
-`goto` reloads the current entry's latest dynamic checks on every attempt. If a
-dynamic check fails, the run stays at the same node and entry id; the agent can
-revise the implementation and overwrite its `checks.<agent-id>.json`. Every
-attempt records the loaded check snapshot in history, so overwritten files do
-not erase what actually ran.
-
-## Transition Order
-
-`statem goto TARGET` runs a transaction:
-
-1. Resolve the current node and target edge.
-2. Run current node `before_transfer`.
-3. Load and run current node `dynamic_before_transfer`, if configured.
-4. Run edge `condition`.
-5. If a blocking check fails, stay at the current node.
-6. Run current node `out_hook`.
-7. Run edge `hook`.
-8. If a blocking transfer hook fails, stay at the source node.
-9. Persist `current = TARGET` and create the target node entry id.
-10. Run target node `in_hook`.
-11. Record history.
-
-This makes retry behavior simple: fix the failed check, then rerun `goto`.
-When `--json` is used and a transition is blocked, the error payload includes a
-`details.results` list with the failed checklist, command, predicate, or review
-output.
-
-## Runtime State
-
-Runtime state is separate from the static spec and lives under `.statem/`.
-
-The Git model is:
-
-- Commit YAML runbooks such as `statem.yaml` or `examples/*.yaml`.
-- Do not commit runtime state; `.statem/` is ignored by this repo.
-- Treat runtime state as local, copy-on-use execution data for one machine,
-  agent, and run id.
-
-Each run has its own id and state file, so multiple agents can use the same
-runbook without sharing a current pointer. Graph edits are handled on restart:
-if the current node still exists, `statem start` resumes it and reruns its
-`in_hook`; if the node was removed, it moves to `initial` and logs the
-migration.
-
-For dynamic servers, company machines, or worktrees that are frequently deleted
-and checked out again, keep runtime state outside the repo:
-
-```bash
-export STATEM_STATE_DIR="${HOME}/.local/state/statem/my-project"
-```
-
-`--state-dir` still overrides the environment for one command. When using a
-machine-local state directory across checkouts, run `statem start SPEC --run-id
-ID` in the new checkout once to rebind the run to the current spec path before
-calling `statem cur`.
-
-## Context Hygiene
-
-Avoid `/clear` in normal loops. It flushes the conversation, including any
-instruction that was supposed to happen after it. Prefer explicit state
-transitions plus safe compaction.
-
-For cyclic runbooks, model context cleanup as a normal node, usually after a
-full review pass. Use:
-
-```bash
-statem compact-prompt --run-id ID
-```
-
-The generated `/compact` instruction pins the current run id and tells the host
-to ignore older statem run ids or stale commands from prior chat context.
-
-If a hard clear is truly necessary, first generate a recovery prompt:
-
-```bash
-statem prompt --run-id ID
-```
-
-Paste that generated prompt immediately after `/clear` so the next context can
-recover from `.statem`.
-
-For handoffs, use `statem history --tail 10 --json` to keep the recent run
-history compact enough for an agent or user to scan.
-
-## Auto Loop Hook
-
-Hosts with Stop hooks can opt into auto-loop behavior. The included adapter
-checks the active `.statem` run when the agent is about to hand control back to
-the user. If the current node still has outgoing transitions and is not a
-terminal handoff node, it asks the host to continue with a prompt that tells the
-agent to inspect `statem cur` and keep working from the current state.
-
-Files:
-
-- `integrations/hooks/statem_stop_hook.py`
-- `examples/hooks/README.md`
-- `examples/hooks/codex-stop-autoloop.hooks.json`
-- `examples/hooks/claude-stop-autoloop.settings.json`
-
-The hook does not advance state, run `/clear`, or run `/compact`. It only nudges
-the agent back into the explicit runbook.
-
-## Codex And Claude
-
-This repository includes local integration scaffolding:
-
-- Codex plugin skill: `plugins/statem/skills/statem/SKILL.md`
-- Claude Code skill/plugin: `integrations/claude/statem/`
-
-These integrations teach the host agent when to use `statem`, how to transition
-safely, and how to avoid context-clearing footguns.
-
-## Example
-
-The main example is:
-
-```text
-examples/coding-agent.yaml
-```
-
-It models a coding loop:
-
-```text
-start -> plan -> execute -> review -> handoff
-                         \-> execute
-                         \-> session_refresh -> plan
-```
-
-Use it as a starting template for coding agents that need planning, execution,
-review, optional compaction, and explicit handoff.
-
-## Design Notes
-
-See `design.md` for the full rationale, hook semantics, transaction details,
-graph migration behavior, and future design considerations.
-
 ## License
 
-Apache License 2.0. See `LICENSE`.
+StateM is released under the [Apache License 2.0](LICENSE).
