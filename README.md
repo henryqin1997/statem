@@ -313,7 +313,8 @@ README media is served from the separate `henryqin1997.github.io` repository, so
   year   = {2026}
 }
 ```
-
+## Acknowledge
+We thank Zekai Li and Mengxuan Wu for discussions and feedback on this work.
 ## License
 
 StateM is released under the [Apache License 2.0](LICENSE).
