@@ -1,0 +1,47 @@
+schema_version: 1
+name: terminal-bench-2.1-deepseek-server-readiness-subset
+benchmark: terminal-bench/terminal-bench@2.1
+policy_version: 9
+family: server_readiness
+
+runtime:
+  selection_path: /tmp/statem-verification-checks/deepseek-review-selection.json
+  receipt_path: /tmp/statem-verification-checks/deepseek-contract-receipt.json
+  validator_path: /tmp/statem-verification-checks/deepseek-gpt55-review-overlay.py
+
+selection:
+  selection_basis: task_visible_contract
+  applies_in_state: self_review
+  require_all_groups:
+    - name: service
+      any_regex: ["\\b(?:server|service|daemon|virtual machine|vm|qemu)\\b"]
+    - name: public_client
+      any_regex: ["\\b(?:port|connect|client|http|https|ssh|telnet|pip install|rpc|socket)\\b"]
+    - name: persistence
+      any_regex: ["\\b(?:leave it running|left running|block until .*ready)\\b", "\\bkeep (?:it|the (?:server|service|daemon|vm|virtual machine)) running\\b", "\\b(?:run|start|launch|leave)\\b[^.\\n]{0,80}\\bin (?:the )?background\\b", "\\b(?:server|service|daemon|vm|virtual machine)\\b[^.\\n]{0,80}\\b(?:remain|stay) running\\b", "\\bqemu\\b", "\\bpip install\\b[^.\\n]{0,120}\\b(?:index-url|server|localhost|port)\\b", "\\b(?:index-url|server|localhost|port)\\b[^.\\n]{0,120}\\bpip install\\b"]
+
+lens:
+  id: service_lifecycle_readiness
+  instruction: "Separate launch, durable lifetime, protocol readiness, and useful behavior. After setup clients and bootstrap work are gone, confirm the intended detached process identity is alive and one fresh external client completes the exact public-protocol round trip, including the required response or side effect. An open port, cached response, or startup log alone is not readiness."
+  limits:
+    - one bounded countercheck only
+    - do not alter a passing candidate without concrete contradictory evidence
+    - skip optional work when the deadline says handoff is due
+  receipt:
+    required_fields:
+      - status
+      - process_identity
+      - parent_identity
+      - session_identity
+      - detached_from_agent_session
+      - fresh_client_command
+      - fresh_client_result
+    required_values:
+      status: passed
+      detached_from_agent_session: true
+
+non_match:
+  selection_basis: no_high_confidence_visible_contract_match
+  applies_in_state: self_review
+  limits:
+    - keep the frozen GPT-5.5 runbook unchanged

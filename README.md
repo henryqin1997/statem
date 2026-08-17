@@ -264,6 +264,7 @@ StateM's core remains host-agnostic: any agent that can run shell commands can q
 | Example | What it demonstrates |
 | --- | --- |
 | [`coding-agent.yaml`](examples/coding-agent.yaml) | Plan, execute, review, context refresh, and handoff |
+| [DeepSeek server-readiness runbook](examples/terminal-bench-2.1-deepseek-server-readiness-subset.yaml) · [guide](examples/terminal-bench-2.1-deepseek-server-readiness-subset.md) | Auditable single-family selection and receipt validation |
 
 For advanced guidance on evidence receipts, consumer-facing checks, adaptive verifier plans, freshness, recovery, and benchmark integrity, read the [verification guide](docs/verification-guide.md).
 
