@@ -10,7 +10,7 @@
 [![Python](https://img.shields.io/badge/python-%E2%89%A53.11-3776ab)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-[![StateM demo](https://henryqin1997.github.io/media/statem/statem-demo-poster.jpg)](https://henryqin1997.github.io/media/statem/statem-demo.mp4)
+[![StateM demo](https://henryqin1997.github.io/media/statem/statem-demo-poster-v2.jpg)](https://henryqin1997.github.io/media/statem/statem-demo.mp4)
 
 [Watch or download the 40-second demo](https://henryqin1997.github.io/media/statem/statem-demo.mp4)
 
