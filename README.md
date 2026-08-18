@@ -250,6 +250,24 @@ Long runs should keep durable facts in project files and use the model context f
 
 Runbooks belong in version control. Runtime state does not. Add `.statem/` to `.gitignore` when using the default local state directory.
 
+## Till-finish mode (optional)
+
+StateM works without a host hook. To keep an agent moving after it would
+otherwise end its turn, register the optional `Stop` hook as a till-finish
+mode. When an active run is still on a non-terminal node with outgoing
+transitions, the hook returns a continuation prompt that tells the agent to
+inspect StateM and continue from the durable state.
+
+1. Start the run normally with `statem start`.
+2. For Codex, merge [`codex-stop-autoloop.hooks.json`](examples/hooks/codex-stop-autoloop.hooks.json) into `.codex/hooks.json` or `~/.codex/hooks.json`.
+3. For Claude Code, merge [`claude-stop-autoloop.settings.json`](examples/hooks/claude-stop-autoloop.settings.json) into a project or user settings file.
+4. If the hook runs outside this repository, replace its command with the absolute path to `integrations/hooks/statem_stop_hook.py`. Set `STATEM_STATE_DIR` too when the run does not use the default `.statem/` directory.
+
+The hook does not advance StateM by itself, bypass transition checks, run
+`/clear`, or run `/compact`. It allows the host to stop when no active run
+exists, the current state is terminal, or the graph has no outgoing
+transition. See the [complete setup and behavior reference](examples/hooks/README.md).
+
 ## Integrations
 
 | Host / environment | Entry point |
@@ -257,7 +275,7 @@ Runbooks belong in version control. Runtime state does not. Add `.statem/` to `.
 | Codex | [`plugins/statem/skills/statem/SKILL.md`](plugins/statem/skills/statem/SKILL.md) |
 | Claude Code | [`integrations/claude/statem/`](integrations/claude/statem/) |
 | Harbor / Terminal-Bench | [Executable `git_webserver_deploy` family guide](examples/terminal-bench-2.1-git-webserver-deploy-family.md) |
-| Stop-hook auto loop | [`examples/hooks/README.md`](examples/hooks/README.md) |
+| Till-finish Stop hook | [`examples/hooks/README.md`](examples/hooks/README.md) |
 
 StateM's core remains host-agnostic: any agent that can run shell commands can query and advance a runbook.
 
