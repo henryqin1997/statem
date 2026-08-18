@@ -145,6 +145,185 @@ edges:
             self.run_statem("save", "--run-id", "run1", "--state-dir", str(state_dir), "--json")
             self.assertTrue((root / "saved.txt").exists())
 
+    def test_optional_edge_max_attempts_bounds_only_configured_edges(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            limited_spec = root / "limited.yaml"
+            unlimited_spec = root / "unlimited.yaml"
+            state_dir = root / ".statem"
+            template = """
+name: attempt-limit
+initial: start
+nodes:
+  start:
+    before_transfer:
+      type: predicate
+      path: ready.txt
+      exists: true
+  done: Done.
+edges:
+  - from: start
+    to: done
+{limit}
+""".strip()
+            limited_spec.write_text(template.format(limit="    max_attempts: 2") + "\n", encoding="utf-8")
+            unlimited_spec.write_text(template.format(limit="") + "\n", encoding="utf-8")
+
+            validated = json.loads(self.run_statem("validate", str(limited_spec), "--json").stdout)
+            self.assertEqual(validated["edges"][0]["max_attempts"], 2)
+            self.run_statem(
+                "start",
+                str(limited_spec),
+                "--run-id",
+                "limited",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+            )
+            for attempt in (1, 2):
+                blocked = self.run_statem(
+                    "goto",
+                    "done",
+                    "--run-id",
+                    "limited",
+                    "--state-dir",
+                    str(state_dir),
+                    "--json",
+                    check=False,
+                )
+                self.assertEqual(blocked.returncode, 2)
+                details = json.loads(blocked.stdout)["details"]
+                self.assertEqual(details["stage"], "before_transfer")
+                self.assertEqual(details["attempt"], attempt)
+                self.assertEqual(details["max_attempts"], 2)
+                self.assertEqual(details["attempts_remaining"], 2 - attempt)
+
+            exhausted = self.run_statem(
+                "goto",
+                "done",
+                "--run-id",
+                "limited",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+                check=False,
+            )
+            self.assertEqual(exhausted.returncode, 2)
+            exhausted_details = json.loads(exhausted.stdout)["details"]
+            self.assertEqual(exhausted_details["stage"], "max_attempts")
+            self.assertEqual(exhausted_details["attempts_used"], 2)
+            self.assertEqual(exhausted_details["results"], [])
+
+            self.run_statem(
+                "start",
+                str(unlimited_spec),
+                "--run-id",
+                "unlimited",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+            )
+            for _ in range(3):
+                blocked = self.run_statem(
+                    "goto",
+                    "done",
+                    "--run-id",
+                    "unlimited",
+                    "--state-dir",
+                    str(state_dir),
+                    "--json",
+                    check=False,
+                )
+                self.assertEqual(blocked.returncode, 2)
+                details = json.loads(blocked.stdout)["details"]
+                self.assertEqual(details["stage"], "before_transfer")
+                self.assertNotIn("max_attempts", details)
+
+    def test_edge_max_attempts_must_be_a_positive_integer(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            for index, value in enumerate(("0", "-1", "true", '"2"'), start=1):
+                spec = root / f"invalid-{index}.yaml"
+                spec.write_text(
+                    f"""
+name: invalid-attempt-limit
+initial: start
+nodes:
+  start: Start.
+  done: Done.
+edges:
+  - from: start
+    to: done
+    max_attempts: {value}
+""".strip()
+                    + "\n",
+                    encoding="utf-8",
+                )
+                rejected = self.run_statem("validate", str(spec), "--json", check=False)
+                self.assertEqual(rejected.returncode, 1)
+                self.assertIn("max_attempts must be a positive integer", json.loads(rejected.stdout)["error"])
+
+    def test_validate_strict_rejects_unknown_and_misplaced_keywords(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            spec = root / "strict-keywords.yaml"
+            spec.write_text(
+                """
+namme: strict-keywords
+initial: start
+nodes:
+  start:
+    prompt: Start.
+    before_transfr:
+      type: predicate
+      path: ready.txt
+    dynamic_before_transfer:
+      required: false
+      min_itemz: 0
+    next:
+      - to: done
+        max_atempts: 2
+        condition:
+          type: command
+          run: "true"
+          timout: 1
+  done: Done.
+  finish: Finish.
+edges:
+  - from: done
+    to: finish
+    before_transfer:
+      type: predicate
+      path: misplaced.txt
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            permissive = self.run_statem("validate", str(spec), "--json")
+            self.assertTrue(json.loads(permissive.stdout)["ok"])
+
+            strict = self.run_statem("validate", str(spec), "--strict", "--json", check=False)
+            self.assertEqual(strict.returncode, 1)
+            error = json.loads(strict.stdout)["error"]
+            for keyword in (
+                "namme",
+                "before_transfr",
+                "min_itemz",
+                "max_atempts",
+                "before_transfer",
+                "timout",
+            ):
+                self.assertIn(keyword, error)
+            self.assertIn("did you mean 'before_transfer'?", error)
+            self.assertIn("did you mean 'max_attempts'?", error)
+
+    def test_validate_strict_accepts_supported_nested_keywords(self) -> None:
+        validated = self.run_statem("validate", "examples/coding-agent.yaml", "--strict", "--json")
+        payload = json.loads(validated.stdout)
+        self.assertTrue(payload["ok"])
+        self.assertTrue(payload["strict"])
+
     def test_state_dir_can_come_from_environment(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

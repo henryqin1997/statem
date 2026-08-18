@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import difflib
 import hashlib
 import json
 import os
@@ -33,6 +34,79 @@ GATING_PURPOSES = {"condition", "before_transfer", DYNAMIC_PURPOSE}
 HOOK_KEYS = {"in_hook", "before_transfer", "out_hook", "condition", "hook"}
 CHECK_TYPES = {"message", "manual", "checklist", "command", "predicate", "llm_review"}
 
+STRICT_ROOT_KEYS = {"name", "initial", "start", "nodes", "edges"}
+STRICT_NODE_KEYS = {
+    "name",
+    "prompt",
+    "pre_request",
+    "pre-request",
+    "next",
+    "next_states",
+    "in_hook",
+    "before_transfer",
+    DYNAMIC_PURPOSE,
+    "out_hook",
+}
+STRICT_EDGE_KEYS = {
+    "from",
+    "source",
+    "node1",
+    "to",
+    "target",
+    "node2",
+    "condition",
+    "hook",
+    "max_attempts",
+}
+STRICT_NESTED_EDGE_KEYS = {"to", "target", "name", "condition", "hook", "max_attempts"}
+STRICT_DYNAMIC_CONFIG_KEYS = {
+    "path",
+    "required",
+    "min_items",
+    "require_reason",
+    "require_basis",
+    "merge",
+    "refresh",
+    "stale_policy",
+    "allow_types",
+}
+STRICT_CHECK_COMMON_KEYS = {"type", "blocking", "on_failure"}
+STRICT_CHECK_KEYS = {
+    "message": STRICT_CHECK_COMMON_KEYS | {"text", "prompt"},
+    "manual": STRICT_CHECK_COMMON_KEYS | {"prompt", "text", "name", "confirmation", "confirm"},
+    "checklist": STRICT_CHECK_COMMON_KEYS | {"items", "checks", "confirmation", "confirm"},
+    "command": STRICT_CHECK_COMMON_KEYS | {"run", "cmd", "command", "timeout", "cwd"},
+    "predicate": STRICT_CHECK_COMMON_KEYS
+    | {
+        "path",
+        "cwd",
+        "exists",
+        "non_empty",
+        "contains",
+        "not_contains",
+        "matches",
+        "json_path",
+        "equals",
+        "one_of",
+    },
+    "llm_review": STRICT_CHECK_COMMON_KEYS
+    | {
+        "run",
+        "cmd",
+        "command",
+        "prompt",
+        "text",
+        "name",
+        "timeout",
+        "cwd",
+        "stdin",
+        "accept_contains",
+        "reject_contains",
+        "accept_regex",
+        "reject_regex",
+    },
+}
+
 
 @dataclass
 class RunOptions:
@@ -60,12 +134,16 @@ class StatemSpec:
     spec_hash: str
 
     @classmethod
-    def load(cls, path: str | os.PathLike[str]) -> "StatemSpec":
+    def load(cls, path: str | os.PathLike[str], *, strict: bool = False) -> "StatemSpec":
         spec_path = Path(path).expanduser().resolve()
         if not spec_path.exists():
             raise StatemError(f"Spec file not found: {spec_path}")
         text = spec_path.read_text(encoding="utf-8")
         raw = _load_mapping(text, spec_path)
+        if strict:
+            strict_errors = _strict_keyword_errors(raw)
+            if strict_errors:
+                raise StatemError("Invalid spec:\n" + "\n".join(f"- {error}" for error in strict_errors))
         name = str(raw.get("name") or spec_path.stem)
         nodes = _normalize_nodes(raw.get("nodes"))
         if not nodes:
@@ -107,6 +185,7 @@ class StatemSpec:
             if edge_key in seen_edges:
                 errors.append(f"duplicate edge '{source}' -> '{target}' makes goto ambiguous")
             seen_edges.add(edge_key)
+            errors.extend(_validate_edge_max_attempts(edge, f"edge {source}->{target}"))
             errors.extend(_validate_items(edge.get("condition"), "condition", f"edge {source}->{target} condition"))
             errors.extend(_validate_items(edge.get("hook"), "hook", f"edge {source}->{target} hook"))
 
@@ -286,6 +365,7 @@ class StatemRuntime:
             raise StatemError(f"Cannot goto '{target}' from '{source}'. Allowed next states: {allowed}")
 
         self._ensure_current_entry(spec, state)
+        attempt_details = self._begin_edge_attempt(state, source, target, edge)
         before_results = self._run_node_items(spec, state, source, "before_transfer")
         dynamic_payload = self._run_dynamic_before_transfer(spec, state, source, target)
         dynamic_results = dynamic_payload["results"]
@@ -294,6 +374,8 @@ class StatemRuntime:
         if _has_blocking_failure(pre_results):
             stage = DYNAMIC_PURPOSE if _has_blocking_failure(dynamic_results) else "before_transfer"
             details = _block_details(state, source, target, stage, pre_results)
+            if attempt_details:
+                details.update(attempt_details)
             if dynamic_payload:
                 details[DYNAMIC_PURPOSE] = dynamic_payload
             _append_event(
@@ -312,6 +394,8 @@ class StatemRuntime:
         side_effect_results = out_results + edge_hook_results
         if _has_blocking_failure(side_effect_results):
             details = _block_details(state, source, target, "out_hook", side_effect_results)
+            if attempt_details:
+                details.update(attempt_details)
             _append_event(
                 state,
                 "goto_blocked",
@@ -329,33 +413,89 @@ class StatemRuntime:
         self._write_state(state)
         in_results = self._run_node_items(spec, state, target, "in_hook")
         all_results = pre_results + side_effect_results + in_results
-        _append_event(
-            state,
-            "goto",
-            {
-                "from": source,
-                "to": target,
-                "before_transfer": before_results,
-                "dynamic_before_transfer": dynamic_payload,
-                "condition": condition_results,
-                "out_hook": out_results,
-                "edge_hook": edge_hook_results,
-                "in_hook": in_results,
-            },
-        )
+        event_payload = {
+            "from": source,
+            "to": target,
+            "before_transfer": before_results,
+            "dynamic_before_transfer": dynamic_payload,
+            "condition": condition_results,
+            "out_hook": out_results,
+            "edge_hook": edge_hook_results,
+            "in_hook": in_results,
+        }
+        if attempt_details:
+            event_payload.update(attempt_details)
+        _append_event(state, "goto", event_payload)
         self._write_state(state)
+        in_details = _block_details(state, source, target, "in_hook", in_results)
+        if attempt_details:
+            in_details.update(attempt_details)
         _raise_if_blocked(
             in_results,
             f"Entered '{target}', but in_hook failed",
-            details=_block_details(state, source, target, "in_hook", in_results),
+            details=in_details,
         )
-        return {
+        payload = {
             "run_id": state["run_id"],
             "from": source,
             "to": target,
             "current": target,
             "current_entry_id": state.get("current_entry_id"),
             "results": all_results,
+        }
+        if attempt_details:
+            payload.update(attempt_details)
+        return payload
+
+    def _begin_edge_attempt(
+        self,
+        state: dict[str, Any],
+        source: str,
+        target: str,
+        edge: dict[str, Any],
+    ) -> dict[str, int] | None:
+        raw_limit = edge.get("max_attempts")
+        if raw_limit is None:
+            return None
+
+        limit = int(raw_limit)
+        entry_id = str(state.get("current_entry_id") or "")
+        all_attempts = state.setdefault("edge_attempts", {})
+        entry_attempts = all_attempts.setdefault(entry_id, {})
+        source_attempts = entry_attempts.setdefault(source, {})
+        used = int(source_attempts.get(target) or 0)
+        if used >= limit:
+            details = {
+                "run_id": state["run_id"],
+                "current": state["current"],
+                "current_entry_id": state.get("current_entry_id"),
+                "from": source,
+                "to": target,
+                "stage": "max_attempts",
+                "results": [],
+                "attempts_used": used,
+                "max_attempts": limit,
+                "attempts_remaining": 0,
+                "summary": (
+                    f"Edge attempt limit reached: {source} -> {target} "
+                    f"used {used} of {limit} attempt(s) for the current node entry."
+                ),
+            }
+            _append_event(state, "goto_blocked", details)
+            self._write_state(state)
+            raise TransitionBlocked(
+                f"Transition '{source}' -> '{target}' reached max_attempts={limit}",
+                details=details,
+            )
+
+        attempt = used + 1
+        source_attempts[target] = attempt
+        self._write_state(state)
+        return {
+            "attempt": attempt,
+            "attempts_used": attempt,
+            "max_attempts": limit,
+            "attempts_remaining": limit - attempt,
         }
 
     def save(self, *, run_id: str | None = None, skip_hooks: bool = False) -> dict[str, Any]:
@@ -969,16 +1109,127 @@ After compaction, immediately recover with:
         tmp_path.replace(path)
 
 
-def validate_spec(path: str) -> dict[str, Any]:
-    spec = StatemSpec.load(path)
-    return {
+def validate_spec(path: str, *, strict: bool = False) -> dict[str, Any]:
+    spec = StatemSpec.load(path, strict=strict)
+    payload = {
         "ok": True,
         "spec": str(spec.path),
         "name": spec.name,
         "initial": spec.initial,
         "nodes": list(spec.nodes),
-        "edges": [{"from": edge["from"], "to": edge["to"]} for edge in spec.edges],
+        "edges": [
+            {
+                "from": edge["from"],
+                "to": edge["to"],
+                **({"max_attempts": edge["max_attempts"]} if "max_attempts" in edge else {}),
+            }
+            for edge in spec.edges
+        ],
     }
+    if strict:
+        payload["strict"] = True
+    return payload
+
+
+def _validate_edge_max_attempts(edge: dict[str, Any], label: str) -> list[str]:
+    if "max_attempts" not in edge:
+        return []
+    value = edge["max_attempts"]
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        return [f"{label}: max_attempts must be a positive integer"]
+    return []
+
+
+def _strict_keyword_errors(raw: dict[str, Any]) -> list[str]:
+    errors = _unknown_keyword_errors(raw, STRICT_ROOT_KEYS, "root")
+
+    raw_nodes = raw.get("nodes")
+    if isinstance(raw_nodes, dict):
+        for name, raw_node in raw_nodes.items():
+            if isinstance(raw_node, dict):
+                errors.extend(_strict_node_keyword_errors(raw_node, f"node {name!r}"))
+    elif isinstance(raw_nodes, list):
+        for index, raw_node in enumerate(raw_nodes, start=1):
+            if isinstance(raw_node, dict):
+                name = raw_node.get("name", index)
+                errors.extend(_strict_node_keyword_errors(raw_node, f"node {name!r}"))
+
+    raw_edges = raw.get("edges")
+    if isinstance(raw_edges, list):
+        for index, raw_edge in enumerate(raw_edges, start=1):
+            if isinstance(raw_edge, dict):
+                source = raw_edge.get("from") or raw_edge.get("source") or raw_edge.get("node1") or "?"
+                target = raw_edge.get("to") or raw_edge.get("target") or raw_edge.get("node2") or "?"
+                errors.extend(
+                    _strict_edge_keyword_errors(
+                        raw_edge,
+                        f"edge {index} {source}->{target}",
+                        nested=False,
+                    )
+                )
+    return errors
+
+
+def _strict_node_keyword_errors(node: dict[str, Any], label: str) -> list[str]:
+    errors = _unknown_keyword_errors(node, STRICT_NODE_KEYS, label)
+    for purpose in ("in_hook", "before_transfer", "out_hook"):
+        errors.extend(_strict_item_keyword_errors(node.get(purpose), purpose, f"{label} {purpose}"))
+
+    dynamic = node.get(DYNAMIC_PURPOSE)
+    if isinstance(dynamic, dict):
+        errors.extend(_unknown_keyword_errors(dynamic, STRICT_DYNAMIC_CONFIG_KEYS, f"{label} {DYNAMIC_PURPOSE}"))
+
+    raw_next = node.get("next_states", node.get("next"))
+    next_edges = raw_next if isinstance(raw_next, list) else [raw_next] if raw_next is not None else []
+    for index, edge in enumerate(next_edges, start=1):
+        if isinstance(edge, dict):
+            errors.extend(
+                _strict_edge_keyword_errors(
+                    edge,
+                    f"{label} next[{index}]",
+                    nested=True,
+                )
+            )
+    return errors
+
+
+def _strict_edge_keyword_errors(edge: dict[str, Any], label: str, *, nested: bool) -> list[str]:
+    allowed = STRICT_NESTED_EDGE_KEYS if nested else STRICT_EDGE_KEYS
+    errors = _unknown_keyword_errors(edge, allowed, label)
+    errors.extend(_strict_item_keyword_errors(edge.get("condition"), "condition", f"{label} condition"))
+    errors.extend(_strict_item_keyword_errors(edge.get("hook"), "hook", f"{label} hook"))
+    return errors
+
+
+def _strict_item_keyword_errors(raw_items: Any, purpose: str, label: str) -> list[str]:
+    items = raw_items if isinstance(raw_items, list) else [raw_items] if raw_items is not None else []
+    errors: list[str] = []
+    for index, raw_item in enumerate(items, start=1):
+        if not isinstance(raw_item, dict):
+            continue
+        try:
+            item_type = str(_normalize_item(raw_item, purpose)["type"])
+        except StatemError:
+            continue
+        allowed = STRICT_CHECK_KEYS.get(item_type)
+        if allowed is None:
+            allowed = set().union(*STRICT_CHECK_KEYS.values())
+        errors.extend(_unknown_keyword_errors(raw_item, allowed, f"{label}[{index}]"))
+    return errors
+
+
+def _unknown_keyword_errors(mapping: dict[str, Any], allowed: set[str], label: str) -> list[str]:
+    errors: list[str] = []
+    for raw_key in mapping:
+        key = str(raw_key)
+        if isinstance(raw_key, str) and raw_key in allowed:
+            continue
+        suggestion = difflib.get_close_matches(key, sorted(allowed), n=1, cutoff=0.72)
+        message = f"{label}: unknown keyword {key!r}"
+        if suggestion:
+            message += f"; did you mean {suggestion[0]!r}?"
+        errors.append(message)
+    return errors
 
 
 def _load_mapping(text: str, path: Path) -> dict[str, Any]:
@@ -1307,12 +1558,15 @@ def _item_summary(item: dict[str, Any]) -> dict[str, Any]:
 
 
 def _edge_summary(edge: dict[str, Any]) -> dict[str, Any]:
-    return {
+    summary = {
         "from": edge["from"],
         "to": edge["to"],
         "condition": _summaries(edge.get("condition"), "condition"),
         "hook": _summaries(edge.get("hook"), "hook"),
     }
+    if "max_attempts" in edge:
+        summary["max_attempts"] = edge["max_attempts"]
+    return summary
 
 
 def _hook_env(spec: StatemSpec, state: dict[str, Any], state_dir: Path, purpose: str) -> dict[str, str]:

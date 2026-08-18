@@ -194,6 +194,19 @@ If a blocking check fails, the agent remains in the current state with the failu
 | `dynamic_before_transfer` | Before leaving | Run task-specific current-entry checks |
 | `out_hook` | Before the transition commits | Persist progress or handoff notes |
 
+### Edge fields
+
+| Field | Purpose |
+| --- | --- |
+| `from` / `to` | Source and target nodes |
+| `condition` | Transition-specific blocking gate |
+| `hook` | Prepare-transfer work after exit gates pass |
+| `max_attempts` | Optional positive retry ceiling for this edge and source-node entry |
+
+Leaving out `max_attempts` preserves the default unbounded retry behavior. When
+configured, each real `goto` consumes one attempt; blocked checks count, and a
+fresh source-node entry receives a fresh budget.
+
 ### Check and hook types
 
 | Type | Behavior |
@@ -222,6 +235,7 @@ Checks can be configured with fields such as `blocking`, `on_failure`, `timeout`
 | `statem prompt` | Generate a durable post-clear resume prompt |
 | `statem compact-prompt` | Generate a safe compaction prompt |
 | `statem validate SPEC` | Validate graph structure and references |
+| `statem validate SPEC --strict` | Also reject unknown or misplaced runbook keywords |
 | `statem dynamic ...` | Manage current-entry dynamic checks |
 
 Most commands accept `--run-id`, `--state-dir`, and `--json` for explicit run selection, isolated state, and machine-readable output.

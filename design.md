@@ -132,6 +132,11 @@ transition creates a fresh entry id for the target node.
 
 ### Edge
 
+An edge may set `max_attempts` to a positive integer. The limit is scoped to the
+source node's current entry and counts every real `goto` attempt, including
+attempts blocked by a gate. Omitting the field keeps retries unbounded for
+backward compatibility.
+
 An edge has:
 
 - `from`
@@ -277,6 +282,8 @@ Commands:
 - `statem compact-prompt [--json]`: print a safe `/compact` prompt for cyclic
   runbooks.
 - `statem validate SPEC`: validate graph shape and references.
+- `statem validate SPEC --strict`: also reject unknown or misplaced keywords
+  throughout the supported runbook schema.
 
 `before_transfer` is not a CLI command. It is a node spec field shown by
 `statem cur`/`statem ls` and executed automatically by `statem goto` before the

@@ -125,6 +125,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
     validate = subparsers.add_parser("validate", parents=[common], help="validate a spec")
     validate.add_argument("spec")
+    validate.add_argument(
+        "--strict",
+        action="store_true",
+        help="reject unknown runbook keywords at every supported schema level",
+    )
     validate.set_defaults(handler=_cmd_validate)
 
     dynamic = subparsers.add_parser("dynamic", parents=[common], help="manage current-entry dynamic checks")
@@ -188,7 +193,7 @@ def _cmd_compact_prompt(args: argparse.Namespace, options: RunOptions) -> dict[s
 
 
 def _cmd_validate(args: argparse.Namespace, options: RunOptions) -> dict[str, Any]:
-    return validate_spec(args.spec)
+    return validate_spec(args.spec, strict=args.strict)
 
 
 def _cmd_dynamic_path(args: argparse.Namespace, options: RunOptions) -> dict[str, Any]:
@@ -287,7 +292,8 @@ def _print_next(payload: dict[str, Any]) -> None:
         condition = ""
         if edge.get("condition"):
             condition = " | condition: " + "; ".join(_summary_text(item) for item in edge["condition"])
-        print(f"- {edge['to']}{condition}")
+        attempts = f" | max_attempts: {edge['max_attempts']}" if "max_attempts" in edge else ""
+        print(f"- {edge['to']}{attempts}{condition}")
 
 
 def _print_goto(payload: dict[str, Any]) -> None:
@@ -315,6 +321,8 @@ def _print_history(payload: dict[str, Any]) -> None:
 
 def _print_validate(payload: dict[str, Any]) -> None:
     print(f"Valid spec: {payload['name']}")
+    if payload.get("strict"):
+        print("Strict keywords: yes")
     print(f"Initial: {payload['initial']}")
     print(f"Nodes: {', '.join(payload['nodes'])}")
     print(f"Edges: {len(payload['edges'])}")
