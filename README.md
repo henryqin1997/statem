@@ -328,11 +328,15 @@ README media is served from the separate `henryqin1997.github.io` repository, so
 ## Citation
 
 ```bibtex
-@article{qin2026statem,
-  title  = {StateM: Reaching 95.3\% Raw Accuracy, or a \$15 Frontier Run,
-            on Terminal-Bench 2.1 via Harness Scaling},
-  author = {Qin, Ziheng and Lu, Yaxin and Wang, Zhangyang and Wang, Kai},
-  year   = {2026}
+@misc{qin2026statemreaching953raw,
+  title         = {StateM: Reaching 95.3\% Raw Accuracy, or a \$15 Frontier Run,
+                   on Terminal-Bench 2.1 via Harness Scaling},
+  author        = {Ziheng Qin and Yaxin Lu and Zhangyang Atlas Wang and Kai Wang},
+  year          = {2026},
+  eprint        = {2608.15089},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.AI},
+  url           = {https://arxiv.org/abs/2608.15089}
 }
 ```
 ## Acknowledge
