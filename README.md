@@ -302,6 +302,17 @@ The accompanying paper evaluates StateM as an execution harness on Terminal-Benc
 
 The 95.28% value is the raw pre-adjudication public-submission score. The DeepSeek descriptive aggregate is reported separately from the standard-timeout result. See the [paper](https://henryqin1997.github.io/statem/statem-paper.pdf) for experimental protocol, references, costs, and limitations.
 
+### DeepSeek policy-v9 artifacts
+
+The [policy-v9 artifact release](https://github.com/henryqin1997/statem/releases/tag/deepseek-policy9-tb21-artifacts-20260818) provides:
+
+- the [exact 54-file task-injected source snapshot](https://github.com/henryqin1997/statem/releases/download/deepseek-policy9-tb21-artifacts-20260818/statem-deepseek-v4-flash-policy9-tb21-source-exact-20260818.tar.gz), verified against the manifest stored with every trial;
+- a [runnable reproduction kit](https://github.com/henryqin1997/statem/releases/download/deepseek-policy9-tb21-artifacts-20260818/statem-deepseek-v4-flash-policy9-tb21-reproduction-kit-20260818.tar.gz) with the host-side bridge, frozen control plane, credential-free provider template, and Harbor dry-run guide;
+- the [redacted 440-trial result artifact](https://github.com/henryqin1997/statem/releases/download/deepseek-policy9-tb21-artifacts-20260818/statem-deepseek-v4-flash-0731-policy9-88task-k5-public-redacted-20260813.tar.gz), including ATIF trajectories and StateM states, routes, checks, and receipts; and
+- [SHA-256 checksums](https://github.com/henryqin1997/statem/releases/download/deepseek-policy9-tb21-artifacts-20260818/SHA256SUMS) for all three archives.
+
+The result artifact covers 88 tasks and excludes `gpt2-codegolf`: it records 392/440 raw passes (89.09%). The table above uses the paper's standard 89-task denominator, 392/445 (88.09%). These large artifacts are hosted as release assets and are not downloaded when cloning or installing StateM.
+
 ## Project layout
 
 ```text
