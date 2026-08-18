@@ -6,6 +6,7 @@
 
 [![Project Page](https://img.shields.io/badge/Project-Page-4c6ef5)](https://henryqin1997.github.io/statem/)
 [![Paper](https://img.shields.io/badge/Paper-PDF-b31b1b)](https://henryqin1997.github.io/statem/statem-paper.pdf)
+[![X / Twitter](https://img.shields.io/badge/X-Announcement-000000?logo=x&logoColor=white)](https://x.com/henryqin1997/status/2089608567418691863)
 [![Version](https://img.shields.io/badge/version-0.1.0-2ea44f)](https://github.com/henryqin1997/statem)
 [![Python](https://img.shields.io/badge/python-%E2%89%A53.11-3776ab)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
