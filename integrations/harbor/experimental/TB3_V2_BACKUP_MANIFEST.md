@@ -24,6 +24,12 @@ Recorded 2026-08-19 in `/Users/qinziheng/workspace/statem`.
 | `.statem/benchmarks/backups/tb3-sol-evidence-v4p23-lake-temp-glm-k1-local-l/` | 193 | 41,400,849 | `4940ed2f638766f758b38d9617032bde77bbf01bece1d6c17b9e3c46b8d52fa1` |
 | `.statem/backups/tb3-v4p24-prechange-controls-20260819-a/` | 8 | 267,664 | `591fbd37c71907adbb49afea4bd1606be1043a6ced3bb2e67dafcdd59ebffd69` |
 | `.statem/backups/tb3-v4p24-postchange-controls-20260819-a/` | 9 | 275,923 | `feb456ad11fe2df3d293294dea37d5c449dbf25ef6a4e1e0ee2f11b0e9f924b6` |
+| `.statem/benchmarks/backups/tb3-sol-evidence-v4p24-live-database-cutover-k1-local-m/` | 9 | 116,232 | `898679ef99e820f9d5d099f4ee97d2a12525c05c891800cbbbee895642d014b6` |
+| `.statem/benchmarks/backups/tb3-sol-evidence-v4p24-wal-recovery-ordering-k1-local-n/` | 147 | 3,981,647 | `1c65d8aa2d23e285dc26c8c23354224df4a95d648b2376e7194e57658c362aa1` |
+| `.statem/benchmarks/backups/tb3-sol-evidence-v4p24-cad-model-k1-aws-x86-a/` | 9 | 27,722 | `51ff2f964bdaae78083610e59f8ce62b2e0cf8d143085d41a1c329ad8e63cf17` |
+| `.statem/benchmarks/backups/tb3-sol-evidence-v4p24-cad-model-k1-aws-x86-b/` | 95 | 6,038,033 | `9ef02b60056366ada81fd40b749d14bec99b379bb4f37a02ae4eccf27fc0cbd0` |
+| `.statem/backups/tb3-v4p25-prechange-angle-scope-20260819-a/` | 4 | 69,048 | `087e698b3f2b64417cf5133955c6ebf811dbe5960dae31507b85850425bde169` |
+| `.statem/backups/tb3-v4p25-postchange-angle-scope-20260819-a/` | 7 | 84,619 | `5fcdf62330af07dfe66dc779df3ee50df7a61768c77c45f750bf3c1b75b0a3cb` |
 
 The tree hash is computed from lexicographically sorted regular-file paths and
 their SHA-256 digests relative to each snapshot root. The manifest is kept

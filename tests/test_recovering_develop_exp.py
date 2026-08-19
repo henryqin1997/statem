@@ -570,6 +570,24 @@ class RecoveringDevelopGuardTest(unittest.TestCase):
         self.assertIn("first consumer call after each", content)
         self.assertIn("explicit wall timeout and process-group cleanup", content)
 
+    def test_simulation_profile_requires_dimension_scope_and_independent_projection(self) -> None:
+        catalog = yaml.safe_load(
+            (REPO / "examples/reviewer-practice-router-v1.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+        profile = next(
+            item for item in catalog["profiles"] if item["id"] == "simulation-control"
+        )
+        self.assertIn("technical_drawing_dimension_scope", profile["checks"])
+        content = (REPO / "examples/reviewer/simulation-control.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("witness or extension lines", content)
+        self.assertIn("side-to-datum angles from included symmetric angles", content)
+        self.assertIn("independent orthographic or analytic projection", content)
+        self.assertIn("same\n  interpretation used to build it", content)
+
     def test_base_review_requires_named_reference_adjudication(self) -> None:
         catalog = yaml.safe_load(
             (REPO / "examples/reviewer-practices-v1.yaml").read_text(
