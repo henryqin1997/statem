@@ -142,6 +142,7 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             "context_view_sha256": stable_sha256(view),
             "contract_preserved": True,
             "regressions": [],
+            "contract_violations": [],
             "counterevidence": ["identity behavior was tested and rejected"],
         }
         raw.update(overrides)
@@ -413,6 +414,22 @@ class MultiRolePromotionGateTest(unittest.TestCase):
     def test_review_pre_submit_repairs_only_mechanical_fields(self) -> None:
         seal, proposal, view = self._receipts()
         falsifier = self._falsifier(seal, proposal, view)
+        review_practices = {
+            "version": 1,
+            "role": "falsifier",
+            "stages": [
+                {"id": "bind_scope", "objective": "bind the reviewed inputs"}
+            ],
+            "practices": [
+                {
+                    "id": "public_consumer_first",
+                    "allow_not_applicable": False,
+                    "trigger": "Always.",
+                    "procedure": "Use the strongest public consumer.",
+                    "required_evidence": "Name the public surface.",
+                }
+            ],
+        }
         for field in (
             "candidate_artifact_identity",
             "contract_seal_sha256",
@@ -422,12 +439,20 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         falsifier["raw"]["review_stages"] = [
             {"id": "bind_scope", "status": "completed", "evidence": "bound"}
         ]
+        falsifier["raw"]["practice_receipts"] = [
+            {
+                "practice_id": "public_consumer_first",
+                "status": "applied",
+                "evidence": "the public transform callable was replayed",
+            }
+        ]
         with patch.dict("os.environ", self.env, clear=False):
             receipt = canonicalize_falsifier_result(
                 falsifier=falsifier,
                 proposal=proposal,
                 seal=seal,
                 context_view=view,
+                review_practices=review_practices,
             )
         canonical = receipt["result"]
         self.assertFalse(receipt["semantic_fields_modified"])
@@ -438,6 +463,10 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         self.assertEqual(
             canonical["raw"]["review_stages"][0],
             {"stage_id": "bind_scope", "status": "completed", "evidence": "bound"},
+        )
+        self.assertEqual(canonical["raw"]["practice_receipts"][0]["reason"], "")
+        self.assertIn(
+            "practice_receipts[0]:missing_reason->empty", receipt["repairs"]
         )
         decision = self._decide(seal, proposal, view, receipt)
         self.assertEqual(decision["decision"], "promote")
@@ -573,6 +602,36 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             "falsifier_rejected_without_hard_evidence",
             decision["reason_codes"],
         )
+        self.assertIn("contract_concern_structured", decision["reason_codes"])
+
+    def test_direct_hard_contract_violation_requests_revision(self) -> None:
+        seal, proposal, view = self._receipts()
+        violation = {
+            "claim": "candidate violates the public transform contract",
+            "contract_basis": "public_consumer",
+            "candidate_evidence": "candidate replay returns the wrong public value",
+            "severity": "blocking",
+            "repair_action": "repair the public result and replay the same consumer",
+        }
+        falsifier = self._falsifier(
+            seal,
+            proposal,
+            view,
+            verdict="reject",
+            contract_preserved=False,
+            regressions=[],
+            contract_violations=[violation],
+        )
+        decision = self._decide(seal, proposal, view, falsifier)
+        self.assertEqual(decision["decision"], "revise")
+        self.assertTrue(decision["checks"]["contract_concern_structured"])
+        self.assertEqual(decision["blocking_contract_violations"], [violation])
+        self.assertIn(
+            "validated_blocking_contract_violation", decision["reason_codes"]
+        )
+        self.assertNotIn(
+            "falsifier_rejected_without_hard_evidence", decision["reason_codes"]
+        )
 
     def test_paired_blocking_regression_requests_revision(self) -> None:
         seal, proposal, view = self._receipts()
@@ -640,6 +699,28 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         binary = next(entry for entry in bundle["entries"] if entry["path"] == "weights.bin")
         self.assertEqual(binary["omission"], "non_text")
         self.assertLessEqual(bundle["text_bytes"], 160_000)
+
+    def test_context_view_binds_present_optional_evidence_and_records_absence(self) -> None:
+        acceptance = self.root / "acceptance-evidence.json"
+        acceptance.write_text('{"kind":"acceptance_evidence"}\n', encoding="utf-8")
+        missing = self.root / "missing-evidence.json"
+        self._state("falsify", "falsify-entry")
+        with patch.dict("os.environ", self.env, clear=False):
+            view = record_context_view(
+                role="falsifier",
+                included_paths=[self.task],
+                optional_included_paths=[acceptance, missing],
+            )
+        included = {item["path"] for item in view["included"]}
+        self.assertIn(str(acceptance.resolve()), included)
+        self.assertNotIn(str(missing.resolve()), included)
+        self.assertEqual(
+            view["optional_includes"],
+            [
+                {"path": str(acceptance.resolve()), "present": True},
+                {"path": str(missing.resolve()), "present": False},
+            ],
+        )
 
     def test_context_bundle_prioritizes_first_party_evidence_over_vendor_tree(self) -> None:
         vendor = self.app / "_vendor"

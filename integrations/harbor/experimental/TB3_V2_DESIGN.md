@@ -163,3 +163,32 @@ local suspend/resume and submission cleanup without increasing reviewer compute
 or relaxing entry scope, worker count, receipt binding, or final-state checks.
 Broader lease renewal and late-result semantics remain deferred lifecycle design
 questions rather than core changes.
+
+### v4p19 evidence packet and concern accounting
+
+v4p19 passed the raw task and confirmed that the longer ownership lease fixes
+the suspend/resume failure without increasing reviewer compute. It also exposed
+three generic inefficiencies after the candidate existed.
+
+First, the lead produced a candidate-bound post-snapshot acceptance receipt
+before falsification, but the bounded tool-free reviewer packet did not include
+it. The context-view command now supports explicit optional includes. A present
+acceptance receipt is identity-bound into the packet; an absent one is recorded
+as absent. The reviewer must still adjudicate producer, evidence role,
+population, artifact binding, unfavorable cases, repeatability, and margin.
+Presence is not automatic independence or authority.
+
+Second, a reviewer reported a direct task-contract failure only in summary and
+counterevidence because the old schema offered paired regressions and
+quantitative hard gaps but no slot for a candidate violation that also existed
+in a broken or absent baseline. `contract_violations` now carries exactly the
+claim, allowed contract basis, candidate evidence, severity, and bounded repair
+action. A negative `contract_preserved` claim must be structurally accounted
+for by a blocking paired regression, blocking direct violation, or falsified
+hard quantitative gap. Such evidence routes to revision, not rollback.
+
+Third, the final semantic reviewer accepted the repaired candidate, but one
+`applied` practice receipt omitted the unused `reason` key. Pre-submit now fills
+only neutral counterpart fields: empty reason for applied receipts and empty
+evidence for not-applicable receipts. It still cannot invent required evidence,
+rationale, identities, verdicts, or semantic findings.

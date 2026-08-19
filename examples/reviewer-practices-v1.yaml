@@ -19,8 +19,8 @@ practices:
   - id: contract_authority_and_repair
     allow_not_applicable: false
     trigger: Always.
-    procedure: Classify assertions rather than files. Treat explicit task requirements, public signatures and consumers, normative definitions, and cross-module invariants as possible hard authority; treat comments, docstrings, starter behavior, and stale operational notes in an explicitly broken target as defeasible until independently corroborated. Resolve code-document conflicts with discriminating public probes and preserve the correct public abstraction rather than literal defective text.
-    required_evidence: For every blocking contract claim, record its allowed authority basis and evidence; list conflicting defeasible claims separately with the probe or repair implication that resolves them.
+    procedure: Classify assertions rather than files. Treat explicit task requirements, public signatures and consumers, normative definitions, and cross-module invariants as possible hard authority; treat comments, docstrings, starter behavior, and stale operational notes in an explicitly broken target as defeasible until independently corroborated. Resolve code-document conflicts with discriminating public probes and preserve the correct public abstraction rather than literal defective text. Distinguish paired candidate-caused regressions from direct hard-contract violations that may also exist in a broken or absent baseline.
+    required_evidence: For every blocking contract claim, record its allowed authority basis and evidence; list conflicting defeasible claims separately with the probe or repair implication that resolves them. Put every supported direct candidate contract failure in contract_violations rather than leaving it only in summary or counterevidence.
 
   - id: profile_selection_adequacy
     allow_not_applicable: false

@@ -42,6 +42,19 @@ regression even when it differs from the baseline.
 Candidate-only risks, unsupported extremes, and unresolved semantic forks are
 counterevidence for revision, not automatic rollback.
 
+Keep candidate-caused regressions separate from direct hard-contract
+violations. A failure against task wording, a public signature or consumer, a
+normative definition, or a cross-module invariant remains a contract violation
+even when the baseline is also broken or absent. Put that failure in the
+structured `contract_violations` receipt with candidate evidence and a bounded
+repair action. Never leave a supported negative contract verdict only in the
+summary or generic counterevidence.
+
+Treat included candidate-bound acceptance receipts as evidence to adjudicate,
+not automatic authority. Check their producer, evidence role, fixed population,
+candidate and snapshot bindings, retained unfavorable cases, repeatability, and
+margin before relying on them.
+
 Work in the declared stage order. For every common practice, profile check, and
 protected behavior, either apply it with evidence, mark it not applicable with
 a reason, or leave it unresolved. Reuse one evidence item across receipts when

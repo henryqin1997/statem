@@ -80,6 +80,13 @@ PROVENANCE_BASES = {
     "cross_module_invariant",
 }
 REGRESSION_SEVERITIES = {"blocking", "advisory"}
+CONTRACT_VIOLATION_FIELDS = {
+    "claim",
+    "contract_basis",
+    "candidate_evidence",
+    "severity",
+    "repair_action",
+}
 PROTECTION_STATUSES = {"corroborated", "falsified", "unresolved"}
 PROFILE_RECEIPT_STATUSES = {"applied", "not_applicable", "unresolved"}
 HARD_CONTRACT_GAP_FIELDS = {
@@ -274,6 +281,7 @@ def main(argv: list[str] | None = None) -> int:
             receipt = record_context_view(
                 role=args.role,
                 included_paths=args.include,
+                optional_included_paths=args.include_if_present,
                 snapshot_receipts=[_read_json(path) for path in args.include_snapshot],
             )
             _write_json(args.output, receipt)
@@ -423,6 +431,9 @@ def _parser() -> argparse.ArgumentParser:
         required=True,
     )
     context_view.add_argument("--include", type=Path, action="append", required=True)
+    context_view.add_argument(
+        "--include-if-present", type=Path, action="append", default=[]
+    )
     context_view.add_argument("--include-snapshot", type=Path, action="append", default=[])
     context_view.add_argument("--output", type=Path, default=DEFAULT_CONTEXT_VIEW)
 
@@ -933,6 +944,25 @@ def _bounded_contract_text(value: Any, field: str) -> str:
     return text
 
 
+def _repair_neutral_review_receipt_fields(
+    raw: dict[str, Any], repairs: list[str]
+) -> None:
+    for field in ("practice_receipts", "profile_receipts"):
+        receipts = raw.get(field)
+        if not isinstance(receipts, list):
+            continue
+        for index, item in enumerate(receipts):
+            if not isinstance(item, dict):
+                continue
+            status = item.get("status")
+            if status == "applied" and "reason" not in item:
+                item["reason"] = ""
+                repairs.append(f"{field}[{index}]:missing_reason->empty")
+            elif status == "not_applicable" and "evidence" not in item:
+                item["evidence"] = ""
+                repairs.append(f"{field}[{index}]:missing_evidence->empty")
+
+
 def canonicalize_falsifier_result(
     *,
     falsifier: dict[str, Any],
@@ -996,6 +1026,11 @@ def canonicalize_falsifier_result(
             del item["id"]
             repairs.append(f"review_stages[{index}]:id->stage_id")
 
+    _repair_neutral_review_receipt_fields(raw, repairs)
+    if raw.get("contract_preserved") is True and "contract_violations" not in raw:
+        raw["contract_violations"] = []
+        repairs.append("contract_violations:missing->empty")
+
     if isinstance(canonical.get("raw"), dict):
         canonical["raw"] = raw
     return {
@@ -1019,10 +1054,18 @@ def record_context_view(
     *,
     role: str,
     included_paths: list[Path],
+    optional_included_paths: list[Path] | None = None,
     snapshot_receipts: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     context = _state_context()
     included_paths = list(included_paths)
+    optional_includes: list[dict[str, Any]] = []
+    for path in optional_included_paths or []:
+        resolved = path.expanduser().resolve()
+        present = resolved.is_file() or resolved.is_dir()
+        optional_includes.append({"path": str(resolved), "present": present})
+        if present:
+            included_paths.append(resolved)
     for receipt in snapshot_receipts or []:
         _require_receipt(receipt, "filesystem_artifact_snapshot")
         included_paths.append(Path(_text(receipt.get("snapshot_path"))))
@@ -1048,6 +1091,7 @@ def record_context_view(
         },
         "consumer_role": role,
         "included": included,
+        "optional_includes": optional_includes,
         "excluded_information_classes": [
             "credentials",
             "provider_config",
@@ -1180,7 +1224,15 @@ def falsifier_task(
                     "oracle, version, or normative consumer, compare both artifacts to that "
                     "reference on the same case because the baseline is defeasible evidence, "
                     "not an authority. Otherwise record it as residual "
-                    "counterevidence. For named algorithms with multiple standard variants, "
+                    "counterevidence. If the candidate violates a hard contract but the "
+                    "failure is not a candidate-caused regression against a known-good "
+                    "baseline, return it in contract_violations instead of leaving it only "
+                    "in summary or counterevidence. Each contract_violations item has exactly "
+                    "claim, contract_basis, candidate_evidence, severity, and repair_action; "
+                    "severity is blocking or advisory. When contract_preserved is false, "
+                    "return at least one blocking regression or blocking contract violation "
+                    "that structurally accounts for that verdict. For named algorithms with "
+                    "multiple standard variants, "
                     "challenge a protected variant whose only basis is a broken module's "
                     "documentation. Do not repair the candidate. Treat identity binding, "
                     "canonical field names, receipt cardinality, coverage accounting, and "
@@ -1202,7 +1254,8 @@ def falsifier_task(
                     "is not part of the sealed hard contract. Explicitly compare plausible "
                     "semantic variants of named algorithms or estimators before marking one "
                     "corroborated. Return verdict accept, reject, or inconclusive; "
-                    "contract_preserved; regressions; protection_assessments; and non-empty "
+                    "contract_preserved; regressions; contract_violations; "
+                    "protection_assessments; and non-empty "
                     "counterevidence. Return hard_contract_gaps as a list. Use an item only "
                     "for an unresolved or falsified hard quantitative acceptance claim, not "
                     "for generic uncertainty. Each item has exactly kind, claim, "
@@ -1210,7 +1263,12 @@ def falsifier_task(
                     "observed_evidence, required_evidence, and repair_action. kind is "
                     "quantitative_acceptance; evidence_role is exploration or acceptance. "
                     "Bind a fixed population id and state the independent evidence needed "
-                    "to clear the threshold with margin. When review_protocol is present, "
+                    "to clear the threshold with margin. "
+                    "When context_bundle contains a candidate-bound acceptance receipt, "
+                    "adjudicate its producer, evidence role, population identity, artifact "
+                    "bindings, retained unfavorable cases, repeatability, and margin. Its "
+                    "presence is evidence to inspect, not automatic independence or authority. "
+                    "When review_protocol is present, "
                     "execute its stages "
                     "in order. Each review_stages item has exactly stage_id, status, and "
                     "evidence; stage_id copies the listed stage id. An unambiguous legacy "
@@ -1232,7 +1290,7 @@ def falsifier_task(
                     "claims, evidence, coverage, children, and prune_proposals, plus these "
                     "top-level gate fields: verdict, candidate_artifact_identity, "
                     "contract_seal_sha256, context_view_sha256, contract_preserved, "
-                    "regressions, protection_assessments, counterevidence, "
+                    "regressions, contract_violations, protection_assessments, counterevidence, "
                     "hard_contract_gaps, review_stages, "
                     "practice_receipts, profile_receipts, review_protocol_sha256, and "
                     "review_profile_sha256. "
@@ -1364,6 +1422,12 @@ def decide_promotion(
         for item in regressions
         if isinstance(item, dict) and item.get("severity") == "blocking"
     ]
+    contract_violations_valid, contract_violations = _contract_violation_state(
+        raw.get("contract_violations")
+    )
+    blocking_contract_violations = [
+        item for item in contract_violations if item.get("severity") == "blocking"
+    ]
     protection_assessments = (
         raw.get("protection_assessments")
         if isinstance(raw.get("protection_assessments"), list)
@@ -1380,6 +1444,11 @@ def decide_promotion(
     hard_contract_gaps_valid, hard_contract_gaps = _hard_contract_gap_state(
         raw.get("hard_contract_gaps")
     )
+    falsified_hard_contract_gaps = [
+        item
+        for item in hard_contract_gaps
+        if item.get("evidence_status") == "falsified"
+    ]
     review_protocol = (
         _review_protocol(review_practices)
         if review_practices is not None
@@ -1445,9 +1514,19 @@ def decide_promotion(
             policy=_text(seal.get("contract_policy")) or "strict_docs",
         ),
         "contract_preserved": raw.get("contract_preserved") is True,
+        "contract_concern_structured": (
+            raw.get("contract_preserved") is True
+            or bool(
+                blocking_regressions
+                or blocking_contract_violations
+                or falsified_hard_contract_gaps
+            )
+        ),
         "counterevidence_present": bool(counterevidence),
         "regression_evidence_valid": regression_evidence_valid,
         "no_blocking_regressions": not blocking_regressions,
+        "contract_violations_valid": contract_violations_valid,
+        "no_blocking_contract_violations": not blocking_contract_violations,
         "protection_assessments_valid": protection_assessments_valid,
         "protected_claims_corroborated": protected_claims_corroborated,
         "hard_contract_gaps_valid": hard_contract_gaps_valid,
@@ -1480,7 +1559,14 @@ def decide_promotion(
         decision = "revise"
         if blocking_regressions:
             reason_codes.append("validated_blocking_regression")
-        if verdict == "reject":
+        if blocking_contract_violations:
+            reason_codes.append("validated_blocking_contract_violation")
+        if (
+            verdict == "reject"
+            and not blocking_regressions
+            and not blocking_contract_violations
+            and not falsified_hard_contract_gaps
+        ):
             reason_codes.append("falsifier_rejected_without_hard_evidence")
         if verdict == "inconclusive":
             reason_codes.append("falsifier_inconclusive")
@@ -1507,6 +1593,8 @@ def decide_promotion(
         "falsifier_verdict": verdict,
         "blocking_regressions": blocking_regressions,
         "regressions": regressions,
+        "blocking_contract_violations": blocking_contract_violations,
+        "contract_violations": contract_violations,
         "protection_assessments": protection_assessments,
         "hard_contract_gaps": hard_contract_gaps,
         "profile_receipts": (
@@ -1824,6 +1912,35 @@ def _regression_evidence(value: Any) -> bool:
         and bool(_text(value.get("candidate_evidence")))
         and value.get("severity") in REGRESSION_SEVERITIES
     )
+
+
+def _contract_violation_state(
+    value: Any,
+) -> tuple[bool, list[dict[str, str]]]:
+    if value is None:
+        return True, []
+    if not isinstance(value, list):
+        return False, []
+    normalized: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, dict) or set(item) != CONTRACT_VIOLATION_FIELDS:
+            return False, []
+        record = {
+            field: _text(item.get(field)) for field in CONTRACT_VIOLATION_FIELDS
+        }
+        if (
+            record["contract_basis"] not in PROVENANCE_BASES
+            or record["severity"] not in REGRESSION_SEVERITIES
+            or any(not record[field] for field in CONTRACT_VIOLATION_FIELDS)
+        ):
+            return False, []
+        identity = stable_sha256(record)
+        if identity in seen:
+            return False, []
+        seen.add(identity)
+        normalized.append(record)
+    return True, normalized
 
 
 def _protection_assessment_state(
