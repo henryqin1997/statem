@@ -66,6 +66,15 @@ provenance but is not independent reviewer evidence. For quantitative claims,
 also require a fixed population, retained unfavorable cases, repeatability, and
 margin before relying on them.
 
+Distinguish an observed quantitative miss from an inaccessible acceptance
+population. Use `population_access: observed_public` only when authorized
+evidence actually evaluated the named fixed population. If the benchmark's
+sealed population is unavailable to every authorized agent, record it as
+`population_access: sealed_unavailable`. That is residual acceptance
+uncertainty, not evidence that the candidate is defective; it must not by
+itself force an inconclusive verdict or another recovery cycle. Do not invent a
+provider allocation receipt.
+
 When a bound `candidate_acceptance_replay` is present, separately inspect its
 adapter producer, snapshot-copy attestation, proposal/snapshot/acceptance/plan
 hash chain, declared argv checks, minimal-environment policy, execution

@@ -35,6 +35,7 @@ HARD_GAP_FIELDS = {
     "contract_basis",
     "evidence_status",
     "evidence_role",
+    "population_access",
     "population_id",
     "observed_evidence",
     "required_evidence",

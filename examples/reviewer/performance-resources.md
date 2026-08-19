@@ -35,7 +35,11 @@
   stop after the margin is met, after the declared non-improving challenger
   budget, or when correctness regresses. A threshold result that
   changes verdict across consumer-equivalent replays is `revise`, not
-  promotion evidence.
+  promotion evidence. A sealed benchmark population that no authorized role can
+  execute is residual acceptance uncertainty, not an observed threshold miss.
+  Do not spend recovery cycles trying to obtain unavailable labels or invent a
+  provider allocation; continue only when a bounded public experiment can
+  discriminate between candidates.
 - **`consumer_execution_model`**: Replay the complete measured path under the consumer's CPU, memory, process,
   privilege, filesystem, import/startup, and concurrency model. Include
   wrappers, conversions, cache state, process boundaries, and the full

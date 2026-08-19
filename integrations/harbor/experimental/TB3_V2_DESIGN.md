@@ -321,3 +321,26 @@ covers the relevant public behavior.
 Focused verification passed 33 tests. The full repository passed 677 tests,
 with 3 skipped and 71 subtests. Ruff, Python compilation, and StateM runbook
 validation also passed.
+
+### v4p24 observed gaps versus sealed acceptance uncertainty
+
+The fresh `lake-temp-glm` trial returned raw reward 0 after every adapter-owned
+acceptance replay passed. Public checks exercised the exact immutable candidate,
+but the hidden evaluation was far outside the required error thresholds. This
+is a real generalization failure, not a receipt, loading, shape, numerical, or
+environment failure.
+
+The run also exposed an avoidable control loop. Reviewers repeatedly emitted a
+hard quantitative gap for the benchmark's sealed population even though no
+authorized role could evaluate it. Stronger public evidence could never resolve
+that item, so each review and final replay correctly preserved uncertainty but
+incorrectly treated unavailable labels as an actionable repair signal.
+
+Quantitative gaps now declare `population_access`. An `observed_public` gap
+means authorized evidence actually evaluated that fixed population and may
+drive bounded revision and recovery. A `sealed_unavailable` item records
+residual acceptance uncertainty but is separated from actionable hard gaps and
+does not by itself trigger another recovery cycle. Provider allocation remains
+unsupported until an exact provider receipt exists. Failed-check reason codes
+also use positive descriptions, preventing the previous contradictory-looking
+pair `no_hard_contract_gaps` and `validated_hard_contract_gap`.

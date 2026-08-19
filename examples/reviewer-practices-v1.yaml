@@ -67,8 +67,8 @@ practices:
   - id: quantitative_acceptance_gap
     allow_not_applicable: true
     trigger: The task has an explicit numerical performance, accuracy, cost, latency, memory, or resource threshold.
-    procedure: Keep adaptive exploration and untouched acceptance populations distinct. If independent acceptance evidence does not conservatively clear the hard threshold with a variance-aware margin, emit a structured quantitative_acceptance hard_contract_gap bound to its population id and concrete repair action.
-    required_evidence: Record the contract basis, evidence role, fixed population id, observed aggregate or failure, required independent evidence, and next bounded optimization action; generic reviewer uncertainty is not a hard gap.
+    procedure: Keep adaptive exploration and untouched acceptance populations distinct. Emit an actionable quantitative_acceptance hard_contract_gap only when authorized evidence actually evaluated a fixed observed_public population and did not conservatively clear the hard threshold with a variance-aware margin. Mark an inaccessible benchmark population sealed_unavailable; preserve it as residual acceptance uncertainty without treating absence of hidden labels as a candidate defect or a reason for another recovery cycle.
+    required_evidence: Record the contract basis, evidence role, population access, fixed population id, observed aggregate or failure, required independent evidence, and next bounded optimization action. Generic reviewer uncertainty is not a hard gap, and provider allocation must not be invented before an exact receipt exists.
 
   - id: uncertainty_routes_to_revision
     allow_not_applicable: false

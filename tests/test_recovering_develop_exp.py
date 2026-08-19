@@ -298,6 +298,7 @@ class RecoveringDevelopGuardTest(unittest.TestCase):
             "contract_basis": "task_source",
             "evidence_status": "unresolved",
             "evidence_role": "exploration",
+            "population_access": "observed_public",
             "population_id": "exploration-v1",
             "observed_evidence": "adaptive measurements remain below threshold",
             "required_evidence": "fresh held-out population clears with margin",

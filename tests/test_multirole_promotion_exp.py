@@ -732,6 +732,7 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             "contract_basis": "task_source",
             "evidence_status": "unresolved",
             "evidence_role": "exploration",
+            "population_access": "observed_public",
             "population_id": "fixed-exploration-v1",
             "observed_evidence": "the adaptive population remains below threshold",
             "required_evidence": "fresh acceptance population clears the threshold with margin",
@@ -746,7 +747,38 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         decision = self._decide(seal, proposal, view, falsifier)
         self.assertEqual(decision["decision"], "revise")
         self.assertIn("validated_hard_contract_gap", decision["reason_codes"])
+        self.assertIn("hard_contract_gaps_present", decision["reason_codes"])
+        self.assertNotIn("no_hard_contract_gaps", decision["reason_codes"])
         self.assertEqual(decision["hard_contract_gaps"], [gap])
+
+    def test_sealed_unavailable_population_is_recorded_without_forcing_recovery(self) -> None:
+        seal, proposal, view = self._receipts()
+        uncertainty = {
+            "kind": "quantitative_acceptance",
+            "claim": "the sealed acceptance population must clear the threshold",
+            "contract_basis": "task_source",
+            "evidence_status": "unresolved",
+            "evidence_role": "acceptance",
+            "population_access": "sealed_unavailable",
+            "population_id": "sealed-benchmark-population",
+            "observed_evidence": "authorized public checks pass with margin",
+            "required_evidence": "benchmark-owned evaluation of the exact candidate",
+            "repair_action": "preserve the candidate and report the residual uncertainty",
+        }
+        falsifier = self._falsifier(
+            seal,
+            proposal,
+            view,
+            hard_contract_gaps=[uncertainty],
+        )
+        decision = self._decide(seal, proposal, view, falsifier)
+        self.assertEqual(decision["decision"], "promote")
+        self.assertEqual(decision["hard_contract_gaps"], [])
+        self.assertEqual(decision["sealed_acceptance_uncertainties"], [uncertainty])
+        self.assertIn(
+            "sealed_acceptance_uncertainty_recorded", decision["reason_codes"]
+        )
+        self.assertNotIn("validated_hard_contract_gap", decision["reason_codes"])
 
     def test_progress_file_is_not_part_of_artifact_identity(self) -> None:
         before = artifact_identity(self.app)

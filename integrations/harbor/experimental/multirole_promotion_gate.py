@@ -96,6 +96,7 @@ HARD_CONTRACT_GAP_FIELDS = {
     "contract_basis",
     "evidence_status",
     "evidence_role",
+    "population_access",
     "population_id",
     "observed_evidence",
     "required_evidence",
@@ -103,6 +104,7 @@ HARD_CONTRACT_GAP_FIELDS = {
 }
 HARD_CONTRACT_GAP_KINDS = {"quantitative_acceptance"}
 HARD_CONTRACT_GAP_STATUSES = {"unresolved", "falsified"}
+HARD_CONTRACT_GAP_POPULATION_ACCESS = {"observed_public", "sealed_unavailable"}
 EVIDENCE_ROLES = {"exploration", "acceptance"}
 ACCEPTANCE_EVIDENCE_FIELDS = {
     "candidate_artifact_identity",
@@ -1426,11 +1428,19 @@ def falsifier_task(
                     "counterevidence. Return hard_contract_gaps as a list. Use an item only "
                     "for an unresolved or falsified hard quantitative acceptance claim, not "
                     "for generic uncertainty. Each item has exactly kind, claim, "
-                    "contract_basis, evidence_status, evidence_role, population_id, "
+                    "contract_basis, evidence_status, evidence_role, population_access, "
+                    "population_id, "
                     "observed_evidence, required_evidence, and repair_action. kind is "
                     "quantitative_acceptance; evidence_role is exploration or acceptance. "
-                    "Bind a fixed population id and state the independent evidence needed "
-                    "to clear the threshold with margin. "
+                    "population_access is observed_public only when the authorized evidence "
+                    "actually evaluated that fixed population. Use sealed_unavailable when "
+                    "the acceptance population is inaccessible to every authorized agent. "
+                    "A sealed_unavailable item records residual acceptance uncertainty but "
+                    "is not evidence of a candidate defect and must not by itself force an "
+                    "inconclusive verdict or another recovery cycle. Bind a fixed population "
+                    "id and state the independent evidence needed to clear the threshold with "
+                    "margin. Do not claim provider allocation: that receipt is not yet part of "
+                    "this adapter. "
                     "When context_bundle contains candidate-bound acceptance evidence, "
                     "adjudicate its solver producer, attestation scope, proposal and snapshot "
                     "bindings, confidence, public surfaces, check outcomes, independence basis, "
@@ -1833,9 +1843,19 @@ def decide_promotion(
             required=protection_required,
         )
     )
-    hard_contract_gaps_valid, hard_contract_gaps = _hard_contract_gap_state(
+    hard_contract_gaps_valid, reported_hard_contract_gaps = _hard_contract_gap_state(
         raw.get("hard_contract_gaps")
     )
+    sealed_acceptance_uncertainties = [
+        item
+        for item in reported_hard_contract_gaps
+        if item.get("population_access") == "sealed_unavailable"
+    ]
+    hard_contract_gaps = [
+        item
+        for item in reported_hard_contract_gaps
+        if item.get("population_access") == "observed_public"
+    ]
     falsified_hard_contract_gaps = [
         item
         for item in hard_contract_gaps
@@ -1930,7 +1950,18 @@ def decide_promotion(
         "profile_receipts_valid": profile_receipts_valid,
         "profile_practices_complete": profile_practices_complete,
     }
-    reason_codes = [name for name, passed in checks.items() if not passed]
+    failed_check_reason_codes = {
+        "no_blocking_regressions": "blocking_regressions_present",
+        "no_blocking_contract_violations": "blocking_contract_violations_present",
+        "no_hard_contract_gaps": "hard_contract_gaps_present",
+    }
+    reason_codes = [
+        failed_check_reason_codes.get(name, name)
+        for name, passed in checks.items()
+        if not passed
+    ]
+    if sealed_acceptance_uncertainties:
+        reason_codes.append("sealed_acceptance_uncertainty_recorded")
     hard_reject = any(
         not checks[name]
         for name in (
@@ -1989,6 +2020,7 @@ def decide_promotion(
         "contract_violations": contract_violations,
         "protection_assessments": protection_assessments,
         "hard_contract_gaps": hard_contract_gaps,
+        "sealed_acceptance_uncertainties": sealed_acceptance_uncertainties,
         "profile_receipts": (
             raw.get("profile_receipts")
             if isinstance(raw.get("profile_receipts"), list)
@@ -2396,6 +2428,8 @@ def _hard_contract_gap_state(value: Any) -> tuple[bool, list[dict[str, str]]]:
             or record["contract_basis"] not in PROVENANCE_BASES
             or record["evidence_status"] not in HARD_CONTRACT_GAP_STATUSES
             or record["evidence_role"] not in EVIDENCE_ROLES
+            or record["population_access"]
+            not in HARD_CONTRACT_GAP_POPULATION_ACCESS
             or any(not record[field] for field in HARD_CONTRACT_GAP_FIELDS)
         ):
             return False, []
