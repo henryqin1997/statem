@@ -979,11 +979,13 @@ class RecoveringDevelopRunbookTest(unittest.TestCase):
         self.assertEqual(agent._reviewer_timeout_seconds, 900)
         self.assertEqual(agent._preflight_reviewer_reasoning_effort, "medium")
         self.assertEqual(agent._preflight_reviewer_timeout_seconds, 480)
+        self.assertEqual(agent._preflight_reviewer_lease_seconds, 3600)
         self.assertTrue(agent._enforce_final_state)
         self.assertEqual(agent._max_session_resumes, 8)
         augmented = agent._augment_instruction("repair the visible task", "run-1", "solve")
         self.assertIn("--agent-role preflight-reviewer", augmented)
         self.assertIn("--reasoning-effort medium", augmented)
+        self.assertIn("--lease-seconds 3600", augmented)
         self.assertIn("--detach", augmented)
         self.assertIn("--join-handle", augmented)
         self.assertIn("--dangerously-bypass-hook-trust", agent.build_cli_flags())
@@ -992,6 +994,15 @@ class RecoveringDevelopRunbookTest(unittest.TestCase):
         self.assertIn("STATEM_STOP_REQUIRE_STATE_HOOKS=true", hook["command"])
         self.assertIn("/tmp/statem-verification-checks/statem_stop_hook.py", hook["command"])
         self.assertEqual(agent._statem_env("run-1")["PYTHONPATH"], "/tmp/statem-src")
+
+    def test_v4_adapter_rejects_lease_shorter_than_worker_lifecycle(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with self.assertRaisesRegex(ValueError, "leave at least 60 seconds"):
+                EvidenceDevelopV4ExperimentalStatemCodex(
+                    logs_dir=Path(temp_dir),
+                    model_name="gpt-5.6-sol",
+                    preflight_reviewer_lease_seconds=599,
+                )
 
     def test_v4_adapter_resume_prompt_requires_executable_nonterminal_progress(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

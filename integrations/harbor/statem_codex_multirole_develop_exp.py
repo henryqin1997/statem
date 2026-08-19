@@ -295,6 +295,7 @@ class EvidenceDevelopV4ExperimentalStatemCodex(
         reviewer_timeout_seconds: int = 900,
         preflight_reviewer_reasoning_effort: str = "medium",
         preflight_reviewer_timeout_seconds: int = 480,
+        preflight_reviewer_lease_seconds: int = 3600,
         **kwargs: Any,
     ):
         repo_root = Path(__file__).resolve().parents[2]
@@ -319,6 +320,20 @@ class EvidenceDevelopV4ExperimentalStatemCodex(
         )
         self._preflight_reviewer_timeout_seconds = int(
             preflight_reviewer_timeout_seconds
+        )
+        preflight_slack = min(
+            60, max(30, self._preflight_reviewer_timeout_seconds // 8)
+        )
+        minimum_lease = (
+            self._preflight_reviewer_timeout_seconds + preflight_slack + 60
+        )
+        if preflight_reviewer_lease_seconds < minimum_lease:
+            raise ValueError(
+                "preflight_reviewer_lease_seconds must leave at least 60 seconds "
+                "after the worker wall budget"
+            )
+        self._preflight_reviewer_lease_seconds = int(
+            preflight_reviewer_lease_seconds
         )
 
     @staticmethod
@@ -345,6 +360,7 @@ class EvidenceDevelopV4ExperimentalStatemCodex(
         preflight_timeout = self._preflight_reviewer_timeout_seconds
         preflight_slack = min(60, max(30, preflight_timeout // 8))
         preflight_wall = preflight_timeout + preflight_slack
+        preflight_lease = self._preflight_reviewer_lease_seconds
         preflight_handle = (
             "/tmp/statem-verification-checks/multirole/preflight-worker.json"
         )
@@ -386,12 +402,14 @@ Evidence-develop v4 controls:
   {run_id} --state-dir {state_dir} --entry-id <current-solve-entry-id> --cwd
   /app --max-workers 1 --max-rounds 1 --timeout {preflight_timeout}
   --wall-timeout {preflight_wall} --return-slack {preflight_slack}
-  --lease-seconds {preflight_wall} --deadline-reserve-seconds 180 --agent-prefix
+  --lease-seconds {preflight_lease} --deadline-reserve-seconds 180 --agent-prefix
   preflight --agent-role preflight-reviewer --execution-profile
   read-only-review --model {shlex.quote(self._reviewer_model)}
   --reasoning-effort {shlex.quote(self._preflight_reviewer_reasoning_effort)}
   --no-unified-exec --detach --handle-file {preflight_handle} --json`.
   Continue solver work immediately after launch. Do not start another reviewer.
+  The longer lease protects entry ownership across local suspend/resume and
+  result submission; it does not increase the worker compute or wall budget.
 - Before the initial proposal, join the same handle with
   `statem-teamrun-codex-workers --run-id {run_id} --state-dir {state_dir}
   --entry-id <current-solve-entry-id> --handle-file {preflight_handle}

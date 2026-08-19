@@ -146,3 +146,20 @@ rewriting. One shared schema constant drives both the task and deterministic
 validation. Legal bounded-text normalization uses one canonical projection on
 record and replay; a changed claim or incompatible item schema remains a hard
 failure.
+
+### v4p18 lifecycle evidence
+
+v4p18 confirmed the schema repair: the completed reviewer result used every
+exact ledger item field and reported complete coverage. It could not be
+submitted because the local host suspended while the detached reviewer ran.
+Worker timeout uses active monotonic time, while the TeamRun lease expires by
+wall epoch; after resume, the task had returned to `open` before submission.
+
+The experimental adapter now separates these budgets. Preflight compute remains
+480 seconds with a 540-second worker wall budget, while the entry ownership
+lease is independently configurable and defaults to 3,600 seconds. The lease
+must leave at least 60 seconds beyond the worker wall budget. This tolerates
+local suspend/resume and submission cleanup without increasing reviewer compute
+or relaxing entry scope, worker count, receipt binding, or final-state checks.
+Broader lease renewal and late-result semantics remain deferred lifecycle design
+questions rather than core changes.
