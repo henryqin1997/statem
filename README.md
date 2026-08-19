@@ -19,6 +19,10 @@
 
 StateM turns an agent workflow into an inspectable graph of states, transitions, and executable checks. It keeps planning, execution, verification, repair, and handoff from collapsing into one long prompt.
 
+## News
+
+[**2026-08-18**]🔥 We released the DeepSeek-V4-Flash [StateM runbook and reproducibility release](https://github.com/henryqin1997/statem/releases/tag/deepseek-policy9-tb21-artifacts-20260818), reaching **88.8% descriptive accuracy** on Terminal-Bench 2.1 (395/445 trials; 88.76% unrounded). Everyone can try!
+
 ## Overview
 
 Long agent runs often fail for ordinary reasons: the original goal fades from attention, progress lives only in chat history, verification is postponed, or a new session cannot reconstruct what happened. StateM moves that procedural state out of the model context and into a lightweight, versioned runbook.
