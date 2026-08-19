@@ -127,3 +127,22 @@ Raw reward, protocol validity, and diagnostic evidence remain separate. A
 clean zero reward can still validate the control mechanism; a reward of one
 does not validate it unless the receipts show independent threshold evidence
 and correct promotion behavior.
+
+### v4p17 result and repair
+
+v4p17 was protocol-invalid before falsification, not a task failure. The lead
+produced a candidate and immutable snapshot, the preflight worker completed,
+and TeamRun reached `decided`, but four solve-to-falsify attempts were blocked.
+The worker had returned sensible aliases such as `assertion` and `authority`
+inside `contract_ledger`; the lead rewrote them to the gate's required
+`claim`, `basis`, and `evidence` schema. The immutable binding correctly
+rejected that semantic receipt rewrite, and two bounded session continuations
+ended with StateM still in `solve`.
+
+The repair keeps the strict binding. `preflight_task` now carries the exact
+item-level ledger schema as structured input, the TeamRun task schema requires
+that input, and the reviewer assignment explicitly forbids aliases or lead-side
+rewriting. One shared schema constant drives both the task and deterministic
+validation. Legal bounded-text normalization uses one canonical projection on
+record and replay; a changed claim or incompatible item schema remains a hard
+failure.

@@ -124,6 +124,7 @@ nodes:
           - assignment
           - context_bundle
           - review_profile
+          - contract_ledger_schema
         types:
           plan_sha256: string
           contract_seal_sha256: string
@@ -132,6 +133,7 @@ nodes:
           assignment: string
           context_bundle: mapping
           review_profile: mapping
+          contract_ledger_schema: mapping
       result_schema:
         required:
           - status

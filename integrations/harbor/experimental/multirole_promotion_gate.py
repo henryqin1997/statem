@@ -110,6 +110,12 @@ CONTRACT_LEDGER_FIELDS = {
     "conflicts_requiring_probes",
     "repair_implications",
 }
+CONTRACT_LEDGER_SCHEMAS = {
+    "hard_constraints": ("claim", "basis", "evidence"),
+    "defeasible_claims": ("claim", "source", "reason"),
+    "conflicts_requiring_probes": ("claim", "conflict", "probe"),
+    "repair_implications": ("scope", "preserve", "verify"),
+}
 CONTRACT_LEDGER_MAX_ITEMS = 12
 CONTRACT_LEDGER_TEXT_MAX_CHARS = 600
 CONTEXT_BUNDLE_MAX_BYTES = 160_000
@@ -696,6 +702,7 @@ def preflight_task(
                 "review_profile_sha256": profile_sha256,
                 "context_bundle": _context_bundle(context_view),
                 "review_profile": review_profile,
+                "contract_ledger_schema": _contract_ledger_task_schema(),
                 "assignment": (
                     "Review the solver plan before a candidate exists, using only the "
                     "embedded context_bundle and selected review_profile. This is a "
@@ -718,13 +725,43 @@ def preflight_task(
                     "plan_findings, checklist_gaps, assumption_risks, recommendations, and "
                     "contract_ledger. contract_ledger has exactly hard_constraints, "
                     "defeasible_claims, conflicts_requiring_probes, and repair_implications. "
-                    "Each value is a bounded list of concise objects in the supplied schema. "
+                    "Each value is a bounded list of concise objects using exactly the item "
+                    "keys in contract_ledger_schema. Do not invent aliases such as assertion "
+                    "or authority and do not rely on the lead to rewrite the receipt. "
                     "advisory_verdict is ready or revise_plan. The four finding fields are "
                     "lists of concise strings. Bind every supplied hash exactly. Use status "
                     "completed and coverage.complete=true only after reviewing the full bundle."
                 ),
             }
         ]
+    }
+
+
+def _canonical_preflight_result_payload(raw: dict[str, Any]) -> dict[str, Any]:
+    verdict = _text(raw.get("advisory_verdict"))
+    if verdict not in {"ready", "revise_plan"}:
+        raise ValueError("preflight advisory verdict must be ready or revise_plan")
+    binding_fields = (
+        "plan_sha256",
+        "contract_seal_sha256",
+        "context_view_sha256",
+        "review_profile_sha256",
+    )
+    finding_fields = (
+        "plan_findings",
+        "checklist_gaps",
+        "assumption_risks",
+        "recommendations",
+    )
+    for field in finding_fields:
+        value = raw.get(field)
+        if not isinstance(value, list) or not all(_text(item) for item in value):
+            raise ValueError(f"preflight reviewer {field} must be a string list")
+    return {
+        "advisory_verdict": verdict,
+        **{field: raw.get(field) for field in binding_fields},
+        **{field: list(raw[field]) for field in finding_fields},
+        "contract_ledger": _contract_ledger(raw.get("contract_ledger")),
     }
 
 
@@ -777,20 +814,7 @@ def record_preflight_evidence(
     for field, expected in expected_hashes.items():
         if raw.get(field) != expected:
             raise ValueError(f"preflight reviewer {field} binding is invalid")
-    verdict = _text(raw.get("advisory_verdict"))
-    if verdict not in {"ready", "revise_plan"}:
-        raise ValueError("preflight advisory verdict must be ready or revise_plan")
-    finding_fields = (
-        "plan_findings",
-        "checklist_gaps",
-        "assumption_risks",
-        "recommendations",
-    )
-    for field in finding_fields:
-        value = raw.get(field)
-        if not isinstance(value, list) or not all(_text(item) for item in value):
-            raise ValueError(f"preflight reviewer {field} must be a string list")
-    contract_ledger = _contract_ledger(raw.get("contract_ledger"))
+    canonical_payload = _canonical_preflight_result_payload(raw)
     if plan.get("run_id") != context["run_id"] or plan.get("entry_id") != context[
         "entry_id"
     ]:
@@ -800,10 +824,7 @@ def record_preflight_evidence(
         "kind": "plan_preflight_evidence",
         **context,
         "producer": producer,
-        **expected_hashes,
-        "advisory_verdict": verdict,
-        **{field: list(raw[field]) for field in finding_fields},
-        "contract_ledger": contract_ledger,
+        **canonical_payload,
         "promotion_authority": False,
         "created_at": reviewer_result.get("submitted_at") or _now(),
     }
@@ -850,19 +871,11 @@ def _require_preflight_result_binding(
     raw = reviewer_result.get("raw")
     if not isinstance(raw, dict):
         raise ValueError("bound preflight TeamRun result has no raw payload")
-    fields = (
-        "advisory_verdict",
-        "plan_sha256",
-        "contract_seal_sha256",
-        "context_view_sha256",
-        "review_profile_sha256",
-        "plan_findings",
-        "checklist_gaps",
-        "assumption_risks",
-        "recommendations",
-        "contract_ledger",
-    )
-    if any(raw.get(field) != evidence.get(field) for field in fields):
+    canonical_payload = _canonical_preflight_result_payload(raw)
+    if any(
+        value != evidence.get(field)
+        for field, value in canonical_payload.items()
+    ):
         raise ValueError("preflight evidence differs from the immutable TeamRun payload")
     submitted_at = reviewer_result.get("submitted_at")
     if submitted_at and evidence.get("created_at") != submitted_at:
@@ -875,14 +888,9 @@ def _contract_ledger(value: Any) -> dict[str, list[dict[str, str]]]:
             "preflight contract_ledger requires exactly hard_constraints, "
             "defeasible_claims, conflicts_requiring_probes, and repair_implications"
         )
-    schemas = {
-        "hard_constraints": {"claim", "basis", "evidence"},
-        "defeasible_claims": {"claim", "source", "reason"},
-        "conflicts_requiring_probes": {"claim", "conflict", "probe"},
-        "repair_implications": {"scope", "preserve", "verify"},
-    }
     normalized: dict[str, list[dict[str, str]]] = {}
-    for field, fields in schemas.items():
+    for field, ordered_fields in CONTRACT_LEDGER_SCHEMAS.items():
+        fields = set(ordered_fields)
         items = value.get(field)
         if not isinstance(items, list) or len(items) > CONTRACT_LEDGER_MAX_ITEMS:
             raise ValueError(f"contract_ledger {field} exceeds its bounded list schema")
@@ -900,6 +908,20 @@ def _contract_ledger(value: Any) -> dict[str, list[dict[str, str]]]:
             normalized_items.append(record)
         normalized[field] = normalized_items
     return normalized
+
+
+def _contract_ledger_task_schema() -> dict[str, Any]:
+    return {
+        "required_top_level_fields": sorted(CONTRACT_LEDGER_FIELDS),
+        "item_fields": {
+            field: list(fields)
+            for field, fields in CONTRACT_LEDGER_SCHEMAS.items()
+        },
+        "max_items_per_field": CONTRACT_LEDGER_MAX_ITEMS,
+        "max_text_chars": CONTRACT_LEDGER_TEXT_MAX_CHARS,
+        "hard_constraints_min_items": 1,
+        "hard_constraint_bases": sorted(PROVENANCE_BASES),
+    }
 
 
 def _bounded_contract_text(value: Any, field: str) -> str:

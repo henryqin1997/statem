@@ -268,6 +268,13 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             )
         assignment = task["tasks"][0]
         self.assertIn("authorize promotion", assignment["assignment"])
+        self.assertEqual(
+            assignment["contract_ledger_schema"]["item_fields"][
+                "hard_constraints"
+            ],
+            ["claim", "basis", "evidence"],
+        )
+        self.assertIn("Do not invent aliases", assignment["assignment"])
         raw = {
             "status": "completed",
             "summary": "the plan covers the visible contract",
@@ -288,7 +295,7 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             "contract_ledger": {
                 "hard_constraints": [
                     {
-                        "claim": "the public transform signature remains stable",
+                        "claim": "  the public transform signature remains stable  ",
                         "basis": "public_signature",
                         "evidence": "the public callable is part of the visible interface",
                     }
@@ -335,6 +342,10 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             evidence["contract_ledger"]["hard_constraints"][0]["basis"],
             "public_signature",
         )
+        self.assertEqual(
+            evidence["contract_ledger"]["hard_constraints"][0]["claim"],
+            "the public transform signature remains stable",
+        )
         draft = {
             "target_gap": "transform returns the unmodified value",
             "hypothesis": "the implementation omits the required increment",
@@ -359,6 +370,33 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             preflight_evidence=evidence,
             reviewer_result=reviewer_result,
         )
+        changed_result = json.loads(json.dumps(reviewer_result))
+        changed_result["raw"]["contract_ledger"]["hard_constraints"][0][
+            "claim"
+        ] = "a different hard constraint"
+        with self.assertRaisesRegex(ValueError, "immutable TeamRun payload"):
+            require_preflight_binding(
+                proposal=proposal,
+                preflight_evidence=evidence,
+                reviewer_result=changed_result,
+            )
+        invalid_schema_result = json.loads(json.dumps(reviewer_result))
+        invalid_schema_result["raw"]["contract_ledger"]["hard_constraints"] = [
+            {
+                "assertion": "the public transform signature remains stable",
+                "authority": "public_signature",
+                "repair_implication": "preserve the callable",
+            }
+        ]
+        with patch.dict("os.environ", self.env, clear=False):
+            with self.assertRaisesRegex(ValueError, "items require exactly"):
+                record_preflight_evidence(
+                    plan=plan,
+                    seal=seal,
+                    context_view=view,
+                    review_profile=profile,
+                    reviewer_result=invalid_schema_result,
+                )
         tampered = dict(evidence)
         tampered["recommendations"] = ["different advice"]
         with self.assertRaisesRegex(ValueError, "not bound"):
