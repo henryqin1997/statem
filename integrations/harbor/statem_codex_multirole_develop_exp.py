@@ -376,6 +376,11 @@ Evidence-develop v4 controls:
   --artifact-root /app --expected-receipt
   /tmp/statem-verification-checks/multirole/candidate-proposal.json --output
   /tmp/statem-verification-checks/artifact-provider/candidate-snapshot.json`.
+- Before leaving solve or revise, record bounded public self-verification in
+  acceptance-evidence-draft.json using the exact schema in the current StateM
+  prompt. Copy the current candidate artifact identity exactly. The state hook
+  binds this solver attestation to the proposal and immutable snapshot; it is
+  evidence for independent review, never promotion authority by itself.
 - protected_behavior_basis is machine validated. A broken target docstring is
   never a sufficient basis by itself.
 - In contract_audit, select one primary and at most two secondary reviewer

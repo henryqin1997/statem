@@ -55,6 +55,7 @@ DEFAULT_SOLVER_PLAN = DEFAULT_DIR / "solver-plan.json"
 DEFAULT_PREFLIGHT_CONTEXT_VIEW = DEFAULT_DIR / "preflight-context-view.json"
 DEFAULT_PREFLIGHT_TASK = DEFAULT_DIR / "preflight-task.json"
 DEFAULT_PREFLIGHT_EVIDENCE = DEFAULT_DIR / "preflight-evidence.json"
+DEFAULT_ACCEPTANCE_EVIDENCE = DEFAULT_DIR / "acceptance-evidence.json"
 DEFAULT_CANONICAL_FALSIFIER_RESULT = DEFAULT_DIR / "canonical-falsifier-result.json"
 DEFAULT_REVIEW_PROFILE_CATALOG = Path(
     "/tmp/statem-verification-checks/reviewer-practice-router-v1.yaml"
@@ -103,6 +104,24 @@ HARD_CONTRACT_GAP_FIELDS = {
 HARD_CONTRACT_GAP_KINDS = {"quantitative_acceptance"}
 HARD_CONTRACT_GAP_STATUSES = {"unresolved", "falsified"}
 EVIDENCE_ROLES = {"exploration", "acceptance"}
+ACCEPTANCE_EVIDENCE_FIELDS = {
+    "candidate_artifact_identity",
+    "confidence",
+    "independence_basis",
+    "checks",
+    "residual_risks",
+}
+ACCEPTANCE_CHECK_FIELDS = {
+    "claim",
+    "public_surface",
+    "method",
+    "outcome",
+    "evidence",
+}
+ACCEPTANCE_CONFIDENCE = {"verified", "supported", "unresolved", "falsified"}
+ACCEPTANCE_OUTCOMES = {"passed", "failed", "inconclusive"}
+ACCEPTANCE_MAX_CHECKS = 24
+ACCEPTANCE_TEXT_MAX_CHARS = 600
 SOLVER_PLAN_FIELDS = {
     "objective",
     "steps",
@@ -179,6 +198,13 @@ def main(argv: list[str] | None = None) -> int:
                     if args.preflight_evidence is not None
                     else None
                 ),
+            )
+            _write_json(args.output, receipt)
+        elif args.action == "acceptance-evidence":
+            receipt = record_acceptance_evidence(
+                draft=_read_json(args.draft),
+                proposal=_read_json(args.proposal),
+                candidate_snapshot=_read_json(args.candidate_snapshot),
             )
             _write_json(args.output, receipt)
         elif args.action == "plan":
@@ -366,6 +392,14 @@ def _parser() -> argparse.ArgumentParser:
     proposal.add_argument("--artifact-root", type=Path, default=Path("/app"))
     proposal.add_argument("--preflight-evidence", type=Path)
     proposal.add_argument("--output", type=Path, default=DEFAULT_PROPOSAL)
+
+    acceptance = subparsers.add_parser("acceptance-evidence")
+    acceptance.add_argument("--draft", type=Path, required=True)
+    acceptance.add_argument("--proposal", type=Path, default=DEFAULT_PROPOSAL)
+    acceptance.add_argument(
+        "--candidate-snapshot", type=Path, default=DEFAULT_CANDIDATE_SNAPSHOT
+    )
+    acceptance.add_argument("--output", type=Path, default=DEFAULT_ACCEPTANCE_EVIDENCE)
 
     plan = subparsers.add_parser("plan")
     plan.add_argument("--draft", type=Path, required=True)
@@ -624,6 +658,120 @@ def record_proposal(
         **draft,
         "created_at": _now(),
     }
+
+
+def record_acceptance_evidence(
+    *,
+    draft: dict[str, Any],
+    proposal: dict[str, Any],
+    candidate_snapshot: dict[str, Any],
+) -> dict[str, Any]:
+    _require_receipt(proposal, "candidate_proposal")
+    _require_receipt(candidate_snapshot, "filesystem_artifact_snapshot")
+    context = _state_context()
+    producer = _producer()
+    if context["node"] not in {"solve", "revise"} or producer.get("role") != "solver":
+        raise ValueError(
+            "acceptance evidence belongs to the current solve or revise entry and solver role"
+        )
+    for receipt_name, receipt in (
+        ("proposal", proposal),
+        ("candidate snapshot", candidate_snapshot),
+    ):
+        if receipt.get("run_id") != context["run_id"]:
+            raise ValueError(f"acceptance evidence {receipt_name} belongs to another run")
+        if receipt.get("entry_id") != context["entry_id"]:
+            raise ValueError(f"acceptance evidence {receipt_name} belongs to another entry")
+    if set(draft) != ACCEPTANCE_EVIDENCE_FIELDS:
+        missing = sorted(ACCEPTANCE_EVIDENCE_FIELDS - set(draft))
+        unknown = sorted(set(draft) - ACCEPTANCE_EVIDENCE_FIELDS)
+        detail = []
+        if missing:
+            detail.append("missing " + ", ".join(missing))
+        if unknown:
+            detail.append("unknown " + ", ".join(unknown))
+        raise ValueError(
+            "acceptance evidence draft requires the exact schema: " + "; ".join(detail)
+        )
+    candidate_identity = proposal.get("candidate_artifact_identity")
+    if draft.get("candidate_artifact_identity") != candidate_identity:
+        raise ValueError(
+            "acceptance evidence draft must copy the current candidate artifact identity"
+        )
+    if not _snapshot_bound(
+        candidate_snapshot,
+        expected_kind="candidate",
+        expected_identity=candidate_identity,
+        expected_sha256=None,
+        required=True,
+    ):
+        raise ValueError("acceptance evidence requires the exact immutable candidate snapshot")
+    proposal_sha256 = stable_sha256(proposal)
+    if candidate_snapshot.get("expected_receipt_sha256") != proposal_sha256:
+        raise ValueError("candidate snapshot is not bound to the current proposal")
+    confidence = _text(draft.get("confidence"))
+    if confidence not in ACCEPTANCE_CONFIDENCE:
+        raise ValueError("acceptance evidence confidence is invalid")
+    independence_basis = _acceptance_text(
+        draft.get("independence_basis"), "independence_basis"
+    )
+    checks = draft.get("checks")
+    if (
+        not isinstance(checks, list)
+        or not checks
+        or len(checks) > ACCEPTANCE_MAX_CHECKS
+    ):
+        raise ValueError(
+            f"acceptance evidence requires 1-{ACCEPTANCE_MAX_CHECKS} checks"
+        )
+    normalized_checks: list[dict[str, str]] = []
+    for index, item in enumerate(checks):
+        if not isinstance(item, dict) or set(item) != ACCEPTANCE_CHECK_FIELDS:
+            raise ValueError(
+                f"acceptance evidence check {index} requires exactly "
+                f"{sorted(ACCEPTANCE_CHECK_FIELDS)}"
+            )
+        normalized = {
+            field: _acceptance_text(item.get(field), f"checks[{index}].{field}")
+            for field in ACCEPTANCE_CHECK_FIELDS
+        }
+        if normalized["outcome"] not in ACCEPTANCE_OUTCOMES:
+            raise ValueError(f"acceptance evidence check {index} outcome is invalid")
+        normalized_checks.append(normalized)
+    residual_risks = draft.get("residual_risks")
+    if not isinstance(residual_risks, list):
+        raise ValueError("acceptance evidence residual_risks must be a string list")
+    normalized_risks = [
+        _acceptance_text(item, f"residual_risks[{index}]")
+        for index, item in enumerate(residual_risks)
+    ]
+    return {
+        "version": 1,
+        "kind": "candidate_bound_acceptance_evidence",
+        **context,
+        "producer": producer,
+        "evidence_role": "acceptance",
+        "attestation_scope": "solver_recorded_public_execution",
+        "proposal_sha256": proposal_sha256,
+        "candidate_artifact_identity": candidate_identity,
+        "candidate_snapshot_identity": candidate_snapshot["snapshot_identity"],
+        "candidate_snapshot_sha256": stable_sha256(candidate_snapshot),
+        "confidence": confidence,
+        "independence_basis": independence_basis,
+        "checks": normalized_checks,
+        "residual_risks": normalized_risks,
+        "created_at": _now(),
+    }
+
+
+def _acceptance_text(value: Any, field: str) -> str:
+    text = _text(value)
+    if not text or len(text) > ACCEPTANCE_TEXT_MAX_CHARS:
+        raise ValueError(
+            f"acceptance evidence {field} must contain "
+            f"1-{ACCEPTANCE_TEXT_MAX_CHARS} characters"
+        )
+    return text
 
 
 def record_solver_plan(
@@ -1283,10 +1431,13 @@ def falsifier_task(
                     "quantitative_acceptance; evidence_role is exploration or acceptance. "
                     "Bind a fixed population id and state the independent evidence needed "
                     "to clear the threshold with margin. "
-                    "When context_bundle contains a candidate-bound acceptance receipt, "
-                    "adjudicate its producer, evidence role, population identity, artifact "
-                    "bindings, retained unfavorable cases, repeatability, and margin. Its "
-                    "presence is evidence to inspect, not automatic independence or authority. "
+                    "When context_bundle contains candidate-bound acceptance evidence, "
+                    "adjudicate its solver producer, attestation scope, proposal and snapshot "
+                    "bindings, confidence, public surfaces, check outcomes, independence basis, "
+                    "and residual risks. Solver-recorded execution is provenance-bearing evidence, "
+                    "not independent review authority. For quantitative claims also require a "
+                    "fixed population identity, retained unfavorable cases, repeatability, and "
+                    "margin. Presence never authorizes promotion automatically. "
                     "When review_protocol is present, "
                     "execute its stages "
                     "in order. Each review_stages item has exactly stage_id, status, and "

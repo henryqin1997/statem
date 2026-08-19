@@ -21,6 +21,7 @@ from integrations.harbor.experimental.multirole_promotion_gate import (
     decide_promotion,
     main as promotion_gate_main,
     preflight_task,
+    record_acceptance_evidence,
     record_context_view,
     record_preflight_evidence,
     record_proposal,
@@ -654,6 +655,73 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         decision = self._decide(seal, proposal, view, falsifier)
         self.assertEqual(decision["decision"], "revise")
         self.assertIn("validated_blocking_regression", decision["reason_codes"])
+
+    def test_acceptance_evidence_binds_solver_checks_to_exact_candidate(self) -> None:
+        _, proposal, _ = self._receipts()
+        self._state("solve", "solve-entry")
+        candidate_snapshot = {
+            "version": 1,
+            "kind": "filesystem_artifact_snapshot",
+            "run_id": self.run_id,
+            "entry_id": "solve-entry",
+            "node": "solve",
+            "producer": {"agent_id": "artifact-provider", "role": "artifact_provider"},
+            "snapshot_kind": "candidate",
+            "artifact_identity": proposal["candidate_artifact_identity"],
+            "snapshot_identity": proposal["candidate_artifact_identity"],
+            "snapshot_path": str(self.app),
+            "expected_receipt_sha256": stable_sha256(proposal),
+            "immutable": True,
+        }
+        draft = {
+            "candidate_artifact_identity": proposal["candidate_artifact_identity"],
+            "confidence": "supported",
+            "independence_basis": "fresh public cases selected before the final replay",
+            "checks": [
+                {
+                    "claim": "the public transformation preserves signed inputs",
+                    "public_surface": "worker.transform",
+                    "method": "bounded public input partition",
+                    "outcome": "passed",
+                    "evidence": "zero, positive, and negative partitions returned expected values",
+                }
+            ],
+            "residual_risks": ["the bounded partition is not exhaustive"],
+        }
+        with patch.dict("os.environ", self.env, clear=False):
+            receipt = record_acceptance_evidence(
+                draft=draft,
+                proposal=proposal,
+                candidate_snapshot=candidate_snapshot,
+            )
+        self.assertEqual(receipt["kind"], "candidate_bound_acceptance_evidence")
+        self.assertEqual(receipt["proposal_sha256"], stable_sha256(proposal))
+        self.assertEqual(
+            receipt["candidate_snapshot_sha256"], stable_sha256(candidate_snapshot)
+        )
+        self.assertEqual(
+            receipt["attestation_scope"], "solver_recorded_public_execution"
+        )
+
+        stale = {**draft, "candidate_artifact_identity": "tree-sha256:stale"}
+        with patch.dict("os.environ", self.env, clear=False):
+            with self.assertRaisesRegex(ValueError, "current candidate artifact identity"):
+                record_acceptance_evidence(
+                    draft=stale,
+                    proposal=proposal,
+                    candidate_snapshot=candidate_snapshot,
+                )
+        stale_snapshot = {
+            **candidate_snapshot,
+            "expected_receipt_sha256": "proposal-sha256:stale",
+        }
+        with patch.dict("os.environ", self.env, clear=False):
+            with self.assertRaisesRegex(ValueError, "current proposal"):
+                record_acceptance_evidence(
+                    draft=draft,
+                    proposal=proposal,
+                    candidate_snapshot=stale_snapshot,
+                )
 
     def test_structured_hard_quantitative_gap_blocks_promotion(self) -> None:
         seal, proposal, view = self._receipts()

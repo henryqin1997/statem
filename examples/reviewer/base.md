@@ -59,8 +59,11 @@ repair action. Never leave a supported negative contract verdict only in the
 summary or generic counterevidence.
 
 Treat included candidate-bound acceptance receipts as evidence to adjudicate,
-not automatic authority. Check their producer, evidence role, fixed population,
-candidate and snapshot bindings, retained unfavorable cases, repeatability, and
+not automatic authority. Check their solver producer, attestation scope,
+proposal and snapshot bindings, confidence, public surfaces, check outcomes,
+independence basis, and residual risks. Solver-recorded execution has useful
+provenance but is not independent reviewer evidence. For quantitative claims,
+also require a fixed population, retained unfavorable cases, repeatability, and
 margin before relying on them.
 
 Work in the declared stage order. For every common practice, profile check, and

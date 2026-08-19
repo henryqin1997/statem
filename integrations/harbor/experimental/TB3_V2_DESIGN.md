@@ -221,3 +221,36 @@ changed first-party material forces incomplete review. Truncation of unchanged
 or dependency material is reported with counts and remains a reviewer relevance
 question; it no longer automatically erases otherwise complete semantic
 evidence. Text, per-file, and entry limits remain explicit and bounded.
+
+### v4p21 candidate-bound self-verification provenance
+
+The first untouched post-repair sample, `session-window-debug`, moved from the
+public Sol Max 0/5 set to a raw StateM 1/1 result. This single sample proves
+feasibility, not a new pass rate. It also cleanly validated globally scheduled
+context: every explicit and changed first-party entry was present, while
+unchanged duplicate omissions were declared and correctly judged irrelevant.
+
+The recovery loop found a concrete direct contract violation in cycle 1,
+quarantined rather than rolled back, confirmed a recoverable failure, and
+repaired only two first-party entries in cycle 2. The final reviewer found no
+regression but could not rely on the lead's claimed public checks because they
+were prose in the proposal rather than candidate-bound execution evidence.
+Exact final replay passed and the raw verifier returned reward 1.
+
+The gate now records a small `candidate_bound_acceptance_evidence` receipt from
+an exact-schema draft. The stateful transfer hook binds its candidate identity,
+proposal hash, immutable snapshot identity and hash, solver producer, confidence,
+public check surfaces and outcomes, independence basis, and residual risks. A
+stale draft cannot bind to a different candidate identity. The falsifier view
+requires this receipt instead of treating it as optional.
+
+This is a provenance control, not a semantic shortcut. The receipt explicitly
+labels itself `solver_recorded_public_execution`; reviewer practice states that
+it is neither independent evidence nor promotion authority. It makes the lead's
+self-verification inspectable while preserving reviewer responsibility for
+contract authority, semantic forks, population quality, and residual risk.
+
+Focused verification passed 25 tests. The full repository passed 669 tests,
+with 3 skipped and 71 subtests. Pre-change and post-change control snapshots are
+recorded in `TB3_V2_BACKUP_MANIFEST.md`; the complete v4p21 raw job is preserved
+separately under `.statem/benchmarks/backups`.

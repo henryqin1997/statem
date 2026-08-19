@@ -110,6 +110,18 @@ nodes:
       provider, using the proposal as its expected receipt. The initial proposal
       must pass --preflight-evidence so its immutable hash binds the advisory
       review; revisions retain that original binding.
+
+      After the candidate snapshot exists, write acceptance-evidence-draft.json
+      with exactly candidate_artifact_identity, confidence, independence_basis,
+      checks, and residual_risks. Copy candidate_artifact_identity exactly from
+      the current proposal. confidence is verified, supported, unresolved, or
+      falsified. checks is a non-empty list of at most 24 objects with exactly
+      claim, public_surface, method, outcome, and evidence; outcome is passed,
+      failed, or inconclusive.
+      Describe the public probe class and bounded outcome, not raw commands or
+      trajectories. residual_risks is a string list and may be empty. The state
+      hook binds this solver-recorded evidence to the proposal and immutable
+      snapshot. It is inspectable provenance, not independent review authority.
     multi_agent:
       mode: fanout_search_reduce
       max_parallel: 1
@@ -174,6 +186,12 @@ nodes:
       - type: predicate
         path: /tmp/statem-verification-checks/artifact-provider/candidate-snapshot.json
         exists: true
+      - type: predicate
+        path: /tmp/statem-verification-checks/multirole/acceptance-evidence-draft.json
+        exists: true
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py acceptance-evidence --draft /tmp/statem-verification-checks/multirole/acceptance-evidence-draft.json --proposal /tmp/statem-verification-checks/multirole/candidate-proposal.json --candidate-snapshot /tmp/statem-verification-checks/artifact-provider/candidate-snapshot.json"
+        timeout: 60
       - type: command
         run: "statem-teamrun-codex-workers --run-id \"$STATEM_RUN_ID\" --state-dir \"$STATEM_STATE_DIR\" --entry-id \"$STATEM_ENTRY_ID\" --handle-file /tmp/statem-verification-checks/multirole/preflight-worker.json --require-completed-handle --json"
         timeout: 15
@@ -213,7 +231,7 @@ nodes:
         run: "python3 /tmp/statem-verification-checks/recovering_develop_guard.py review-open"
         timeout: 15
       - type: command
-        run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py context-view --role falsifier --include /tmp/statem-verification-checks/task.txt --include /tmp/statem-verification-checks/multirole/contract-seal.json --include /tmp/statem-verification-checks/multirole/candidate-proposal.json --include /tmp/statem-verification-checks/multirole/preflight-evidence.json --include /tmp/statem-verification-checks/multirole/review-profile.json --include-if-present /tmp/statem-verification-checks/multirole/acceptance-evidence.json --include-snapshot /tmp/statem-verification-checks/artifact-provider/baseline-snapshot.json --include-snapshot /tmp/statem-verification-checks/artifact-provider/candidate-snapshot.json"
+        run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py context-view --role falsifier --include /tmp/statem-verification-checks/task.txt --include /tmp/statem-verification-checks/multirole/contract-seal.json --include /tmp/statem-verification-checks/multirole/candidate-proposal.json --include /tmp/statem-verification-checks/multirole/preflight-evidence.json --include /tmp/statem-verification-checks/multirole/review-profile.json --include /tmp/statem-verification-checks/multirole/acceptance-evidence.json --include-snapshot /tmp/statem-verification-checks/artifact-provider/baseline-snapshot.json --include-snapshot /tmp/statem-verification-checks/artifact-provider/candidate-snapshot.json"
         timeout: 60
       - type: command
         run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py falsifier-task --review-practices /tmp/statem-verification-checks/reviewer-practices-v1.yaml --review-profile /tmp/statem-verification-checks/multirole/review-profile.json --output /tmp/statem-verification-checks/multirole/falsifier-task.json"
@@ -307,7 +325,9 @@ nodes:
       Replace proposal-draft.json with the same exact field schema used in
       solve, run the gate proposal action, and replace the candidate snapshot
       receipt through the provider. This is the final review opportunity in the
-      current cycle.
+      current cycle. Replace acceptance-evidence-draft.json with the exact
+      current-candidate self-verification schema used in solve; the state hook
+      binds it only after the fresh proposal and snapshot are present.
     before_transfer:
       - type: predicate
         path: /tmp/statem-verification-checks/multirole/candidate-proposal.json
@@ -315,6 +335,12 @@ nodes:
       - type: predicate
         path: /tmp/statem-verification-checks/artifact-provider/candidate-snapshot.json
         exists: true
+      - type: predicate
+        path: /tmp/statem-verification-checks/multirole/acceptance-evidence-draft.json
+        exists: true
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py acceptance-evidence --draft /tmp/statem-verification-checks/multirole/acceptance-evidence-draft.json --proposal /tmp/statem-verification-checks/multirole/candidate-proposal.json --candidate-snapshot /tmp/statem-verification-checks/artifact-provider/candidate-snapshot.json"
+        timeout: 60
     state_hooks:
       - name: continue_revision
         event: stop
