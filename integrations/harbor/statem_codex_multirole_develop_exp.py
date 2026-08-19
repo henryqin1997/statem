@@ -269,6 +269,14 @@ class EvidenceDevelopV4ExperimentalStatemCodex(
     _REMOTE_PROVIDER_RECEIPTS = PurePosixPath(
         "/tmp/statem-verification-checks/artifact-provider"
     )
+    _LOCAL_ACCEPTANCE_REPLAY = (
+        Path(__file__).resolve().parent
+        / "experimental"
+        / "candidate_acceptance_replay.py"
+    )
+    _REMOTE_ACCEPTANCE_REPLAY = PurePosixPath(
+        "/tmp/statem-verification-checks/candidate_acceptance_replay.py"
+    )
     _LOCAL_REVIEWER_PRACTICES = (
         Path(__file__).resolve().parents[2]
         / "examples"
@@ -344,6 +352,7 @@ class EvidenceDevelopV4ExperimentalStatemCodex(
         return [
             *super()._verification_check_paths(),
             self._LOCAL_ARTIFACT_PROVIDER,
+            self._LOCAL_ACCEPTANCE_REPLAY,
             self._LOCAL_REVIEWER_PRACTICES,
             self._LOCAL_REVIEWER_PROFILE_CATALOG,
             *self._LOCAL_REVIEWER_PROFILES,
@@ -381,6 +390,14 @@ Evidence-develop v4 controls:
   prompt. Copy the current candidate artifact identity exactly. The state hook
   binds this solver attestation to the proposal and immutable snapshot; it is
   evidence for independent review, never promotion authority by itself.
+- Also write acceptance-replay-plan-draft.json using the exact bounded schema
+  in the current StateM prompt. Declare only public, non-interactive checks with
+  argv arrays, relative working directories, explicit expected exit codes, and
+  short timeouts. The adapter replays each check on a fresh disposable copy of
+  the immutable candidate snapshot with a minimal credential-free environment,
+  process-group limits, and digest-only output. A replay receipt proves what
+  executed on which candidate; it does not prove that the selected checks cover
+  the task contract.
 - protected_behavior_basis is machine validated. A broken target docstring is
   never a sufficient basis by itself.
 - In contract_audit, select one primary and at most two secondary reviewer

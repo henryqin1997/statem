@@ -31,6 +31,7 @@ from integrations.harbor.experimental.multirole_promotion_gate import (
     verify_application,
 )
 from integrations.harbor.statem_codex_multirole_develop_exp import (
+    EvidenceDevelopV4ExperimentalStatemCodex,
     MultiRoleDevelopExperimentalStatemCodex,
 )
 from integrations.teamrun.teamrun_codex_worker import (
@@ -1020,6 +1021,21 @@ class MultiRoleWorkerProfileTest(unittest.TestCase):
         runbook = agent._runbook_path.read_text(encoding="utf-8").lower()
         self.assertIn("read-only-review", runbook)
         self.assertNotIn("embedding-drift-monitor", runbook)
+
+    def test_evidence_adapter_includes_bounded_acceptance_replay(self) -> None:
+        agent = EvidenceDevelopV4ExperimentalStatemCodex.__new__(
+            EvidenceDevelopV4ExperimentalStatemCodex
+        )
+        agent._statem_source_dir = REPO
+        agent._runbook_path = (
+            REPO / "examples/frontier-bench-agent-evidence-develop-v4-exp.yaml"
+        )
+        names = [path.name for path in agent._verification_check_paths()]
+        self.assertIn("candidate_acceptance_replay.py", names)
+        runbook = agent._runbook_path.read_text(encoding="utf-8")
+        self.assertIn("acceptance-replay-plan-draft.json", runbook)
+        self.assertIn("candidate_acceptance_replay.py", runbook)
+        self.assertIn("acceptance-replay.json", runbook)
 
 
 if __name__ == "__main__":

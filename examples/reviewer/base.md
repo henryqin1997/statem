@@ -66,6 +66,17 @@ provenance but is not independent reviewer evidence. For quantitative claims,
 also require a fixed population, retained unfavorable cases, repeatability, and
 margin before relying on them.
 
+When a bound `candidate_acceptance_replay` is present, separately inspect its
+adapter producer, snapshot-copy attestation, proposal/snapshot/acceptance/plan
+hash chain, declared argv checks, minimal-environment policy, execution
+completeness, terminal statuses, exit expectations, and post-run artifact
+identities. This is independently executed evidence, but the solver still chose
+the commands and public surfaces. Decide whether that selection covers the hard
+contract and residual risks; never promote merely because all commands exited
+successfully. Conversely, do not require a binary or generated artifact to be
+embedded as text when a complete, appropriately scoped replay establishes the
+relevant public behavior. Record the precise uncovered semantic claim instead.
+
 Work in the declared stage order. For every common practice, profile check, and
 protected behavior, either apply it with evidence, mark it not applicable with
 a reason, or leave it unresolved. Reuse one evidence item across receipts when

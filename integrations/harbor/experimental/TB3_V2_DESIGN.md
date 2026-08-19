@@ -254,3 +254,70 @@ Focused verification passed 25 tests. The full repository passed 669 tests,
 with 3 skipped and 71 subtests. Pre-change and post-change control snapshots are
 recorded in `TB3_V2_BACKUP_MANIFEST.md`; the complete v4p21 raw job is preserved
 separately under `.statem/benchmarks/backups`.
+
+### v4p22 candidate-bound evidence and independent replay gap
+
+The fresh `cad-model` trial was protocol-valid but reward-invalid: its verifier
+image could not install an x86_64-only CAD wheel on the local Linux ARM64
+platform. Harbor therefore recorded zero raw trials and one environment-build
+exception. The displayed mean of zero is not benchmark performance.
+
+The run nevertheless validated the new candidate-bound acceptance receipt in
+both solve and revise entries. Every receipt matched the current proposal hash,
+immutable candidate snapshot hash and identity, and candidate artifact
+identity. The first cycle recorded 20 passed checks and the second 21, while
+retaining two residual risks instead of claiming unqualified certainty.
+
+Cycle 1 was revised because the changed STEP output exceeded the bounded
+per-file projection and made core coverage incomplete. Cycle 2 made the changed
+artifact inspectable and restored complete core coverage. The reviewer found no
+regression, direct contract violation, or hard gap, but still remained
+inconclusive: a solver-recorded public execution receipt has provenance but no
+independent execution authority. Review-budget exhaustion therefore used
+quarantine, not rollback, and exact final replay passed before handoff.
+
+The next generic increment is a bounded adapter-owned acceptance replay. The
+lead should declare a small structured public check plan; after the immutable
+candidate snapshot, the adapter should execute it with explicit command,
+process, output, and wall budgets and bind the result to the same candidate.
+The reviewer then judges whether the independently executed checks cover the
+contract and residual risks. This receipt remains evidence, not automatic
+promotion. It also avoids treating every unchanged or binary artifact as text
+that must be embedded in full.
+
+### v4p23 bounded adapter-owned acceptance replay
+
+The acceptance replay is implemented outside StateM core as an adapter-owned
+artifact/evidence control. The lead writes one exact-schema plan containing one
+to four public checks. Each check uses an argv array rather than a shell string,
+a relative working directory, an explicit expected-exit set, and a 1-90 second
+timeout; declared time across the plan is capped at 180 seconds.
+
+Before execution, the adapter binds the plan to the current StateM solve or
+revise entry, proposal hash, solver acceptance receipt hash, immutable candidate
+snapshot hash and identity, and candidate artifact identity. It rejects stale
+bindings and any plan containing a current sensitive environment value. Exact
+receipts are idempotently reused across repeated stop-hook evaluation.
+
+Each check runs in a fresh disposable copy of the immutable snapshot. The
+environment is a small allowlist with a temporary home and no solver credential
+variables. Output is never embedded: only byte counts and SHA-256 digests are
+retained. Per-stream output, per-check wall time, total wall time, and process
+groups are bounded; descendants are cleaned even if the group leader exits
+successfully. The adapter verifies the immutable snapshot and live candidate
+identities after every check. A failed, timed-out, or output-limited check forms
+a valid negative evidence receipt; a stale identity or artifact mutation is a
+hard protocol failure.
+
+The falsifier receives the adapter receipt as required bounded context. It must
+separate independent execution from independent check selection: the adapter
+proves that the declared command ran on the exact candidate, while the solver
+still selected the public surface and method. Review therefore evaluates
+contract coverage, residual risks, and quantitative population quality rather
+than treating successful exits as authorization. Complete replay may replace
+full textual embedding of an opaque/generated artifact only when it actually
+covers the relevant public behavior.
+
+Focused verification passed 33 tests. The full repository passed 677 tests,
+with 3 skipped and 71 subtests. Ruff, Python compilation, and StateM runbook
+validation also passed.

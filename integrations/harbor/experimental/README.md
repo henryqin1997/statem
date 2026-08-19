@@ -97,3 +97,14 @@ recovery, and the bounded `stage_portfolio_v2.py` protocol. The stage portfolio
 is a schema and authorization skeleton, not an enabled default scheduler. It
 keeps semantic ranking with an independent reviewer, integration with the lead,
 and final promotion behind untouched replay.
+
+`candidate_acceptance_replay.py` adds a separate execution-provenance layer for
+the evidence-develop v4 runbook. The lead declares one to four bounded public
+checks as argv arrays. The adapter validates exact proposal, solver evidence,
+and immutable snapshot bindings, then executes each check in a fresh disposable
+snapshot copy with a minimal environment, wall/output/process-group budgets,
+and digest-only output capture. Failed checks are semantic evidence rather than
+protocol exceptions; stale bindings, sensitive values, or mutation of the live
+candidate or immutable snapshot are protocol failures. The resulting receipt
+proves independent execution of a solver-selected plan, not independent test
+selection or automatic promotion authority.

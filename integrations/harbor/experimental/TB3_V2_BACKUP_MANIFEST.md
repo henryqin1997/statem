@@ -18,6 +18,9 @@ Recorded 2026-08-19 in `/Users/qinziheng/workspace/statem`.
 | `.statem/benchmarks/backups/tb3-sol-evidence-v4p21-session-window-debug-k1-local-j/` | 178 | 5,811,064 | `a840cdea2b17bc31dfc174643134701e1770520ef88564a82894701d67ebad65` |
 | `.statem/backups/tb3-v4p22-prechange-controls-20260819-a/` | 16 | 326,657 | `24f11fb20fdbaf81f7ed2007fcda422ca2a9d6348e16d2e2457b817b3afc742a` |
 | `.statem/backups/tb3-v4p22-postchange-controls-20260819-a/` | 16 | 340,810 | `8841023c2a3fe7618777c2aab3a8a91796cad3dd7e1871f07b0bc1645561c19e` |
+| `.statem/benchmarks/backups/tb3-sol-evidence-v4p22-cad-model-k1-local-k/` | 92 | 5,518,614 | `fc5fd2fb20005c77db93df0fc58e17e374754861e95ab47b7602a481c60ec4a0` |
+| `.statem/backups/tb3-v4p23-prechange-controls-20260819-a/` | 17 | 345,613 | `08ab65ed76ce3b76c59ebe0d169adf7036039d2cdd7a5c167ca6e3ba2a0ab6f6` |
+| `.statem/backups/tb3-v4p23-postchange-controls-20260819-a/` | 19 | 384,968 | `f8fd8a07b2aacba77d73847b7d080fe5cebe964c06081b90c7f18843356946c9` |
 
 The tree hash is computed from lexicographically sorted regular-file paths and
 their SHA-256 digests relative to each snapshot root. The manifest is kept
