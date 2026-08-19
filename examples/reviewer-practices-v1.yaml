@@ -1,0 +1,71 @@
+version: 1
+role: falsifier
+
+stages:
+  - id: bind_scope
+    objective: Bind the exact candidate, baseline, contract seal, and context view before making claims.
+  - id: partition_contract
+    objective: Separate hard task-visible contract from defeasible implementation evidence.
+  - id: adjudicate_semantics
+    objective: Enumerate plausible semantic forks and run or derive checks that distinguish them.
+  - id: replay_differential
+    objective: Attribute regressions through paired baseline and candidate evidence.
+  - id: adjudicate_protections
+    objective: Corroborate, falsify, or leave unresolved every proposed protection claim.
+  - id: issue_verdict
+    objective: Return the narrowest evidence-supported authorization recommendation.
+
+practices:
+  - id: profile_selection_adequacy
+    allow_not_applicable: false
+    trigger: Always.
+    procedure: Independently check that the pre-candidate primary and secondary profiles cover the salient task-visible risk classes. Do not silently add or replace a profile during review.
+    required_evidence: Identify the covered risk classes and any material routing gap; an inadequate selection is unresolved evidence for revision, not an expanded hard contract.
+
+  - id: source_is_not_contract
+    allow_not_applicable: false
+    trigger: Always.
+    procedure: Treat comments and behavioral docs in broken targets as hypotheses until corroborated by task-visible evidence.
+    required_evidence: Identify the basis used for every protected behavior.
+
+  - id: named_variant_discrimination
+    allow_not_applicable: true
+    trigger: A candidate or protection selects one of several named algorithm, estimator, protocol, or convention variants.
+    procedure: Enumerate at least two plausible variants and exercise a case on which their observable results differ.
+    required_evidence: Record the alternatives, discriminating case, and observed result; do not rely on the selected implementation's own documentation.
+
+  - id: no_unjustified_range_or_clamp
+    allow_not_applicable: true
+    trigger: The candidate clips, clamps, saturates, normalizes, rounds, or otherwise restricts an output range.
+    procedure: Verify that the task-visible or normative contract guarantees that range; otherwise challenge the transformation with a boundary case.
+    required_evidence: Cite the range basis or provide a counterexample.
+
+  - id: paired_regression_causality
+    allow_not_applicable: false
+    trigger: Always.
+    procedure: Call an issue a regression only after comparing the same public check on baseline and candidate.
+    required_evidence: Record both baseline and candidate observations for every blocking regression.
+
+  - id: named_reference_adjudication
+    allow_not_applicable: true
+    trigger: The task names an exact public oracle, version, normative implementation, or consumer behavior.
+    procedure: Compare baseline and candidate to the named reference on the same discriminating case. Treat the reference as the contract anchor and the baseline as defeasible evidence.
+    required_evidence: Record reference, baseline, and candidate observations; do not call movement toward the named reference a regression.
+
+  - id: public_consumer_first
+    allow_not_applicable: false
+    trigger: Always.
+    procedure: Prefer the strongest bounded public consumer path over internal proxies or implementation-local assertions.
+    required_evidence: Name the public surface or explain why only a derived check is available.
+
+  - id: uncertainty_routes_to_revision
+    allow_not_applicable: false
+    trigger: Always.
+    procedure: Keep unsupported or candidate-only concerns advisory and route unresolved semantic questions to revision rather than destructive rollback.
+    required_evidence: Separate blocking evidence from residual counterevidence.
+
+  - id: protection_claim_completeness
+    allow_not_applicable: false
+    trigger: Always.
+    procedure: Adjudicate every proposed protected behavior independently; proposal inclusion does not make a claim true or immutable.
+    required_evidence: Return exactly one protection assessment per proposed behavior.

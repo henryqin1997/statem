@@ -1,0 +1,91 @@
+version: 1
+base: base.md
+max_secondary: 2
+
+profiles:
+  - id: numerical-statistical
+    file: numerical-statistical.md
+    description: Estimation, scientific computing, optimization, numerical kernels, and statistical pipelines.
+    checks:
+      - variant_definition
+      - finite_sample_terms
+      - range_transforms
+      - tensor_numeric_semantics
+      - calibration_resampling
+      - invariant_checks
+  - id: graph-algorithms
+    file: graph-algorithms.md
+    description: Graph matching, traversal, routing, graph data structures, and combinatorial search.
+    checks:
+      - graph_model_semantics
+      - structural_edge_cases
+      - pruning_soundness
+      - bounded_oracle
+      - enumeration_semantics
+      - scaling_behavior
+  - id: stateful-systems
+    file: stateful-systems.md
+    description: Stateful services, filesystems, concurrency, recovery, distributed protocols, and lifecycle control.
+    checks:
+      - lifecycle_and_ownership
+      - interruption_and_replay
+      - idempotence_and_visibility
+      - safety_and_liveness
+      - external_commit_boundary
+      - monotone_frontier_reachability
+  - id: parsing-transformation
+    file: parsing-transformation.md
+    description: Parsers, compilers, filters, serializers, text or binary transforms, and format-preserving edits.
+    checks:
+      - preservation_obligations
+      - malformed_and_nested_inputs
+      - encoding_and_offsets
+      - selective_transformation
+      - differential_roundtrip
+  - id: data-database
+    file: data-database.md
+    description: Databases, migrations, data reconciliation, query semantics, and schema evolution.
+    checks:
+      - transaction_and_cutover_boundary
+      - concurrency_and_mixed_versions
+      - schema_and_value_semantics
+      - conservation_and_reconciliation
+      - availability_consistency_reversibility
+  - id: simulation-control
+    file: simulation-control.md
+    description: Physics, dynamics, simulation, geometry, robotics, and control systems.
+    checks:
+      - frames_units_and_timing
+      - invariants_and_discontinuities
+      - boundary_and_analytic_cases
+      - stability_versus_semantics
+  - id: security-protocols
+    file: security-protocols.md
+    description: Cryptography, authentication, untrusted inputs, protocol framing, replay resistance, and security boundaries.
+    checks:
+      - trust_and_claim_boundary
+      - framing_and_replay
+      - secret_and_nonce_ownership
+      - side_channels_and_cleanup
+      - interoperability_and_known_answers
+  - id: ml-model-artifacts
+    file: ml-model-artifacts.md
+    description: Model evaluation, checkpoints, tensor artifacts, training or inference state, and ML data pipelines.
+    checks:
+      - execution_and_artifact_contract
+      - state_identity_and_shards
+      - metric_and_population_semantics
+      - boundary_shapes_and_replay
+      - public_consumer_load_path
+  - id: performance-resources
+    file: performance-resources.md
+    description: Runtime or memory optimization, bounded-resource behavior, algorithmic scaling, and performance-sensitive rewrites.
+    checks:
+      - semantic_equivalence
+      - scaling_and_adversarial_paths
+      - complete_resource_accounting
+      - paired_measurement_validity
+      - acceptance_population_and_margin
+      - consumer_execution_model
+      - cache_readiness_and_first_call
+      - bounded_resource_behavior
