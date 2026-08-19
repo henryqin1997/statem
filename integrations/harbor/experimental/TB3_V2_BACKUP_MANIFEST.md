@@ -6,6 +6,7 @@ Recorded 2026-08-19 in `/Users/qinziheng/workspace/statem`.
 | --- | ---: | ---: | --- |
 | `.statem/backups/tb3-v2-controls-prechange-20260819/` | 11 | 246,951 | `da47ee3fa50f38ad35089c043d5687f7b6e43637b3a3585aa301599e0bd2e75a` |
 | `.statem/backups/tb3-v2-controls-postchange-20260819/` | 14 | 307,749 | `4541229b7da206022c8fcbabefd9c86ffb1a0a6572586e1fed260e5de7bd6b70` |
+| `.statem/backups/tb3-v4p17-prelaunch-controls-20260819-a/` | 15 | 290,372 | `14570b10f124b56e1659c9f77093630da1032a333067ef30bc70ad56629556e7` |
 
 The tree hash is computed from lexicographically sorted regular-file paths and
 their SHA-256 digests relative to each snapshot root. The manifest is kept
