@@ -17,6 +17,7 @@ from integrations.harbor.experimental.artifact_identity import (
 )
 from integrations.harbor.experimental.multirole_promotion_gate import (
     _context_bundle,
+    canonicalize_falsifier_result,
     decide_promotion,
     main as promotion_gate_main,
     preflight_task,
@@ -284,6 +285,30 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             "checklist_gaps": [],
             "assumption_risks": [],
             "recommendations": ["retain the public signature check"],
+            "contract_ledger": {
+                "hard_constraints": [
+                    {
+                        "claim": "the public transform signature remains stable",
+                        "basis": "public_signature",
+                        "evidence": "the public callable is part of the visible interface",
+                    }
+                ],
+                "defeasible_claims": [
+                    {
+                        "claim": "the starter implementation is identity behavior",
+                        "source": "broken starter implementation",
+                        "reason": "the task explicitly asks for repair",
+                    }
+                ],
+                "conflicts_requiring_probes": [],
+                "repair_implications": [
+                    {
+                        "scope": "worker.py implementation body",
+                        "preserve": "public signature",
+                        "verify": "replay zero, positive, and negative values",
+                    }
+                ],
+            },
         }
         reviewer_result = {
             "version": 1,
@@ -306,6 +331,10 @@ class MultiRolePromotionGateTest(unittest.TestCase):
                 reviewer_result=reviewer_result,
             )
         self.assertFalse(evidence["promotion_authority"])
+        self.assertEqual(
+            evidence["contract_ledger"]["hard_constraints"][0]["basis"],
+            "public_signature",
+        )
         draft = {
             "target_gap": "transform returns the unmodified value",
             "hypothesis": "the implementation omits the required increment",
@@ -342,6 +371,67 @@ class MultiRolePromotionGateTest(unittest.TestCase):
                 preflight_evidence=evidence,
                 reviewer_result=forged_result,
             )
+
+    def test_review_pre_submit_repairs_only_mechanical_fields(self) -> None:
+        seal, proposal, view = self._receipts()
+        falsifier = self._falsifier(seal, proposal, view)
+        for field in (
+            "candidate_artifact_identity",
+            "contract_seal_sha256",
+            "context_view_sha256",
+        ):
+            del falsifier["raw"][field]
+        falsifier["raw"]["review_stages"] = [
+            {"id": "bind_scope", "status": "completed", "evidence": "bound"}
+        ]
+        with patch.dict("os.environ", self.env, clear=False):
+            receipt = canonicalize_falsifier_result(
+                falsifier=falsifier,
+                proposal=proposal,
+                seal=seal,
+                context_view=view,
+            )
+        canonical = receipt["result"]
+        self.assertFalse(receipt["semantic_fields_modified"])
+        self.assertEqual(
+            canonical["raw"]["candidate_artifact_identity"],
+            proposal["candidate_artifact_identity"],
+        )
+        self.assertEqual(
+            canonical["raw"]["review_stages"][0],
+            {"stage_id": "bind_scope", "status": "completed", "evidence": "bound"},
+        )
+        decision = self._decide(seal, proposal, view, receipt)
+        self.assertEqual(decision["decision"], "promote")
+
+        conflicting = self._falsifier(seal, proposal, view)
+        conflicting["raw"]["review_stages"] = [
+            {
+                "id": "bind_scope",
+                "stage_id": "issue_verdict",
+                "status": "completed",
+                "evidence": "ambiguous",
+            }
+        ]
+        with patch.dict("os.environ", self.env, clear=False):
+            with self.assertRaisesRegex(ValueError, "conflicting id and stage_id"):
+                canonicalize_falsifier_result(
+                    falsifier=conflicting,
+                    proposal=proposal,
+                    seal=seal,
+                    context_view=view,
+                )
+
+        wrong_identity = self._falsifier(seal, proposal, view)
+        wrong_identity["raw"]["candidate_artifact_identity"] = "tree-sha256:wrong"
+        with patch.dict("os.environ", self.env, clear=False):
+            with self.assertRaisesRegex(ValueError, "conflicts with gate authority"):
+                canonicalize_falsifier_result(
+                    falsifier=wrong_identity,
+                    proposal=proposal,
+                    seal=seal,
+                    context_view=view,
+                )
 
     def _decide(
         self,
@@ -467,6 +557,30 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         decision = self._decide(seal, proposal, view, falsifier)
         self.assertEqual(decision["decision"], "revise")
         self.assertIn("validated_blocking_regression", decision["reason_codes"])
+
+    def test_structured_hard_quantitative_gap_blocks_promotion(self) -> None:
+        seal, proposal, view = self._receipts()
+        gap = {
+            "kind": "quantitative_acceptance",
+            "claim": "geometric mean speedup must exceed the visible threshold",
+            "contract_basis": "task_source",
+            "evidence_status": "unresolved",
+            "evidence_role": "exploration",
+            "population_id": "fixed-exploration-v1",
+            "observed_evidence": "the adaptive population remains below threshold",
+            "required_evidence": "fresh acceptance population clears the threshold with margin",
+            "repair_action": "optimize the measured bottleneck and replay a fresh population",
+        }
+        falsifier = self._falsifier(
+            seal,
+            proposal,
+            view,
+            hard_contract_gaps=[gap],
+        )
+        decision = self._decide(seal, proposal, view, falsifier)
+        self.assertEqual(decision["decision"], "revise")
+        self.assertIn("validated_hard_contract_gap", decision["reason_codes"])
+        self.assertEqual(decision["hard_contract_gaps"], [gap])
 
     def test_progress_file_is_not_part_of_artifact_identity(self) -> None:
         before = artifact_identity(self.app)

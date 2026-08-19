@@ -29,6 +29,18 @@ DEFAULT_APPLICATION = Path(
 DEFAULT_SEAL = Path("/tmp/statem-verification-checks/multirole/contract-seal.json")
 REPLAY_STATUSES = {"passed", "recoverable_failure", "terminal_failure"}
 REVIEW_ROUTES = {"promote", "revise", "quarantine", "rollback"}
+HARD_GAP_FIELDS = {
+    "kind",
+    "claim",
+    "contract_basis",
+    "evidence_status",
+    "evidence_role",
+    "population_id",
+    "observed_evidence",
+    "required_evidence",
+    "repair_action",
+}
+HARD_GAP_RESOLUTION_FIELDS = {"gap_sha256", "status", "evidence"}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -265,6 +277,7 @@ def route_review(
         )
 
     repairable_rejection = _repairable_rejection(promotion_decision)
+    hard_contract_gaps = _validated_hard_contract_gaps(promotion_decision)
     route = "revise" if repairable_rejection else decision
     budget_exhausted = False
     if route == "revise" and len(reviews) >= ledger["max_reviews"]:
@@ -274,6 +287,8 @@ def route_review(
     review["promotion_decision_sha256"] = decision_sha256
     review["repairable_rejection"] = repairable_rejection
     review["budget_exhausted"] = budget_exhausted
+    review["requires_recovery_cycle"] = bool(hard_contract_gaps)
+    review["hard_contract_gaps"] = hard_contract_gaps
     review["artifact_disposition"] = {
         "promote": "candidate_active",
         "revise": "candidate_live",
@@ -320,6 +335,10 @@ def _review_route_receipt(
         "review_budget_exhausted": bool(review.get("budget_exhausted")),
         "artifact_disposition": review.get("artifact_disposition"),
         "evaluation_target": review.get("evaluation_target"),
+        "requires_recovery_cycle": bool(review.get("requires_recovery_cycle")),
+        "hard_contract_gap_sha256s": [
+            stable_sha256(item) for item in review.get("hard_contract_gaps") or []
+        ],
         "remaining_reviews": ledger["max_reviews"] - len(cycle.get("reviews") or []),
         "ledger_sha256": stable_sha256(ledger),
     }
@@ -338,6 +357,31 @@ def _repairable_rejection(decision: dict[str, Any]) -> bool:
         and checks.get("contract_sources_unchanged") is True
         and checks.get("public_contract_unchanged") is True
     )
+
+
+def _validated_hard_contract_gaps(decision: dict[str, Any]) -> list[dict[str, Any]]:
+    reasons = decision.get("reason_codes")
+    gaps = decision.get("hard_contract_gaps")
+    declared = isinstance(reasons, list) and "validated_hard_contract_gap" in reasons
+    if not declared:
+        return []
+    if not isinstance(gaps, list) or not gaps:
+        raise ValueError("validated hard contract gap is missing structured evidence")
+    seen: set[str] = set()
+    normalized: list[dict[str, Any]] = []
+    for item in gaps:
+        if (
+            not isinstance(item, dict)
+            or set(item) != HARD_GAP_FIELDS
+            or any(not str(item.get(field) or "").strip() for field in HARD_GAP_FIELDS)
+        ):
+            raise ValueError("hard contract gap has an invalid schema")
+        identity = stable_sha256(item)
+        if identity in seen:
+            raise ValueError("hard contract gaps must be unique")
+        seen.add(identity)
+        normalized.append(dict(item))
+    return normalized
 
 
 def close_cycle(
@@ -385,23 +429,43 @@ def close_cycle(
             context=context,
         )
 
-    cycle["status"] = replay_draft["status"]
+    hard_contract_gaps = _latest_hard_contract_gaps(cycle)
+    unresolved_gap_sha256s = _unresolved_hard_gap_sha256s(
+        hard_contract_gaps,
+        replay_draft.get("hard_gap_resolutions") or [],
+    )
+    reported_status = replay_draft["status"]
+    effective_status = reported_status
+    next_gap = replay_draft["next_gap"]
+    if unresolved_gap_sha256s and reported_status == "passed":
+        effective_status = "recoverable_failure"
+        unresolved = next(
+            item
+            for item in hard_contract_gaps
+            if stable_sha256(item) == unresolved_gap_sha256s[0]
+        )
+        next_gap = str(unresolved["repair_action"]).strip()
+
+    cycle["status"] = effective_status
+    cycle["reported_status"] = reported_status
     cycle["replay_entry_id"] = context["entry_id"]
     cycle["replay_draft_sha256"] = replay_draft_sha256
     cycle["application_sha256"] = application_sha256
     cycle["selected_artifact_identity"] = observed
     cycle["evidence"] = list(replay_draft["evidence"])
     cycle["residual_risk"] = list(replay_draft["residual_risk"])
-    cycle["next_gap"] = replay_draft["next_gap"]
+    cycle["next_gap"] = next_gap
+    cycle["hard_gap_resolutions"] = list(replay_draft.get("hard_gap_resolutions") or [])
+    cycle["unresolved_hard_gap_sha256s"] = unresolved_gap_sha256s
     cycle["closed_at"] = _now()
 
     can_retry = (
-        replay_draft["status"] == "recoverable_failure"
+        effective_status == "recoverable_failure"
         and len(ledger["cycles"]) < ledger["max_cycles"]
     )
     action = "retry" if can_retry else "handoff"
     cycle["action"] = action
-    if replay_draft["status"] == "recoverable_failure" and not can_retry:
+    if effective_status == "recoverable_failure" and not can_retry:
         cycle["residual_risk"].append("recovery cycle budget exhausted")
     _write_json(ledger_path, ledger)
     return _replay_decision_receipt(
@@ -423,10 +487,14 @@ def _replay_decision_receipt(
         **context,
         "cycle": cycle["index"],
         "status": cycle["status"],
+        "reported_status": cycle.get("reported_status", cycle["status"]),
         "action": cycle["action"],
         "replay_draft_sha256": cycle["replay_draft_sha256"],
         "application_sha256": cycle["application_sha256"],
         "selected_artifact_identity": cycle["selected_artifact_identity"],
+        "unresolved_hard_gap_sha256s": cycle.get(
+            "unresolved_hard_gap_sha256s", []
+        ),
         "remaining_cycles": ledger["max_cycles"] - len(ledger["cycles"]),
         "ledger_sha256": stable_sha256(ledger),
     }
@@ -489,8 +557,9 @@ def _validate_ledger(ledger: dict[str, Any]) -> None:
 
 def _validate_replay_draft(draft: dict[str, Any]) -> None:
     required = {"status", "evidence", "residual_risk", "next_gap"}
+    allowed = required | {"hard_gap_resolutions"}
     missing = sorted(required - set(draft))
-    unknown = sorted(set(draft) - required)
+    unknown = sorted(set(draft) - allowed)
     if missing:
         raise ValueError("replay draft is missing: " + ", ".join(missing))
     if unknown:
@@ -508,6 +577,51 @@ def _validate_replay_draft(draft: dict[str, Any]) -> None:
         raise ValueError("recoverable_failure requires a concrete next_gap")
     if draft["status"] != "recoverable_failure" and next_gap:
         raise ValueError("next_gap is only valid for recoverable_failure")
+    resolutions = draft.get("hard_gap_resolutions") or []
+    if not isinstance(resolutions, list):
+        raise ValueError("hard_gap_resolutions must be a list")
+    seen: set[str] = set()
+    for item in resolutions:
+        if not isinstance(item, dict) or set(item) != HARD_GAP_RESOLUTION_FIELDS:
+            raise ValueError("hard gap resolution has an invalid schema")
+        gap_sha256 = _text(item.get("gap_sha256"))
+        if (
+            not re.fullmatch(r"[0-9a-f]{64}", gap_sha256)
+            or gap_sha256 in seen
+            or item.get("status") not in {"resolved", "unresolved"}
+            or not _text(item.get("evidence"))
+        ):
+            raise ValueError("hard gap resolution is incomplete or duplicated")
+        seen.add(gap_sha256)
+
+
+def _latest_hard_contract_gaps(cycle: dict[str, Any]) -> list[dict[str, Any]]:
+    reviews = cycle.get("reviews") or []
+    if not reviews:
+        return []
+    latest = reviews[-1]
+    if not latest.get("requires_recovery_cycle"):
+        return []
+    gaps = latest.get("hard_contract_gaps")
+    if not isinstance(gaps, list):
+        raise ValueError("review recovery requirement lost its hard contract gaps")
+    return [dict(item) for item in gaps]
+
+
+def _unresolved_hard_gap_sha256s(
+    gaps: list[dict[str, Any]],
+    resolutions: list[dict[str, Any]],
+) -> list[str]:
+    expected = {stable_sha256(item): item for item in gaps}
+    if not expected and resolutions:
+        raise ValueError("replay supplied hard gap resolutions without a bound gap")
+    states: dict[str, str] = {}
+    for item in resolutions:
+        identity = _text(item.get("gap_sha256"))
+        if identity not in expected:
+            raise ValueError("replay resolution references an unknown hard contract gap")
+        states[identity] = _text(item.get("status"))
+    return [identity for identity in expected if states.get(identity) != "resolved"]
 
 
 def _state_context() -> dict[str, str]:

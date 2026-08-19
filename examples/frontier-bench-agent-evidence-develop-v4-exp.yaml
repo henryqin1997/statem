@@ -60,7 +60,10 @@ nodes:
 
   solve:
     prompt: |
-      Continue as the primary task agent while failures are recoverable. Inspect,
+      Continue as the primary task agent while failures are recoverable. Treat
+      the best validated artifact as the incumbent, the active attempt as the
+      candidate, and the selected output as final; provider snapshots and
+      quarantine metadata are adapter-owned transaction details. Inspect,
       edit, execute public probes, attribute each failure, and try the smallest
       supported repair in this same context. A failed command is evidence, not a
       handoff condition. Leave only for a task-visible terminal blocker, a
@@ -86,7 +89,10 @@ nodes:
 
       Before proposing the candidate, join the entry-scoped reviewer handle.
       Record its completed result as preflight-evidence.json, read its supported
-      findings, and address or explicitly test relevant gaps. Advance TeamRun to
+      findings and compact contract_ledger, and address or explicitly test
+      relevant gaps. The ledger separates hard constraints, defeasible claims,
+      conflicts requiring probes, and repair implications; do not promote every
+      prompt bullet or starter behavior to equal authority. Advance TeamRun to
       reducing and use all-claims-table after the evidence is recorded. A worker
       that exceeds its lifecycle budget, crosses an entry, or fails to return
       complete coverage cannot satisfy this stage.
@@ -141,6 +147,7 @@ nodes:
           - checklist_gaps
           - assumption_risks
           - recommendations
+          - contract_ledger
         types:
           status: string
           claims: list
@@ -155,6 +162,7 @@ nodes:
           checklist_gaps: list
           assumption_risks: list
           recommendations: list
+          contract_ledger: mapping
       reducer:
         strategy: all-claims-table
     before_transfer:
@@ -195,8 +203,9 @@ nodes:
 
       After the worker submits, run `statem team advance reducing` and
       `statem team reduce --strategy all-claims-table`. The deterministic gate
-      and review-budget guard own the route. Never author or rewrite reviewer
-      identity or evidence.
+      first canonicalizes mechanical receipt shape and trusted identity bindings,
+      then the semantic evidence gate and review-budget guard own the route.
+      Never author or rewrite reviewer semantic evidence.
     in_hook:
       - type: command
         run: "python3 /tmp/statem-verification-checks/recovering_develop_guard.py review-open"
@@ -237,18 +246,14 @@ nodes:
           - evidence
           - coverage.complete
           - verdict
-          - candidate_artifact_identity
-          - contract_seal_sha256
-          - context_view_sha256
           - contract_preserved
           - regressions
           - counterevidence
+          - hard_contract_gaps
           - protection_assessments
           - review_stages
           - practice_receipts
           - profile_receipts
-          - review_protocol_sha256
-          - review_profile_sha256
         types:
           status: string
           claims: list
@@ -261,6 +266,7 @@ nodes:
           contract_preserved: boolean
           regressions: list
           counterevidence: list
+          hard_contract_gaps: list
           protection_assessments: list
           review_stages: list
           practice_receipts: list
@@ -271,7 +277,10 @@ nodes:
         strategy: all-claims-table
     before_transfer:
       - type: command
-        run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py decide --baseline-snapshot /tmp/statem-verification-checks/artifact-provider/baseline-snapshot.json --candidate-snapshot /tmp/statem-verification-checks/artifact-provider/candidate-snapshot.json --review-practices /tmp/statem-verification-checks/reviewer-practices-v1.yaml --review-profile /tmp/statem-verification-checks/multirole/review-profile.json"
+        run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py review-pre-submit --review-practices /tmp/statem-verification-checks/reviewer-practices-v1.yaml --review-profile /tmp/statem-verification-checks/multirole/review-profile.json"
+        timeout: 30
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py decide --falsifier-result /tmp/statem-verification-checks/multirole/canonical-falsifier-result.json --baseline-snapshot /tmp/statem-verification-checks/artifact-provider/baseline-snapshot.json --candidate-snapshot /tmp/statem-verification-checks/artifact-provider/candidate-snapshot.json --review-practices /tmp/statem-verification-checks/reviewer-practices-v1.yaml --review-profile /tmp/statem-verification-checks/multirole/review-profile.json"
         timeout: 60
       - type: command
         run: "python3 /tmp/statem-verification-checks/recovering_develop_guard.py review-route"
@@ -388,12 +397,17 @@ nodes:
       lifecycle, cleanup, and semantic interpretation. Do not treat a proxy or
       stale check as sufficient evidence.
 
-      Write exactly status, evidence, residual_risk, and next_gap to
+      Write exactly status, evidence, residual_risk, next_gap, and
+      hard_gap_resolutions to
       /tmp/statem-verification-checks/recovering-develop/replay-draft.json.
       Status is passed, recoverable_failure, or terminal_failure. A recoverable
       failure requires one concrete next_gap; other statuses require an empty
-      next_gap. The guard permits another cycle only for a concrete replay
-      failure while cycle budget remains.
+      next_gap. hard_gap_resolutions is a list with one object for every bound
+      hard quantitative gap you actually adjudicated, with exactly gap_sha256,
+      status, and evidence. A resolved gap requires fresh independent acceptance
+      evidence, not the adaptive exploration population that produced the
+      candidate. Missing or unresolved bound gaps turn an otherwise passing
+      replay into a concrete recoverable failure while cycle budget remains.
     before_transfer:
       - type: predicate
         path: /tmp/statem-verification-checks/multirole/application-receipt.json

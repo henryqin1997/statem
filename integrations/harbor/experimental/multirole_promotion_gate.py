@@ -55,6 +55,7 @@ DEFAULT_SOLVER_PLAN = DEFAULT_DIR / "solver-plan.json"
 DEFAULT_PREFLIGHT_CONTEXT_VIEW = DEFAULT_DIR / "preflight-context-view.json"
 DEFAULT_PREFLIGHT_TASK = DEFAULT_DIR / "preflight-task.json"
 DEFAULT_PREFLIGHT_EVIDENCE = DEFAULT_DIR / "preflight-evidence.json"
+DEFAULT_CANONICAL_FALSIFIER_RESULT = DEFAULT_DIR / "canonical-falsifier-result.json"
 DEFAULT_REVIEW_PROFILE_CATALOG = Path(
     "/tmp/statem-verification-checks/reviewer-practice-router-v1.yaml"
 )
@@ -81,6 +82,20 @@ PROVENANCE_BASES = {
 REGRESSION_SEVERITIES = {"blocking", "advisory"}
 PROTECTION_STATUSES = {"corroborated", "falsified", "unresolved"}
 PROFILE_RECEIPT_STATUSES = {"applied", "not_applicable", "unresolved"}
+HARD_CONTRACT_GAP_FIELDS = {
+    "kind",
+    "claim",
+    "contract_basis",
+    "evidence_status",
+    "evidence_role",
+    "population_id",
+    "observed_evidence",
+    "required_evidence",
+    "repair_action",
+}
+HARD_CONTRACT_GAP_KINDS = {"quantitative_acceptance"}
+HARD_CONTRACT_GAP_STATUSES = {"unresolved", "falsified"}
+EVIDENCE_ROLES = {"exploration", "acceptance"}
 SOLVER_PLAN_FIELDS = {
     "objective",
     "steps",
@@ -89,6 +104,14 @@ SOLVER_PLAN_FIELDS = {
     "mutation_scope",
     "success_criteria",
 }
+CONTRACT_LEDGER_FIELDS = {
+    "hard_constraints",
+    "defeasible_claims",
+    "conflicts_requiring_probes",
+    "repair_implications",
+}
+CONTRACT_LEDGER_MAX_ITEMS = 12
+CONTRACT_LEDGER_TEXT_MAX_CHARS = 600
 CONTEXT_BUNDLE_MAX_BYTES = 160_000
 CONTEXT_BUNDLE_FILE_MAX_BYTES = 40_000
 CONTEXT_BUNDLE_EXCLUDED_PARTS = {
@@ -179,6 +202,29 @@ def main(argv: list[str] | None = None) -> int:
                 preflight_evidence=_read_json(args.preflight_evidence),
                 reviewer_result=_load_current_role_result("preflight-reviewer"),
             )
+        elif args.action == "review-pre-submit":
+            falsifier = (
+                _read_json(args.falsifier_result)
+                if args.falsifier_result is not None
+                else _load_current_falsifier_result()
+            )
+            receipt = canonicalize_falsifier_result(
+                falsifier=falsifier,
+                proposal=_read_json(args.proposal),
+                seal=_read_json(args.seal),
+                context_view=_read_json(args.context_view),
+                review_practices=(
+                    _read_yaml(args.review_practices)
+                    if args.review_practices is not None
+                    else None
+                ),
+                review_profile=(
+                    _read_json(args.review_profile)
+                    if args.review_profile is not None
+                    else None
+                ),
+            )
+            _write_json(args.output, receipt)
         elif args.action == "decide":
             falsifier = (
                 _read_json(args.falsifier_result)
@@ -339,6 +385,17 @@ def _parser() -> argparse.ArgumentParser:
     require_preflight.add_argument("--proposal", type=Path, default=DEFAULT_PROPOSAL)
     require_preflight.add_argument(
         "--preflight-evidence", type=Path, default=DEFAULT_PREFLIGHT_EVIDENCE
+    )
+
+    pre_submit = subparsers.add_parser("review-pre-submit")
+    pre_submit.add_argument("--seal", type=Path, default=DEFAULT_SEAL)
+    pre_submit.add_argument("--proposal", type=Path, default=DEFAULT_PROPOSAL)
+    pre_submit.add_argument("--context-view", type=Path, default=DEFAULT_CONTEXT_VIEW)
+    pre_submit.add_argument("--falsifier-result", type=Path)
+    pre_submit.add_argument("--review-practices", type=Path)
+    pre_submit.add_argument("--review-profile", type=Path)
+    pre_submit.add_argument(
+        "--output", type=Path, default=DEFAULT_CANONICAL_FALSIFIER_RESULT
     )
 
     decide = subparsers.add_parser("decide")
@@ -645,12 +702,23 @@ def preflight_task(
                     "tool-free, read-only advisory review. Inspect the hard-versus-defeasible "
                     "contract boundary, assumptions, mutation scope, planned checks, success "
                     "criteria, category-specific checklist gaps, and likely failure modes. "
+                    "Apply contract-authority-and-repair at assertion granularity: task "
+                    "requirements, public signatures and consumers, normative definitions, "
+                    "and cross-module invariants may establish hard constraints; comments, "
+                    "docstrings, starter behavior, and stale operational notes in an "
+                    "explicitly broken target remain defeasible unless corroborated. A "
+                    "code/document mismatch is a conflict to resolve, not proof that either "
+                    "side is authoritative. Preserve the correct public abstraction rather "
+                    "than literal defective text. "
                     "Do not inspect external files, execute commands, repair artifacts, invent "
                     "candidate evidence, or authorize promotion. Return generic TeamRun fields "
                     "status, summary, claims, evidence, coverage, children, and prune_proposals, "
                     "plus exact top-level fields advisory_verdict, plan_sha256, "
                     "contract_seal_sha256, context_view_sha256, review_profile_sha256, "
-                    "plan_findings, checklist_gaps, assumption_risks, and recommendations. "
+                    "plan_findings, checklist_gaps, assumption_risks, recommendations, and "
+                    "contract_ledger. contract_ledger has exactly hard_constraints, "
+                    "defeasible_claims, conflicts_requiring_probes, and repair_implications. "
+                    "Each value is a bounded list of concise objects in the supplied schema. "
                     "advisory_verdict is ready or revise_plan. The four finding fields are "
                     "lists of concise strings. Bind every supplied hash exactly. Use status "
                     "completed and coverage.complete=true only after reviewing the full bundle."
@@ -722,6 +790,7 @@ def record_preflight_evidence(
         value = raw.get(field)
         if not isinstance(value, list) or not all(_text(item) for item in value):
             raise ValueError(f"preflight reviewer {field} must be a string list")
+    contract_ledger = _contract_ledger(raw.get("contract_ledger"))
     if plan.get("run_id") != context["run_id"] or plan.get("entry_id") != context[
         "entry_id"
     ]:
@@ -734,6 +803,7 @@ def record_preflight_evidence(
         **expected_hashes,
         "advisory_verdict": verdict,
         **{field: list(raw[field]) for field in finding_fields},
+        "contract_ledger": contract_ledger,
         "promotion_authority": False,
         "created_at": reviewer_result.get("submitted_at") or _now(),
     }
@@ -790,12 +860,137 @@ def _require_preflight_result_binding(
         "checklist_gaps",
         "assumption_risks",
         "recommendations",
+        "contract_ledger",
     )
     if any(raw.get(field) != evidence.get(field) for field in fields):
         raise ValueError("preflight evidence differs from the immutable TeamRun payload")
     submitted_at = reviewer_result.get("submitted_at")
     if submitted_at and evidence.get("created_at") != submitted_at:
         raise ValueError("preflight evidence timestamp differs from TeamRun submission")
+
+
+def _contract_ledger(value: Any) -> dict[str, list[dict[str, str]]]:
+    if not isinstance(value, dict) or set(value) != CONTRACT_LEDGER_FIELDS:
+        raise ValueError(
+            "preflight contract_ledger requires exactly hard_constraints, "
+            "defeasible_claims, conflicts_requiring_probes, and repair_implications"
+        )
+    schemas = {
+        "hard_constraints": {"claim", "basis", "evidence"},
+        "defeasible_claims": {"claim", "source", "reason"},
+        "conflicts_requiring_probes": {"claim", "conflict", "probe"},
+        "repair_implications": {"scope", "preserve", "verify"},
+    }
+    normalized: dict[str, list[dict[str, str]]] = {}
+    for field, fields in schemas.items():
+        items = value.get(field)
+        if not isinstance(items, list) or len(items) > CONTRACT_LEDGER_MAX_ITEMS:
+            raise ValueError(f"contract_ledger {field} exceeds its bounded list schema")
+        if field == "hard_constraints" and not items:
+            raise ValueError("contract_ledger requires at least one hard constraint")
+        normalized_items: list[dict[str, str]] = []
+        for item in items:
+            if not isinstance(item, dict) or set(item) != fields:
+                raise ValueError(
+                    f"contract_ledger {field} items require exactly {sorted(fields)}"
+                )
+            record = {key: _bounded_contract_text(item.get(key), key) for key in fields}
+            if field == "hard_constraints" and record["basis"] not in PROVENANCE_BASES:
+                raise ValueError("hard constraint basis is not an allowed authority")
+            normalized_items.append(record)
+        normalized[field] = normalized_items
+    return normalized
+
+
+def _bounded_contract_text(value: Any, field: str) -> str:
+    text = _text(value)
+    if not text or len(text) > CONTRACT_LEDGER_TEXT_MAX_CHARS:
+        raise ValueError(
+            f"contract_ledger {field} must contain 1-{CONTRACT_LEDGER_TEXT_MAX_CHARS} characters"
+        )
+    return text
+
+
+def canonicalize_falsifier_result(
+    *,
+    falsifier: dict[str, Any],
+    proposal: dict[str, Any],
+    seal: dict[str, Any],
+    context_view: dict[str, Any],
+    review_practices: dict[str, Any] | None = None,
+    review_profile: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Repair mechanical result shape without changing semantic reviewer claims."""
+    _require_receipt(proposal, "candidate_proposal")
+    _require_receipt(seal, "contract_seal")
+    _require_receipt(context_view, "context_view")
+    context = _state_context()
+    if context["node"] != "falsify":
+        raise ValueError("review pre-submit belongs to the falsify entry")
+    for field in ("run_id", "node", "entry_id"):
+        supplied = _text(falsifier.get(field))
+        if supplied and supplied != context[field]:
+            raise ValueError(f"falsifier result {field} conflicts with the active entry")
+
+    canonical = json.loads(json.dumps(falsifier))
+    raw = canonical.get("raw") if isinstance(canonical.get("raw"), dict) else canonical
+    repairs: list[str] = []
+    bindings = {
+        "candidate_artifact_identity": proposal.get("candidate_artifact_identity"),
+        "contract_seal_sha256": stable_sha256(seal),
+        "context_view_sha256": stable_sha256(context_view),
+    }
+    if review_practices is not None:
+        bindings["review_protocol_sha256"] = _review_protocol(review_practices)[
+            "binding_sha256"
+        ]
+    if review_profile is not None:
+        _require_receipt(review_profile, "review_profile_selection")
+        if review_profile.get("contract_seal_sha256") != stable_sha256(seal):
+            raise ValueError("review profile is not bound to the contract seal")
+        bindings["review_profile_sha256"] = stable_sha256(review_profile)
+
+    for field, expected in bindings.items():
+        supplied = _text(raw.get(field))
+        if supplied and supplied != expected:
+            raise ValueError(f"falsifier result {field} conflicts with gate authority")
+        if raw.get(field) != expected:
+            raw[field] = expected
+            repairs.append(f"bound:{field}")
+
+    stages = raw.get("review_stages")
+    if isinstance(stages, list):
+        for index, item in enumerate(stages):
+            if not isinstance(item, dict) or "id" not in item:
+                continue
+            legacy = _text(item.get("id"))
+            canonical_id = _text(item.get("stage_id"))
+            if canonical_id and canonical_id != legacy:
+                raise ValueError(
+                    f"review stage {index} has conflicting id and stage_id"
+                )
+            if not canonical_id:
+                item["stage_id"] = legacy
+            del item["id"]
+            repairs.append(f"review_stages[{index}]:id->stage_id")
+
+    if isinstance(canonical.get("raw"), dict):
+        canonical["raw"] = raw
+    return {
+        "version": 1,
+        "kind": "canonical_falsifier_result",
+        **context,
+        "producer": {
+            "agent_id": f"review-pre-submit:{context['run_id']}:{context['entry_id']}",
+            "role": "deterministic_gate",
+        },
+        "source_result_sha256": stable_sha256(falsifier),
+        "canonical_result_sha256": stable_sha256(canonical),
+        "repairs": repairs,
+        "semantic_fields_modified": False,
+        "result": canonical,
+        "created_at": _now(),
+    }
 
 
 def record_context_view(
@@ -966,10 +1161,10 @@ def falsifier_task(
                     "counterevidence. For named algorithms with multiple standard variants, "
                     "challenge a protected variant whose only basis is a broken module's "
                     "documentation. Do not repair the candidate. Treat identity binding, "
-                    "result shape, receipt cardinality, coverage accounting, and "
-                    "authorization as mechanical obligations that the deterministic gate "
-                    "will validate. Copy bound identities exactly and return every required "
-                    "record, but spend reasoning on semantic forks, contract basis, "
+                    "canonical field names, receipt cardinality, coverage accounting, and "
+                    "authorization as mechanical obligations that the deterministic "
+                    "pre-submit gate will bind or validate. Do not invent an identity. "
+                    "Spend reasoning on semantic forks, contract basis, "
                     "counterexamples, and paired causal attribution. Each regressions item must "
                     "be an object with exactly claim, contract_basis, baseline_evidence, "
                     "candidate_evidence, and severity. contract_basis must be task_source, "
@@ -986,9 +1181,18 @@ def falsifier_task(
                     "semantic variants of named algorithms or estimators before marking one "
                     "corroborated. Return verdict accept, reject, or inconclusive; "
                     "contract_preserved; regressions; protection_assessments; and non-empty "
-                    "counterevidence. When review_protocol is present, execute its stages "
+                    "counterevidence. Return hard_contract_gaps as a list. Use an item only "
+                    "for an unresolved or falsified hard quantitative acceptance claim, not "
+                    "for generic uncertainty. Each item has exactly kind, claim, "
+                    "contract_basis, evidence_status, evidence_role, population_id, "
+                    "observed_evidence, required_evidence, and repair_action. kind is "
+                    "quantitative_acceptance; evidence_role is exploration or acceptance. "
+                    "Bind a fixed population id and state the independent evidence needed "
+                    "to clear the threshold with margin. When review_protocol is present, "
+                    "execute its stages "
                     "in order. Each review_stages item has exactly stage_id, status, and "
-                    "evidence; stage_id copies the listed stage id. Return one "
+                    "evidence; stage_id copies the listed stage id. An unambiguous legacy "
+                    "id field is canonicalized before semantic gating. Return one "
                     "practice_receipts item for every listed practice. Each item has exactly "
                     "practice_id, status, evidence, and reason; practice_id copies the "
                     "listed practice id. Copy review_protocol.binding_sha256 exactly into "
@@ -998,14 +1202,16 @@ def falsifier_task(
                     "documents. Each item has exactly profile_id, check_id, status, evidence, "
                     "and reason; status is applied, not_applicable, or unresolved. applied "
                     "requires evidence, not_applicable requires a reason, and unresolved "
-                    "blocks promotion. Bind "
-                    "the exact candidate, contract "
-                    "seal, and context-view identities from this assignment in the result. "
+                    "blocks promotion. The pre-submit gate binds the exact candidate, "
+                    "contract seal, context view, reviewer protocol, and reviewer profile "
+                    "identities from trusted receipts. A conflicting supplied identity is "
+                    "a hard failure. "
                     "Return one JSON object with generic TeamRun fields status, summary, "
                     "claims, evidence, coverage, children, and prune_proposals, plus these "
                     "top-level gate fields: verdict, candidate_artifact_identity, "
                     "contract_seal_sha256, context_view_sha256, contract_preserved, "
-                    "regressions, protection_assessments, counterevidence, review_stages, "
+                    "regressions, protection_assessments, counterevidence, "
+                    "hard_contract_gaps, review_stages, "
                     "practice_receipts, profile_receipts, review_protocol_sha256, and "
                     "review_profile_sha256. "
                     "Use status completed and "
@@ -1119,6 +1325,7 @@ def decide_promotion(
     _require_receipt(seal, "contract_seal")
     _require_receipt(proposal, "candidate_proposal")
     _require_receipt(context_view, "context_view")
+    falsifier = _canonical_falsifier_payload(falsifier)
     context = _state_context()
     raw = falsifier.get("raw") if isinstance(falsifier.get("raw"), dict) else falsifier
     producer = falsifier.get("producer") if isinstance(falsifier.get("producer"), dict) else {}
@@ -1147,6 +1354,9 @@ def decide_promotion(
             protection_assessments,
             required=protection_required,
         )
+    )
+    hard_contract_gaps_valid, hard_contract_gaps = _hard_contract_gap_state(
+        raw.get("hard_contract_gaps")
     )
     review_protocol = (
         _review_protocol(review_practices)
@@ -1218,6 +1428,8 @@ def decide_promotion(
         "no_blocking_regressions": not blocking_regressions,
         "protection_assessments_valid": protection_assessments_valid,
         "protected_claims_corroborated": protected_claims_corroborated,
+        "hard_contract_gaps_valid": hard_contract_gaps_valid,
+        "no_hard_contract_gaps": not hard_contract_gaps,
         "review_protocol_bound": review_protocol_bound,
         "review_stages_complete": review_stages_complete,
         "practice_receipts_complete": practice_receipts_complete,
@@ -1250,6 +1462,8 @@ def decide_promotion(
             reason_codes.append("falsifier_rejected_without_hard_evidence")
         if verdict == "inconclusive":
             reason_codes.append("falsifier_inconclusive")
+        if hard_contract_gaps:
+            reason_codes.append("validated_hard_contract_gap")
     return {
         "version": 1,
         "kind": "promotion_authorization",
@@ -1272,6 +1486,7 @@ def decide_promotion(
         "blocking_regressions": blocking_regressions,
         "regressions": regressions,
         "protection_assessments": protection_assessments,
+        "hard_contract_gaps": hard_contract_gaps,
         "profile_receipts": (
             raw.get("profile_receipts")
             if isinstance(raw.get("profile_receipts"), list)
@@ -1293,6 +1508,20 @@ def decide_promotion(
         ),
         "created_at": _now(),
     }
+
+
+def _canonical_falsifier_payload(receipt: dict[str, Any]) -> dict[str, Any]:
+    if receipt.get("kind") != "canonical_falsifier_result":
+        return receipt
+    _require_receipt(receipt, "canonical_falsifier_result")
+    result = receipt.get("result")
+    if not isinstance(result, dict):
+        raise ValueError("canonical falsifier receipt is missing its result")
+    if receipt.get("canonical_result_sha256") != stable_sha256(result):
+        raise ValueError("canonical falsifier result changed after pre-submit")
+    if receipt.get("semantic_fields_modified") is not False:
+        raise ValueError("pre-submit may not modify semantic reviewer fields")
+    return result
 
 
 def require_decision(decision: dict[str, Any], allowed: set[str]) -> None:
@@ -1618,6 +1847,33 @@ def _protection_assessment_state(
         item.get("status") == "corroborated" for item in normalized.values()
     )
     return valid, corroborated
+
+
+def _hard_contract_gap_state(value: Any) -> tuple[bool, list[dict[str, str]]]:
+    if value is None:
+        return True, []
+    if not isinstance(value, list):
+        return False, []
+    normalized: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, dict) or set(item) != HARD_CONTRACT_GAP_FIELDS:
+            return False, []
+        record = {field: _text(item.get(field)) for field in HARD_CONTRACT_GAP_FIELDS}
+        if (
+            record["kind"] not in HARD_CONTRACT_GAP_KINDS
+            or record["contract_basis"] not in PROVENANCE_BASES
+            or record["evidence_status"] not in HARD_CONTRACT_GAP_STATUSES
+            or record["evidence_role"] not in EVIDENCE_ROLES
+            or any(not record[field] for field in HARD_CONTRACT_GAP_FIELDS)
+        ):
+            return False, []
+        identity = stable_sha256(record)
+        if identity in seen:
+            return False, []
+        seen.add(identity)
+        normalized.append(record)
+    return True, normalized
 
 
 def _review_protocol(catalog: dict[str, Any]) -> dict[str, Any]:

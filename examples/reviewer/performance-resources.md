@@ -14,7 +14,13 @@
   noisy sample as a blocking regression.
 - **`acceptance_population_and_margin`**: Separate exploratory examples from the acceptance population. Predeclare
   or deterministically generate a broad, non-cherry-picked population before
-  reading comparative timings; prefer a contiguous or independently seeded
+  reading comparative timings; assign stable population ids and evidence roles.
+  Once a sample or population has influenced diagnosis, implementation, or
+  challenger selection, it is exploration evidence and cannot be relabeled as
+  final acceptance evidence. Keep a separately generated acceptance population
+  untouched until the candidate is bound; a failed acceptance population may
+  become exploration input for the next cycle only after that cycle receives a
+  fresh untouched acceptance population. Prefer a contiguous or independently seeded
   schedule whose membership cannot depend on observed speed, and retain
   unusually fast baseline cases and other unfavorable cases. For a hard ratio
   threshold, use at least ten acceptance fixtures when individual fixtures are
@@ -22,7 +28,12 @@
   and require stronger held-out and variance evidence. Use independent replays
   or a held-out population, report the aggregate used by the contract together
   with its distribution and worst relevant tail, and require a noise margin
-  justified by observed run-to-run variance. A threshold result that
+  justified by observed run-to-run variance. Treat a hard numerical gate as
+  unresolved until an independent acceptance aggregate and its conservative
+  lower confidence or repeatability bound clear the threshold with that margin.
+  Continue bounded bottleneck optimization while time and handoff reserve remain;
+  stop after the margin is met, after the declared non-improving challenger
+  budget, or when correctness regresses. A threshold result that
   changes verdict across consumer-equivalent replays is `revise`, not
   promotion evidence.
 - **`consumer_execution_model`**: Replay the complete measured path under the consumer's CPU, memory, process,

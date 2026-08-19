@@ -291,6 +291,105 @@ class RecoveringDevelopGuardTest(unittest.TestCase):
                     review_route=tampered,
                 )
 
+    def test_unresolved_hard_gap_forces_next_cycle_until_independently_resolved(self) -> None:
+        gap = {
+            "kind": "quantitative_acceptance",
+            "claim": "acceptance speedup must exceed the hard threshold",
+            "contract_basis": "task_source",
+            "evidence_status": "unresolved",
+            "evidence_role": "exploration",
+            "population_id": "exploration-v1",
+            "observed_evidence": "adaptive measurements remain below threshold",
+            "required_evidence": "fresh held-out population clears with margin",
+            "repair_action": "optimize the remaining bottleneck on the next cycle",
+        }
+        gap_sha256 = stable_sha256(gap)
+
+        self._state("contract_audit", "contract-1")
+        with patch.dict("os.environ", self.env, clear=False):
+            open_cycle(
+                ledger_path=self.ledger,
+                seal=self._seal("contract-1"),
+                max_cycles=2,
+                max_reviews=1,
+            )
+        self._state("falsify", "falsify-1")
+        decision = {
+            "version": 1,
+            "kind": "promotion_authorization",
+            "run_id": self.run_id,
+            "node": "falsify",
+            "entry_id": "falsify-1",
+            "decision": "revise",
+            "reason_codes": ["validated_hard_contract_gap"],
+            "hard_contract_gaps": [gap],
+        }
+        with patch.dict("os.environ", self.env, clear=False):
+            open_review(ledger_path=self.ledger)
+            route = route_review(
+                ledger_path=self.ledger,
+                promotion_decision=decision,
+            )
+        self.assertEqual(route["route"], "quarantine")
+        self.assertTrue(route["requires_recovery_cycle"])
+        self.assertEqual(route["hard_contract_gap_sha256s"], [gap_sha256])
+
+        self._state("final_replay", "replay-1")
+        with patch.dict("os.environ", self.env, clear=False):
+            retry = close_cycle(
+                ledger_path=self.ledger,
+                replay_draft={
+                    "status": "passed",
+                    "evidence": ["the bounded public correctness replay passed"],
+                    "residual_risk": [],
+                    "next_gap": "",
+                    "hard_gap_resolutions": [],
+                },
+                application=self._application("quarantine-1"),
+                artifact_root=self.app,
+            )
+        self.assertEqual(retry["reported_status"], "passed")
+        self.assertEqual(retry["status"], "recoverable_failure")
+        self.assertEqual(retry["action"], "retry")
+        self.assertEqual(retry["unresolved_hard_gap_sha256s"], [gap_sha256])
+
+        self._state("contract_audit", "contract-2")
+        with patch.dict("os.environ", self.env, clear=False):
+            open_cycle(
+                ledger_path=self.ledger,
+                seal=self._seal("contract-2"),
+                max_cycles=2,
+                max_reviews=1,
+            )
+        self._state("falsify", "falsify-2")
+        decision["entry_id"] = "falsify-2"
+        with patch.dict("os.environ", self.env, clear=False):
+            open_review(ledger_path=self.ledger)
+            route_review(ledger_path=self.ledger, promotion_decision=decision)
+        self._state("final_replay", "replay-2")
+        with patch.dict("os.environ", self.env, clear=False):
+            accepted = close_cycle(
+                ledger_path=self.ledger,
+                replay_draft={
+                    "status": "passed",
+                    "evidence": ["fresh acceptance replay cleared the threshold with margin"],
+                    "residual_risk": [],
+                    "next_gap": "",
+                    "hard_gap_resolutions": [
+                        {
+                            "gap_sha256": gap_sha256,
+                            "status": "resolved",
+                            "evidence": "independent acceptance-v2 cleared the lower bound",
+                        }
+                    ],
+                },
+                application=self._application("quarantine-2"),
+                artifact_root=self.app,
+            )
+        self.assertEqual(accepted["status"], "passed")
+        self.assertEqual(accepted["action"], "handoff")
+        self.assertEqual(accepted["unresolved_hard_gap_sha256s"], [])
+
     def test_repairable_regression_revises_before_quarantine(self) -> None:
         self._state("contract_audit", "contract-1")
         with patch.dict("os.environ", self.env, clear=False):

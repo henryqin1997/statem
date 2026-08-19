@@ -16,6 +16,12 @@ stages:
     objective: Return the narrowest evidence-supported authorization recommendation.
 
 practices:
+  - id: contract_authority_and_repair
+    allow_not_applicable: false
+    trigger: Always.
+    procedure: Classify assertions rather than files. Treat explicit task requirements, public signatures and consumers, normative definitions, and cross-module invariants as possible hard authority; treat comments, docstrings, starter behavior, and stale operational notes in an explicitly broken target as defeasible until independently corroborated. Resolve code-document conflicts with discriminating public probes and preserve the correct public abstraction rather than literal defective text.
+    required_evidence: For every blocking contract claim, record its allowed authority basis and evidence; list conflicting defeasible claims separately with the probe or repair implication that resolves them.
+
   - id: profile_selection_adequacy
     allow_not_applicable: false
     trigger: Always.
@@ -57,6 +63,12 @@ practices:
     trigger: Always.
     procedure: Prefer the strongest bounded public consumer path over internal proxies or implementation-local assertions.
     required_evidence: Name the public surface or explain why only a derived check is available.
+
+  - id: quantitative_acceptance_gap
+    allow_not_applicable: true
+    trigger: The task has an explicit numerical performance, accuracy, cost, latency, memory, or resource threshold.
+    procedure: Keep adaptive exploration and untouched acceptance populations distinct. If independent acceptance evidence does not conservatively clear the hard threshold with a variance-aware margin, emit a structured quantitative_acceptance hard_contract_gap bound to its population id and concrete repair action.
+    required_evidence: Record the contract basis, evidence role, fixed population id, observed aggregate or failure, required independent evidence, and next bounded optimization action; generic reviewer uncertainty is not a hard gap.
 
   - id: uncertainty_routes_to_revision
     allow_not_applicable: false

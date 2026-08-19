@@ -218,8 +218,10 @@ Recovery-cycle controls:
   read-only child only after a complete candidate exists and only for
   falsification, semantic anchoring, and regression evidence.
 - The recovery guard allows at most two candidate cycles. A second cycle must
-  be justified by one concrete failure from final public replay; novelty or
-  reviewer uncertainty alone is not a retry reason.
+  be justified by one concrete failure from final public replay or by a
+  structured hard quantitative contract gap that final replay did not resolve
+  with fresh independent acceptance evidence. Novelty or generic reviewer
+  uncertainty alone is not a retry reason.
 - In repair tasks, task wording and public signatures are hard constraints;
   behavioral docstrings in explicitly broken target modules are defeasible
   hypotheses that require independent semantic or domain corroboration.
@@ -397,17 +399,21 @@ Evidence-develop v4 controls:
   advisory receipt with the gate's `preflight-evidence` action, then advance
   TeamRun to reducing and run `statem team reduce --strategy all-claims-table`.
   Read and address supported findings, but remember this reviewer cannot
-  authorize promotion. Pass `--preflight-evidence
+  authorize promotion. Consume its compact contract_ledger as hard constraints,
+  defeasible claims, probe-required conflicts, and repair implications. Pass
+  `--preflight-evidence
   /tmp/statem-verification-checks/multirole/preflight-evidence.json` to the
   initial proposal action so the candidate binds exactly that receipt.
 - The falsifier must execute the base review template plus every selected
   reviewer.md profile, return ordered stage and profile-check receipts, and
   account for every mandatory practice and protected behavior claim.
-- Identity binding, result shape, receipt cardinality, coverage accounting, and
-  authorization are deterministic gate responsibilities. The falsifier should
-  satisfy those mechanical obligations without spending its reasoning budget
-  re-deriving them; concentrate model reasoning on semantic forks, contract
-  basis, counterexamples, and paired causal attribution.
+- Identity binding, canonical field names, receipt cardinality, coverage
+  accounting, and authorization are deterministic gate responsibilities. The
+  `review-pre-submit` action fills missing trusted bindings and repairs only an
+  unambiguous legacy stage id; any conflict remains a hard failure. The
+  falsifier should concentrate on semantic forks, contract basis,
+  counterexamples, paired causal attribution, and structured hard quantitative
+  gaps.
 - Reviewer regressions are blocking only with a supported contract basis and
   paired baseline/candidate evidence. When the task names an exact public
   oracle, version, or normative consumer, both artifacts must also be compared

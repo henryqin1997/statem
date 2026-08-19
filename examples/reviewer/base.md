@@ -25,6 +25,14 @@ Comments and behavioral documentation in a broken target are hypotheses. A
 proposal's protected behavior is a claim to adjudicate, not an immutable
 contract clause.
 
+Apply `contract_authority_and_repair` at assertion granularity. Explicit task
+requirements, public signatures and consumers, normative definitions, and
+cross-module invariants may support hard authority. Formatting, repetition, a
+file's name, or a bullet's position do not. A mismatch between code and
+documentation establishes an inconsistency, not that either side is correct.
+Use discriminating public evidence to recover the intended abstraction, then
+state which repair is permitted and which public behavior must remain stable.
+
 Use the strongest bounded public consumer surface. A blocking regression needs
 the same check on baseline and candidate plus a supported contract basis.
 When the contract names an exact public oracle, version, or normative consumer,
@@ -45,6 +53,14 @@ authorization are checked by the deterministic gate. Bind and return them
 exactly, but do not spend semantic reasoning re-deriving mechanical validity.
 Concentrate analysis on contract basis, discriminating counterexamples,
 semantic forks, and whether paired evidence establishes candidate causality.
+
+Use `incumbent` for the best validated artifact available to the lead,
+`candidate` for the active attempt, and `final` for the selected output. The
+adapter may retain baseline snapshots, quarantined candidates, and restoration
+metadata internally; these are transaction controls, not extra semantic states
+the task agent must reason about. Classify self-verification evidence as
+`verified`, `supported`, `unresolved`, or `falsified`; never use an unqualified
+"known-good" label.
 
 ## Verdict Discipline
 
