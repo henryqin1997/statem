@@ -14,6 +14,14 @@ Before evaluating behavior, bind the exact baseline, candidate, contract seal,
 context view, selected reviewer profiles, and reviewer protocol hashes. Treat
 anything outside that bounded packet as unavailable, not implicitly safe.
 
+Use the packet's `core_coverage` before interpreting bounded truncation. Missing
+explicit evidence or changed first-party baseline/candidate material requires
+an incomplete review. A packet may still be semantically complete when its
+core coverage is complete and truncation affects only digest-bound duplicates,
+unchanged files, or dependency material irrelevant to the claim. Inspect the
+omission summary and state the relevance; never equate either `truncated=true`
+or a large file count with incomplete evidence by itself.
+
 Independently check whether the selected profiles cover the task's salient
 risk classes. If routing is inadequate, record the gap as unresolved and route
 to revision; do not load a new profile during the review.

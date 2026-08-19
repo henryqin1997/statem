@@ -698,7 +698,7 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         self.assertNotIn("progress.md", labels)
         binary = next(entry for entry in bundle["entries"] if entry["path"] == "weights.bin")
         self.assertEqual(binary["omission"], "non_text")
-        self.assertLessEqual(bundle["text_bytes"], 160_000)
+        self.assertLessEqual(bundle["text_bytes"], 240_000)
 
     def test_context_view_binds_present_optional_evidence_and_records_absence(self) -> None:
         acceptance = self.root / "acceptance-evidence.json"
@@ -721,6 +721,9 @@ class MultiRolePromotionGateTest(unittest.TestCase):
                 {"path": str(missing.resolve()), "present": False},
             ],
         )
+        roles = {item["path"]: item["role"] for item in view["included"]}
+        self.assertEqual(roles[str(self.task.resolve())], "required")
+        self.assertEqual(roles[str(acceptance.resolve())], "optional_evidence")
 
     def test_context_bundle_prioritizes_first_party_evidence_over_vendor_tree(self) -> None:
         vendor = self.app / "_vendor"
@@ -743,6 +746,117 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             item for item in bundle["entries"] if item["path"] == "validation_replay.py"
         )
         self.assertEqual(entry["content"], "print('first-party evidence')\n")
+
+    def test_context_bundle_prioritizes_changed_pair_over_unchanged_tree(self) -> None:
+        baseline = self.root / "baseline"
+        candidate = self.root / "candidate"
+        baseline.mkdir()
+        candidate.mkdir()
+        for index in range(8):
+            content = "payload = '" + (str(index) * 38_000) + "'\n"
+            (baseline / f"support_{index}.py").write_text(content, encoding="utf-8")
+            (candidate / f"support_{index}.py").write_text(content, encoding="utf-8")
+        (baseline / "worker.py").write_text(
+            "VALUE = 'baseline'\n", encoding="utf-8"
+        )
+        (candidate / "worker.py").write_text(
+            "VALUE = 'candidate'\n", encoding="utf-8"
+        )
+        evidence = self.root / "acceptance.json"
+        evidence.write_text('{"status":"passed"}\n', encoding="utf-8")
+        view = {
+            "included": [
+                {
+                    "path": str(evidence),
+                    "kind": "file",
+                    "role": "optional_evidence",
+                },
+                {
+                    "path": str(baseline),
+                    "kind": "directory",
+                    "role": "baseline_snapshot",
+                },
+                {
+                    "path": str(candidate),
+                    "kind": "directory",
+                    "role": "candidate_snapshot",
+                },
+            ],
+            "excluded_paths": [],
+        }
+        bundle = _context_bundle(view)
+        workers = [
+            entry for entry in bundle["entries"] if entry["path"] == "worker.py"
+        ]
+        self.assertEqual(len(workers), 2)
+        self.assertEqual(
+            {entry["context_role"] for entry in workers},
+            {"baseline_snapshot", "candidate_snapshot"},
+        )
+        self.assertTrue(all(entry.get("content") for entry in workers))
+        self.assertTrue(bundle["truncated"])
+        self.assertTrue(bundle["core_coverage"]["complete"])
+        self.assertEqual(
+            bundle["core_coverage"]["changed_first_party_entry_count"], 2
+        )
+        self.assertLessEqual(bundle["text_bytes"], 240_000)
+
+    def test_context_bundle_projects_large_contract_seal(self) -> None:
+        seal = self.root / "contract-seal.json"
+        seal.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "kind": "contract_seal",
+                    "contract_policy": "repair_aware",
+                    "baseline_artifact_identity": "tree-sha256:baseline",
+                    "public_contract_snapshot": {"large": "x" * 100_000},
+                    "public_contract_snapshot_sha256": "snapshot-sha",
+                }
+            ),
+            encoding="utf-8",
+        )
+        bundle = _context_bundle(
+            {
+                "included": [
+                    {"path": str(seal), "kind": "file", "role": "required"}
+                ],
+                "excluded_paths": [],
+            }
+        )
+        entry = bundle["entries"][0]
+        self.assertEqual(
+            entry["content_projection"], "contract_seal_authority_summary"
+        )
+        self.assertNotIn("x" * 100, entry["content"])
+        self.assertTrue(bundle["core_coverage"]["complete"])
+
+    def test_context_bundle_marks_omitted_changed_source_as_core_incomplete(self) -> None:
+        baseline = self.root / "large-baseline"
+        candidate = self.root / "large-candidate"
+        baseline.mkdir()
+        candidate.mkdir()
+        (baseline / "worker.py").write_text("a" * 90_000, encoding="utf-8")
+        (candidate / "worker.py").write_text("b" * 90_000, encoding="utf-8")
+        bundle = _context_bundle(
+            {
+                "included": [
+                    {
+                        "path": str(baseline),
+                        "kind": "directory",
+                        "role": "baseline_snapshot",
+                    },
+                    {
+                        "path": str(candidate),
+                        "kind": "directory",
+                        "role": "candidate_snapshot",
+                    },
+                ],
+                "excluded_paths": [],
+            }
+        )
+        self.assertFalse(bundle["core_coverage"]["complete"])
+        self.assertEqual(bundle["core_coverage"]["omitted_required_count"], 2)
 
 
 class MultiRoleWorkerProfileTest(unittest.TestCase):

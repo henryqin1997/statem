@@ -13,6 +13,8 @@ Recorded 2026-08-19 in `/Users/qinziheng/workspace/statem`.
 | `.statem/backups/tb3-v4p19-prelaunch-controls-20260819-a/` | 17 | 301,124 | `3ad2144bcc8d94f46a4fa3684dab80688b06b3029d55952c2825a27ced319eae` |
 | `.statem/benchmarks/backups/tb3-sol-evidence-v4p19-vf2-speedup-networkx-k1-local-h/` | 871 | 103,665,044 | `91bab0bcb9c39ae80ba2396f1610178047656ebddeba9cf9a3a7f37452eaf110` |
 | `.statem/backups/tb3-v4p20-prelaunch-controls-20260819-a/` | 16 | 310,818 | `f8bf9bec440d5dd6c896b359e97d5adf543e27fe19251589adea3ef5eee2e1bd` |
+| `.statem/benchmarks/backups/tb3-sol-evidence-v4p20-vf2-speedup-networkx-k1-local-i/` | 860 | 63,290,177 | `c134411366a77876b853d5b1cc0b6a223ed09e8481728844be81a744c60ca765` |
+| `.statem/backups/tb3-v4p21-prelaunch-controls-20260819-a/` | 16 | 326,734 | `ab45a785218c49be6ebd5dedb16f42b22138033022817c090e7523c25f30a7b2` |
 
 The tree hash is computed from lexicographically sorted regular-file paths and
 their SHA-256 digests relative to each snapshot root. The manifest is kept

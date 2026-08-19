@@ -192,3 +192,32 @@ Third, the final semantic reviewer accepted the repaired candidate, but one
 only neutral counterpart fields: empty reason for applied receipts and empty
 evidence for not-applicable receipts. It still cannot invent required evidence,
 rationale, identities, verdicts, or semantic findings.
+
+### v4p20 globally scheduled reviewer context
+
+v4p20 passed the raw task and validated the evidence-packet changes. The first
+review stored a direct contract concern in the new structured field. Exact
+quarantine replay disproved that concern against the named public oracle, found
+a different direct public-contract defect, and preserved the performant
+candidate for in-place repair. This is concrete evidence that structured
+concerns plus revise/quarantine improve attribution without granting reviewer
+claims automatic authority or triggering rollback.
+
+The second-cycle reviewer remained inconclusive for a mechanical reason: the
+bounded context projection consumed nearly all of its text budget on the
+baseline snapshot before reaching the changed candidate source. Root order was
+therefore acting as an accidental evidence policy.
+
+The projection now assigns explicit roles to required files, optional evidence,
+baseline snapshots, and candidate snapshots. It computes the snapshot diff,
+then globally schedules explicit evidence and changed first-party pairs before
+unchanged first-party or dependency material. Identical baseline/candidate
+files embed content once and retain a digest-bound duplicate reference. A large
+contract seal receives a bounded authority-and-identity projection instead of
+either consuming the packet or disappearing entirely.
+
+`core_coverage` is independent from generic `truncated`. Missing explicit or
+changed first-party material forces incomplete review. Truncation of unchanged
+or dependency material is reported with counts and remains a reviewer relevance
+question; it no longer automatically erases otherwise complete semantic
+evidence. Text, per-file, and entry limits remain explicit and bounded.

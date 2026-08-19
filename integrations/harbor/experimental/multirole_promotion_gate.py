@@ -125,8 +125,9 @@ CONTRACT_LEDGER_SCHEMAS = {
 }
 CONTRACT_LEDGER_MAX_ITEMS = 12
 CONTRACT_LEDGER_TEXT_MAX_CHARS = 600
-CONTEXT_BUNDLE_MAX_BYTES = 160_000
-CONTEXT_BUNDLE_FILE_MAX_BYTES = 40_000
+CONTEXT_BUNDLE_MAX_BYTES = 240_000
+CONTEXT_BUNDLE_FILE_MAX_BYTES = 80_000
+CONTEXT_BUNDLE_MAX_ENTRIES = 256
 CONTEXT_BUNDLE_EXCLUDED_PARTS = {
     ".git",
     ".statem",
@@ -741,7 +742,12 @@ def preflight_task(
                     "or authority and do not rely on the lead to rewrite the receipt. "
                     "advisory_verdict is ready or revise_plan. The four finding fields are "
                     "lists of concise strings. Bind every supplied hash exactly. Use status "
-                    "completed and coverage.complete=true only after reviewing the full bundle."
+                    "completed and coverage.complete=true only after reviewing the semantically "
+                    "required bounded material. context_bundle.truncated alone does not make "
+                    "coverage incomplete when context_bundle.core_coverage.complete is true; "
+                    "inspect omission_summary and explain whether any omitted unchanged or "
+                    "dependency material is relevant. If core_coverage.complete is false, return "
+                    "incomplete coverage and request revision."
                 ),
             }
         ]
@@ -1058,19 +1064,25 @@ def record_context_view(
     snapshot_receipts: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     context = _state_context()
-    included_paths = list(included_paths)
+    requested_paths = [(path, "required") for path in included_paths]
     optional_includes: list[dict[str, Any]] = []
     for path in optional_included_paths or []:
         resolved = path.expanduser().resolve()
         present = resolved.is_file() or resolved.is_dir()
         optional_includes.append({"path": str(resolved), "present": present})
         if present:
-            included_paths.append(resolved)
+            requested_paths.append((resolved, "optional_evidence"))
     for receipt in snapshot_receipts or []:
         _require_receipt(receipt, "filesystem_artifact_snapshot")
-        included_paths.append(Path(_text(receipt.get("snapshot_path"))))
+        snapshot_kind = _text(receipt.get("snapshot_kind")) or "artifact"
+        requested_paths.append(
+            (
+                Path(_text(receipt.get("snapshot_path"))),
+                f"{snapshot_kind}_snapshot",
+            )
+        )
     included: list[dict[str, str]] = []
-    for path in included_paths:
+    for path, context_role in requested_paths:
         resolved = path.expanduser().resolve()
         if resolved.is_file():
             identity = "file-sha256:" + file_sha256(resolved)
@@ -1080,7 +1092,14 @@ def record_context_view(
             kind = "directory"
         else:
             raise ValueError(f"context-view include path does not exist: {resolved}")
-        included.append({"path": str(resolved), "kind": kind, "identity": identity})
+        included.append(
+            {
+                "path": str(resolved),
+                "kind": kind,
+                "identity": identity,
+                "role": context_role,
+            }
+        )
     return {
         "version": 1,
         "kind": "context_view",
@@ -1294,8 +1313,13 @@ def falsifier_task(
                     "hard_contract_gaps, review_stages, "
                     "practice_receipts, profile_receipts, review_protocol_sha256, and "
                     "review_profile_sha256. "
-                    "Use status completed and "
-                    "coverage.complete=true only after reviewing the complete bundle."
+                    "Use status completed and coverage.complete=true only after reviewing the "
+                    "semantically required bounded material. context_bundle.truncated alone does "
+                    "not make coverage incomplete when context_bundle.core_coverage.complete is "
+                    "true; inspect omission_summary and decide whether omitted unchanged or "
+                    "dependency material is relevant to a concrete claim. If "
+                    "core_coverage.complete is false, return an inconclusive verdict with "
+                    "coverage.complete=false."
                 ),
             }
         ]
@@ -1307,18 +1331,20 @@ def _context_bundle(context_view: dict[str, Any]) -> dict[str, Any]:
         str(Path(str(path)).expanduser().resolve())
         for path in context_view.get("excluded_paths") or []
     }
-    entries: list[dict[str, Any]] = []
-    used_bytes = 0
-    truncated = False
-    for item in context_view.get("included") or []:
+    files: list[dict[str, Any]] = []
+    for include_index, item in enumerate(context_view.get("included") or []):
         if not isinstance(item, dict):
             continue
         root = Path(_text(item.get("path"))).expanduser().resolve()
+        context_role = _text(item.get("role")) or "required"
+        root_kind = (
+            "file" if root.is_file() else "directory" if root.is_dir() else ""
+        )
         paths = (
             [root]
-            if root.is_file()
-            else sorted(root.rglob("*"), key=lambda path: _context_path_priority(root, path))
-            if root.is_dir()
+            if root_kind == "file"
+            else sorted(root.rglob("*"))
+            if root_kind
             else []
         )
         for path in paths:
@@ -1327,53 +1353,258 @@ def _context_bundle(context_view: dict[str, Any]) -> dict[str, Any]:
             resolved = str(path.resolve())
             if resolved in excluded_paths:
                 continue
-            relative_parts = path.relative_to(root).parts if root.is_dir() else (path.name,)
+            relative_parts = (
+                path.relative_to(root).parts
+                if root_kind == "directory"
+                else (path.name,)
+            )
             if any(part in CONTEXT_BUNDLE_EXCLUDED_PARTS for part in relative_parts):
                 continue
             if path.name in CONTEXT_BUNDLE_EXCLUDED_NAMES:
                 continue
-            size = path.stat().st_size
             label = (
-                str(path.relative_to(root))
-                if root.is_dir()
+                path.relative_to(root).as_posix()
+                if root_kind == "directory"
                 else path.name
             )
-            entry: dict[str, Any] = {
-                "source_root": str(root),
-                "path": label,
-                "size_bytes": size,
-                "sha256": file_sha256(path),
-            }
-            if size > CONTEXT_BUNDLE_FILE_MAX_BYTES:
+            files.append(
+                {
+                    "include_index": include_index,
+                    "source_root": str(root),
+                    "path": label,
+                    "filesystem_path": path,
+                    "root_kind": root_kind,
+                    "context_role": context_role,
+                    "size_bytes": path.stat().st_size,
+                    "sha256": file_sha256(path),
+                    "deprioritized": _context_path_priority(root, path)[0] == 1,
+                }
+            )
+
+    snapshot_files: dict[str, dict[str, dict[str, Any]]] = {
+        "baseline_snapshot": {},
+        "candidate_snapshot": {},
+    }
+    for item in files:
+        role = item["context_role"]
+        if role in snapshot_files:
+            snapshot_files[role][item["path"]] = item
+    changed_paths: set[str] = set()
+    baseline_files = snapshot_files["baseline_snapshot"]
+    candidate_files = snapshot_files["candidate_snapshot"]
+    if baseline_files and candidate_files:
+        for label in baseline_files.keys() | candidate_files.keys():
+            baseline = baseline_files.get(label)
+            candidate = candidate_files.get(label)
+            if (
+                baseline is None
+                or candidate is None
+                or baseline["sha256"] != candidate["sha256"]
+            ):
+                changed_paths.add(label)
+
+    for item in files:
+        snapshot_role = item["context_role"] in snapshot_files
+        item["change_status"] = (
+            "changed"
+            if snapshot_role and item["path"] in changed_paths
+            else "unchanged"
+            if snapshot_role and baseline_files and candidate_files
+            else "not_compared"
+        )
+        item["changed_first_party"] = bool(
+            item["change_status"] == "changed" and not item["deprioritized"]
+        )
+        item["core_required"] = bool(
+            item["root_kind"] == "file" or item["changed_first_party"]
+        )
+
+    files.sort(key=_context_file_schedule_key)
+    entries: list[dict[str, Any]] = []
+    used_bytes = 0
+    truncated = False
+    omission_counts: dict[str, int] = {}
+    core_omissions: list[dict[str, str]] = []
+    unchanged_snapshot_content: dict[str, dict[str, str]] = {}
+    for item in files:
+        if len(entries) >= CONTEXT_BUNDLE_MAX_ENTRIES:
+            truncated = True
+            _increment(omission_counts, "entry_budget")
+            if item["core_required"]:
+                core_omissions.append(_core_omission(item, "entry_budget"))
+            continue
+        path = item["filesystem_path"]
+        entry: dict[str, Any] = {
+            "source_root": item["source_root"],
+            "path": item["path"],
+            "context_role": item["context_role"],
+            "change_status": item["change_status"],
+            "first_party": not item["deprioritized"],
+            "size_bytes": item["size_bytes"],
+            "sha256": item["sha256"],
+        }
+        duplicate = unchanged_snapshot_content.get(item["path"])
+        if (
+            duplicate is not None
+            and item["change_status"] == "unchanged"
+            and item["context_role"] in snapshot_files
+        ):
+            entry["content"] = None
+            entry["omission"] = "duplicate_snapshot_content"
+            entry["duplicate_of"] = duplicate
+            _increment(omission_counts, "duplicate_snapshot_content")
+            entries.append(entry)
+            continue
+
+        content: str | None = None
+        projection = None
+        if item["size_bytes"] > CONTEXT_BUNDLE_FILE_MAX_BYTES:
+            projection = _bounded_context_projection(path)
+            if projection is None:
                 entry["content"] = None
                 entry["omission"] = "file_too_large"
-            else:
-                try:
-                    content = path.read_text(encoding="utf-8")
-                except (OSError, UnicodeDecodeError):
-                    entry["content"] = None
-                    entry["omission"] = "non_text"
-                    entry["safe_summary"] = {
-                        "kind": "binary_digest",
-                        "suffix": path.suffix.lower(),
-                        "size_bytes": size,
-                        "sha256": entry["sha256"],
-                    }
-                else:
-                    encoded_size = len(content.encode("utf-8"))
-                    if used_bytes + encoded_size > CONTEXT_BUNDLE_MAX_BYTES:
-                        truncated = True
-                        continue
-                    entry["content"] = content
-                    used_bytes += encoded_size
-            entries.append(entry)
+                truncated = True
+                _increment(omission_counts, "file_too_large")
+                if item["core_required"]:
+                    core_omissions.append(_core_omission(item, "file_too_large"))
+                entries.append(entry)
+                continue
+            content, projection_kind = projection
+            entry["content_projection"] = projection_kind
+        else:
+            try:
+                content = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                entry["content"] = None
+                entry["omission"] = "non_text"
+                entry["safe_summary"] = {
+                    "kind": "binary_digest",
+                    "suffix": path.suffix.lower(),
+                    "size_bytes": item["size_bytes"],
+                    "sha256": item["sha256"],
+                }
+                _increment(omission_counts, "non_text")
+                if item["changed_first_party"]:
+                    core_omissions.append(_core_omission(item, "non_text"))
+                entries.append(entry)
+                continue
+
+        encoded_size = len(content.encode("utf-8"))
+        if used_bytes + encoded_size > CONTEXT_BUNDLE_MAX_BYTES:
+            entry["content"] = None
+            entry["omission"] = "context_budget"
+            truncated = True
+            _increment(omission_counts, "context_budget")
+            if item["core_required"]:
+                core_omissions.append(_core_omission(item, "context_budget"))
+        else:
+            entry["content"] = content
+            entry["content_bytes"] = encoded_size
+            used_bytes += encoded_size
+            if (
+                item["change_status"] == "unchanged"
+                and item["context_role"] in snapshot_files
+            ):
+                unchanged_snapshot_content[item["path"]] = {
+                    "source_root": item["source_root"],
+                    "path": item["path"],
+                    "context_role": item["context_role"],
+                }
+        entries.append(entry)
+
+    core_required_count = sum(1 for item in files if item["core_required"])
     return {
         "version": 1,
         "kind": "bounded_read_only_context_projection",
         "entries": entries,
         "text_bytes": used_bytes,
         "truncated": truncated,
+        "limits": {
+            "text_bytes": CONTEXT_BUNDLE_MAX_BYTES,
+            "file_bytes": CONTEXT_BUNDLE_FILE_MAX_BYTES,
+            "entries": CONTEXT_BUNDLE_MAX_ENTRIES,
+        },
+        "core_coverage": {
+            "complete": not core_omissions,
+            "required_entry_count": core_required_count,
+            "changed_first_party_entry_count": sum(
+                1 for item in files if item["changed_first_party"]
+            ),
+            "omitted_required_count": len(core_omissions),
+            "omitted_required": core_omissions[:16],
+        },
+        "omission_summary": [
+            {"reason": reason, "count": count}
+            for reason, count in sorted(omission_counts.items())
+        ],
         "source_context_view_sha256": stable_sha256(context_view),
+    }
+
+
+def _context_file_schedule_key(item: dict[str, Any]) -> tuple[Any, ...]:
+    if item["root_kind"] == "file":
+        return (0, item["include_index"], item["path"], item["source_root"])
+    if item["changed_first_party"]:
+        priority = 1
+    elif not item["deprioritized"]:
+        priority = 2
+    elif item["change_status"] == "changed":
+        priority = 3
+    else:
+        priority = 4
+    role_order = {"candidate_snapshot": 0, "baseline_snapshot": 1}.get(
+        item["context_role"], 2
+    )
+    return (priority, item["path"], role_order, item["source_root"])
+
+
+def _bounded_context_projection(path: Path) -> tuple[str, str] | None:
+    if path.suffix.lower() != ".json":
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict) or payload.get("kind") != "contract_seal":
+        return None
+    selected = {
+        key: payload.get(key)
+        for key in (
+            "version",
+            "kind",
+            "run_id",
+            "entry_id",
+            "node",
+            "producer",
+            "contract_policy",
+            "artifact_transaction",
+            "baseline_artifact_identity",
+            "baseline_snapshot_sha256",
+            "contract_sources",
+            "public_contract_snapshot_sha256",
+        )
+        if key in payload
+    }
+    projected = {
+        "projection_kind": "contract_seal_authority_summary",
+        "source_file_sha256": file_sha256(path),
+        "selected_fields": selected,
+    }
+    return json.dumps(projected, sort_keys=True, indent=2) + "\n", projected[
+        "projection_kind"
+    ]
+
+
+def _increment(counts: dict[str, int], key: str) -> None:
+    counts[key] = counts.get(key, 0) + 1
+
+
+def _core_omission(item: dict[str, Any], reason: str) -> dict[str, str]:
+    return {
+        "source_root": item["source_root"],
+        "path": item["path"],
+        "context_role": item["context_role"],
+        "reason": reason,
     }
 
 
