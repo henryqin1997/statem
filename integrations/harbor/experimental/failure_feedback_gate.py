@@ -31,6 +31,10 @@ def main(argv: list[str] | None = None) -> int:
     validate.add_argument("--preflight-evidence", type=Path, default=DEFAULT_PREFLIGHT)
     validate.add_argument("--output", type=Path, default=DEFAULT_VALIDATION)
     args = parser.parse_args(argv)
+    if args.action == "validate-preflight":
+        # A failed validation must not leave an earlier cycle's success receipt
+        # available to progress or audit consumers.
+        args.output.unlink(missing_ok=True)
     try:
         if args.action == "prepare":
             receipt = prepare_retry_brief(

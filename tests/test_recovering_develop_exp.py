@@ -35,6 +35,7 @@ from integrations.harbor.statem_codex_multirole_develop_exp import (
     EvidenceDevelopV4ExperimentalStatemCodex,
     EvidenceDevelopV4p30ExperimentalStatemCodex,
     EvidenceDevelopV4p37ExperimentalStatemCodex,
+    EvidenceDevelopV4p38ExperimentalStatemCodex,
     RecoveringMultiRoleDevelopExperimentalStatemCodex,
 )
 from integrations.harbor.statem_codex import TeamRunStatemCodex
@@ -1130,6 +1131,15 @@ class RecoveringDevelopRunbookTest(unittest.TestCase):
         self.assertEqual(
             agent.name(),
             "ziheng-yaxin-statem-codex-evidence-develop-v4p37-exp",
+        )
+
+    def test_v4p38_adapter_has_blocker_bounded_identity(self) -> None:
+        agent = EvidenceDevelopV4p38ExperimentalStatemCodex.__new__(
+            EvidenceDevelopV4p38ExperimentalStatemCodex
+        )
+        self.assertEqual(
+            agent.name(),
+            "ziheng-yaxin-statem-codex-evidence-develop-v4p38-exp",
         )
 
     def test_v4_adapter_enforces_terminal_state_and_installs_runtime_hook(self) -> None:

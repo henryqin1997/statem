@@ -978,3 +978,103 @@ Evidence-develop v4p37 controls:
   final promotion decision. Receipt naming cannot discard bound semantic
   evidence or strand the run in the falsify state.
 """
+
+
+class EvidenceDevelopV4p38ExperimentalStatemCodex(
+    EvidenceDevelopV4p37ExperimentalStatemCodex
+):
+    """Bound same-entry progress to the latest semantic transition blocker."""
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p38-exp"
+
+    async def _session_progress_identity(
+        self,
+        environment: BaseEnvironment,
+        run_id: str,
+        current: dict[str, Any],
+    ) -> tuple[str, ...]:
+        base = await super()._session_progress_identity(environment, run_id, current)
+        script = "\n".join(
+            [
+                "import hashlib, json, re",
+                "from pathlib import Path",
+                f"run_id = {run_id!r}",
+                "path = Path('/tmp/statem-state/runs') / run_id / 'state.json'",
+                "data = json.loads(path.read_text(encoding='utf-8'))",
+                "current = str(data.get('current') or '')",
+                "entry_id = str(data.get('current_entry_id') or '')",
+                "history = data.get('history') if isinstance(data.get('history'), list) else []",
+                "start = -1",
+                "for index, event in enumerate(history):",
+                "    if not isinstance(event, dict):",
+                "        continue",
+                "    if start < 0 and str(event.get('entry_id') or '') == entry_id and 'node' in event and 'path' in event:",
+                "        start = index",
+                "latest = None",
+                "for event in history[start + 1:]:",
+                "    if not isinstance(event, dict) or event.get('event') != 'goto_blocked':",
+                "        continue",
+                "    if str(event.get('from') or '') != current:",
+                "        continue",
+                "    failed = []",
+                "    for result in event.get('results') or []:",
+                "        if not isinstance(result, dict) or result.get('passed') is not False or not result.get('blocking'):",
+                "            continue",
+                "        output = str(result.get('output') or '').strip().splitlines()[:1]",
+                "        summary = output[0] if output else ''",
+                "        summary = re.sub(r'\\b[0-9a-fA-F]{64}\\b', '<sha256>', summary)",
+                "        summary = re.sub(r'\\b[0-9a-fA-F]{8}-[0-9a-fA-F-]{27,}\\b', '<uuid>', summary)",
+                "        failed.append({",
+                "            'type': result.get('type'),",
+                "            'purpose': result.get('purpose'),",
+                "            'exit_code': result.get('exit_code'),",
+                "            'on_failure': result.get('on_failure'),",
+                "            'summary': summary,",
+                "        })",
+                "    if failed:",
+                "        latest = {",
+                "            'from': event.get('from'),",
+                "            'to': event.get('to'),",
+                "            'stage': event.get('stage'),",
+                "            'failed': failed,",
+                "        }",
+                "if latest is not None:",
+                "    encoded = json.dumps(latest, sort_keys=True, separators=(',', ':')).encode('utf-8')",
+                "    print('blocked:' + hashlib.sha256(encoded).hexdigest())",
+            ]
+        )
+        try:
+            result = await self.exec_as_agent(
+                environment,
+                command="python3 -c " + shlex.quote(script),
+                env=self._statem_env(run_id),
+            )
+            blocker = (result.stdout or "").strip()
+        except Exception:
+            blocker = ""
+        if blocker.startswith("blocked:"):
+            return (*base[:2], blocker)
+        return base
+
+    def _augment_instruction(
+        self,
+        instruction: str,
+        run_id: str,
+        current_context: str,
+    ) -> str:
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
+
+Evidence-develop v4p38 controls:
+- Within one StateM entry, the latest blocking-check fingerprint dominates
+  draft and artifact churn. Repeating the same semantic blocker consumes the
+  bounded no-progress resume allowance; changing the blocker or advancing
+  state remains progress.
+- Failed validation-delta application removes any prior success receipt before
+  returning failure, so stale evidence cannot affect progress or audit tools.
+"""

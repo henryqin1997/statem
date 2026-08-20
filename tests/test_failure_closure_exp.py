@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 import tempfile
 import time
@@ -13,6 +14,7 @@ import yaml
 from integrations.harbor.experimental.artifact_identity import artifact_identity
 from integrations.harbor.experimental.develop_family_router import select_family
 from integrations.harbor.experimental.failure_feedback_gate import (
+    main as failure_feedback_main,
     prepare_retry_brief,
     validate_preflight_delta,
 )
@@ -32,6 +34,7 @@ from integrations.harbor.statem_codex_multirole_develop_exp import (
     EvidenceDevelopV4p34ExperimentalStatemCodex,
     EvidenceDevelopV4p35ExperimentalStatemCodex,
     EvidenceDevelopV4p36ExperimentalStatemCodex,
+    EvidenceDevelopV4p38ExperimentalStatemCodex,
 )
 from statem.core import validate_spec
 
@@ -442,6 +445,55 @@ class FailureClosureTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "did not append the exact"):
             validate_preflight_delta(brief=brief, preflight_evidence=preflight)
 
+    def test_failed_validation_removes_stale_success_receipt(self) -> None:
+        replay = self._replay()
+        brief = prepare_retry_brief(
+            {
+                "version": 1,
+                "kind": "recovering_develop_replay_decision",
+                "action": "retry",
+                "failure_ownership": replay["failure_ownership"],
+                "validation_delta": replay["validation_delta"],
+            }
+        )
+        preflight = {
+            "version": 1,
+            "kind": "plan_preflight_evidence",
+            "acceptance_plan": {"requirements": []},
+        }
+        brief_path = self.root / "retry-brief.json"
+        preflight_path = self.root / "preflight-evidence.json"
+        output_path = self.root / "validation-delta-receipt.json"
+        brief_path.write_text(json.dumps(brief), encoding="utf-8")
+        preflight_path.write_text(json.dumps(preflight), encoding="utf-8")
+        output_path.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "kind": "validation_delta_application",
+                    "required": False,
+                    "applied": True,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        with patch("builtins.print"):
+            exit_code = failure_feedback_main(
+                [
+                    "validate-preflight",
+                    "--brief",
+                    str(brief_path),
+                    "--preflight-evidence",
+                    str(preflight_path),
+                    "--output",
+                    str(output_path),
+                ]
+            )
+
+        self.assertEqual(exit_code, 1)
+        self.assertFalse(output_path.exists())
+
     def test_v4p31_adapter_and_runbook_are_versioned_and_valid(self) -> None:
         agent = EvidenceDevelopV4p31ExperimentalStatemCodex.__new__(
             EvidenceDevelopV4p31ExperimentalStatemCodex
@@ -537,6 +589,85 @@ class V4p36LifecycleProgressTest(unittest.TestCase):
             "ziheng-yaxin-statem-codex-evidence-develop-v4p36-exp",
         )
         self.assertEqual(agent._runbook_path, RUNBOOK_V4P35)
+
+
+class V4p38BlockerProgressTest(unittest.IsolatedAsyncioTestCase):
+    def test_blocker_scan_starts_at_first_current_entry_event(self) -> None:
+        source = inspect.getsource(
+            EvidenceDevelopV4p38ExperimentalStatemCodex._session_progress_identity
+        )
+
+        self.assertIn(
+            '"    if start < 0 and str(event.get(\'entry_id\') or \'\') == entry_id',
+            source,
+        )
+
+    async def test_same_blocker_dominates_changed_artifact_witness(self) -> None:
+        agent = object.__new__(EvidenceDevelopV4p38ExperimentalStatemCodex)
+        agent._statem_env = lambda run_id: {"STATEM_RUN_ID": run_id}
+        agent.exec_as_agent = AsyncMock(
+            side_effect=[
+                SimpleNamespace(stdout="artifact-a\n"),
+                SimpleNamespace(stdout="blocked:same\n"),
+                SimpleNamespace(stdout="artifact-b\n"),
+                SimpleNamespace(stdout="blocked:same\n"),
+            ]
+        )
+        current = {"current": "solve", "current_entry_id": "solve-1"}
+
+        first = await agent._session_progress_identity(
+            SimpleNamespace(), "run-1", current
+        )
+        second = await agent._session_progress_identity(
+            SimpleNamespace(), "run-1", current
+        )
+
+        self.assertEqual(first, ("solve", "solve-1", "blocked:same"))
+        self.assertEqual(second, first)
+
+    async def test_changed_blocker_resets_progress_identity(self) -> None:
+        agent = object.__new__(EvidenceDevelopV4p38ExperimentalStatemCodex)
+        agent._statem_env = lambda run_id: {"STATEM_RUN_ID": run_id}
+        agent.exec_as_agent = AsyncMock(
+            side_effect=[
+                SimpleNamespace(stdout="artifact-a\n"),
+                SimpleNamespace(stdout="blocked:first\n"),
+                SimpleNamespace(stdout="artifact-b\n"),
+                SimpleNamespace(stdout="blocked:second\n"),
+            ]
+        )
+        current = {"current": "solve", "current_entry_id": "solve-1"}
+
+        first = await agent._session_progress_identity(
+            SimpleNamespace(), "run-1", current
+        )
+        second = await agent._session_progress_identity(
+            SimpleNamespace(), "run-1", current
+        )
+
+        self.assertNotEqual(first, second)
+
+    async def test_no_blocker_preserves_artifact_progress_identity(self) -> None:
+        agent = object.__new__(EvidenceDevelopV4p38ExperimentalStatemCodex)
+        agent._statem_env = lambda run_id: {"STATEM_RUN_ID": run_id}
+        agent.exec_as_agent = AsyncMock(
+            side_effect=[
+                SimpleNamespace(stdout="artifact-a\n"),
+                SimpleNamespace(stdout="\n"),
+                SimpleNamespace(stdout="artifact-b\n"),
+                SimpleNamespace(stdout="\n"),
+            ]
+        )
+        current = {"current": "solve", "current_entry_id": "solve-1"}
+
+        first = await agent._session_progress_identity(
+            SimpleNamespace(), "run-1", current
+        )
+        second = await agent._session_progress_identity(
+            SimpleNamespace(), "run-1", current
+        )
+
+        self.assertNotEqual(first, second)
 
 
 if __name__ == "__main__":
