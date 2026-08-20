@@ -274,12 +274,22 @@ pairs:
     direct:
       job: tb3-sol-native-baseline-v1-foodstuff-beta-activity-k1-local-a
       agent: codex-auth-no-session-baseline-v1
-      state: active
+      state: completed_valid
       initial_runner_pid: 24632
-      raw_reward: null
-      protocol_valid: null
-      cost_usd: null
-      backup_tree_sha256: null
+      raw_reward: 0.0
+      protocol_valid: true
+      cost_usd: 0.701212
+      input_tokens: 398762
+      cache_tokens: 363264
+      output_tokens: 11403
+      wall_seconds: 3364.449267
+      agent_seconds: 3330.208019
+      atif_schema: ATIF-v1.5
+      atif_steps: 24
+      raw_session_paths: 0
+      backup_files: 14
+      backup_bytes: 117326
+      backup_tree_sha256: 54f8bc257829dfedc4a82f981b083b9f1256fc5472057510c6cdd52936b9eb2f
     statem:
       job: tb3-sol-evidence-v4p34-foodstuff-beta-activity-k1-local-b
       agent: ziheng-yaxin-statem-codex-evidence-develop-v4p34-exp
@@ -289,7 +299,7 @@ pairs:
       protocol_valid: null
       cost_usd: null
       backup_tree_sha256: null
-    matched_verdict: pending_direct_active_statem_predeclared
+    matched_verdict: pending_statem_predeclared_direct_zero
     score_eligible: pending
 
 aggregate:

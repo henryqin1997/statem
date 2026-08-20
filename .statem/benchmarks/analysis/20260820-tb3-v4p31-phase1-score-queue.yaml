@@ -381,7 +381,8 @@ fresh_holdout_candidates:
       validation delta, or replayable milestone.
     matched_pair_id: foodstuff-beta-activity-local-arm64-v4p34-k1-a
     direct_runner_pid: 24632
-    state: matched_k1_direct_active
+    direct_backup_tree_sha256: 54f8bc257829dfedc4a82f981b083b9f1256fc5472057510c6cdd52936b9eb2f
+    state: matched_k1_direct_zero_waiting_statem
   - task: fix-uautomizer-soundness
     public_sol_passes: 0
     expected_family: structured-transformation
