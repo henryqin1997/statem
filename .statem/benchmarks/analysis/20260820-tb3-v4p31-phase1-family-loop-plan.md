@@ -92,6 +92,15 @@ score alone is not evidence that StateM can help. Capability- or hardware-led
 cells remain behind cheap workflow-led cells unless a new generic hypothesis or
 feasible resource change makes the next observation informative.
 
+This preflight is an admission gate, not documentation after the fact. It must
+also name the expected observable progress and the condition that parks the
+task. Allocate lanes by expected raw-score gain per API dollar and lane-hour,
+subject to high StateM ownership. Cheap CPU cells whose failure is plausibly in
+contract, practice, validation, or lifecycle control lead the queue. A public
+`0/5` task dominated by specialist capability, unavailable hardware, or an
+unobservable acceptance surface does not lead merely because its score upside
+is large.
+
 Develop progress means more than another trajectory. Continue only when the
 last cell changes the posterior over failure ownership or advances a
 machine-auditable artifact: a reproducible discriminator, a narrower owner, a
@@ -99,6 +108,11 @@ candidate-blind validation delta, a public-check improvement, or an independentl
 replayable milestone. Two consecutive attempts without one of these signals
 park the task. A successful internal test with no new coverage or attribution
 does not reset this counter.
+
+The no-progress counter is hypothesis-scoped. A parked task reopens only when a
+different task supplies a new generic control, a cheaper public discriminator,
+new feasible hardware, or a materially narrower owner. Re-running the same
+workflow with more context or budget is not, by itself, a new hypothesis.
 
 The initial fresh priority order is `bun-sourcemap-leak`, then
 `production-planning`, `cargo-flight-dispatch`, and

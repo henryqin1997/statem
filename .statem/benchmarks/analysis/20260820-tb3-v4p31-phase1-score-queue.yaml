@@ -35,6 +35,26 @@ triage_policy:
     - narrower_failure_owner
     - candidate_blind_plan_delta_bound_before_retry
     - public_check_or_artifact_improvement
+    - independently_replayable_stage_milestone
+  admission_gate:
+    require_before_launch:
+      - dominant_difficulty_hypothesis
+      - statem_controllability_hypothesis
+      - capability_ceiling_risk
+      - hardware_resource_risk
+      - cheapest_public_discriminator
+      - expected_api_cost
+      - expected_wall_time
+      - observable_progress_target
+      - stop_or_park_condition
+    reject_when:
+      - no_public_discriminator_for_proposed_control
+      - hardware_requirement_unavailable
+      - capability_ceiling_dominates_without_new_generic_hypothesis
+      - two_consecutive_attempts_without_substantive_progress
+    preference: >-
+      Maximize expected raw-score gain per API dollar and lane-hour, subject to
+      high StateM control ownership and a machine-auditable progress signal.
   bottleneck_preflight:
     required_fields:
       - dominant_limit_prior
@@ -72,6 +92,11 @@ triage_policy:
     Continue only when the last cell changed the posterior over failure ownership
     or advanced a machine-auditable artifact; otherwise spend the next lane on the
     next ranked task.
+  develop_success_definition: >-
+    A develop cell succeeds only if it advances a public artifact, closes a
+    validation obligation, narrows failure ownership, or creates a replayable
+    stage milestone. More tokens, another trajectory, or a differently worded
+    diagnosis is not progress.
   sampling:
     triage: matched_k1_direct_and_statem
     estimate: matched_k5_after_control_promotion
