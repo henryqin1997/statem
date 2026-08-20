@@ -216,7 +216,7 @@ current_control:
   canonical_manifest_sha256: e7aa59496560ade7804be5e18326ddb2273ee2c8d042fa95ca2208e25b530402
   native_baseline_harness_commit: ca2415f
 
-candidate_control:
+previous_control:
   version: v4p34
   adapter: ziheng-yaxin-statem-codex-evidence-develop-v4p34-exp
   canonical_manifest_file_count: 35
@@ -239,6 +239,23 @@ candidate_control:
     existing full-cycle deadline gate handed off when 1,459 seconds remained
     against a 2,100-second retry reserve. This is lifecycle closure evidence,
     not causal validation of the new revision-reserve branch.
+
+candidate_control:
+  version: v4p35
+  adapter: ziheng-yaxin-statem-codex-evidence-develop-v4p35-exp
+  canonical_manifest_file_count: 35
+  canonical_manifest_sha256: 008248e50f9bd3e262376b154e95c5ffd25651e1c38d5e8521088dfa51188bdc
+  source_commit: 81d15e0
+  repairs:
+    - candidate_blind_objective_order_authority
+    - exact_mode_compatible_acceptance_obligation_closure
+    - bounded_acceptance_assessment_receipts
+  focused_validation: 91_tests_passed
+  full_validation: >-
+    716 tests passed and 11 skipped; one unrelated git-webserver family test
+    failed because its temporary subprocess could not import the local statem
+    package, while all v4p35-focused tests passed.
+  promotion_state: active_adapted_control_validation
 
 official_reference:
   tasks: 74
@@ -320,8 +337,9 @@ fresh_holdout_candidates:
     statem_backup_files: 146
     statem_backup_bytes: 7172327
     statem_backup_tree_sha256: 0d4d4e8cc896928f93aa6a3cc4d09ee12eb26fc1b7ac817b229f09ed290ac93f
-    state: v4p35_admission_pending_for_generic_authority_control
+    state: v4p35_active_adapted_generic_authority_control
     next_job: tb3-sol-evidence-v4p35-production-planning-k1-aws-x86-c
+    v4p35_initial_runner_pid: 287125
     score_eligible_as_future_holdout_for_this_control: false
   - task: cargo-flight-dispatch
     public_sol_passes: 0
@@ -444,8 +462,10 @@ fresh_holdout_candidates:
       cannot be closed by solver-recorded values or an unrelated output-format
       replay; unresolved or independence-inadequate obligations route to revise
       or quarantine.
-    state: v4p35_admission_pending_for_obligation_closure_control
+    state: v4p35_active_adapted_obligation_closure_control
     next_job: tb3-sol-evidence-v4p35-foodstuff-beta-activity-k1-local-c
+    v4p35_launchd_label: com.statem.tb3.foodstuff.v4p35.k1.c
+    v4p35_initial_runner_pid: 36762
     score_eligible_as_future_holdout_for_this_control: false
   - task: fix-uautomizer-soundness
     public_sol_passes: 0
@@ -524,7 +544,8 @@ negative_transfer_sentinels:
         bytes: 80792
         tree_sha256: 422aad3aedea798ee834af926f661b286bdcef0e39548755fa3d2d8a93778c72
       replacement_job: tb3-sol-native-baseline-v2-risk-scorer-replay-k1-aws-x86-a3
-      replacement_state: pending_corrected_v2_alias_admission
+      replacement_state: active_with_exact_v2_alias_and_adapter_identity
+      replacement_initial_runner_pid: 283978
       identity_invalid_attempt:
         job: tb3-sol-native-baseline-v2-risk-scorer-replay-k1-aws-x86-a2
         raw_reward: null

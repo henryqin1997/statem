@@ -261,3 +261,35 @@ the effective container UID, focused tests pass, and the repair is deployed.
 StateM source remains frozen until both active cargo and foodstuff runners,
 reviewers, probes, Harbor processes, and experiment containers exit and their
 jobs are preserved.
+
+## Active v4p35 validation lanes
+
+The cargo and foodstuff v4p34 cells are complete, preserved, and attributed.
+Cargo narrowed its zero to unresolved objective/semantic authority because its
+fixed public population did not distinguish the plausible orderings. Foodstuff
+narrowed its zero to incomplete promotion evidence because only output format
+was independently replayed while scientific obligations remained
+solver-recorded. These observations produced v4p35, which requires a
+candidate-blind objective-order discriminator and exactly one bounded,
+mode-compatible independent assessment per acceptance obligation.
+
+Three admitted jobs now occupy the available lanes:
+
+- Remote direct regression sentinel:
+  `tb3-sol-native-baseline-v2-risk-scorer-replay-k1-aws-x86-a3`.
+  Both Harbor alias and imported adapter identity are baseline v2. It validates
+  the generic non-root authentication ownership repair and does not count
+  toward score.
+- Remote adapted control validation:
+  `tb3-sol-evidence-v4p35-production-planning-k1-aws-x86-c`.
+  It tests whether objective authority is resolved before candidate work.
+- Local adapted control validation:
+  `tb3-sol-evidence-v4p35-foodstuff-beta-activity-k1-local-c` under launchd
+  label `com.statem.tb3.foodstuff.v4p35.k1.c`. It tests whether scientific and
+  output obligations are independently closed before promotion.
+
+Production and foodstuff each receive only this one new-hypothesis cell. If a
+cell does not add a reproducible discriminator, narrower owner, public artifact
+improvement, candidate-blind validation delta, or independently replayable
+milestone, the task is parked and its lane advances. These adapted cells cannot
+serve as v4p35 holdouts or contribute to the +15-point ledger.
