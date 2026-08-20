@@ -29,6 +29,7 @@ DEFAULT_DIR = Path("/tmp/statem-verification-checks/multirole")
 DEFAULT_PLAN = DEFAULT_DIR / "acceptance-replay-plan-draft.json"
 DEFAULT_PROPOSAL = DEFAULT_DIR / "candidate-proposal.json"
 DEFAULT_ACCEPTANCE = DEFAULT_DIR / "acceptance-evidence.json"
+DEFAULT_PREFLIGHT_EVIDENCE = DEFAULT_DIR / "preflight-evidence.json"
 DEFAULT_SNAPSHOT = Path(
     "/tmp/statem-verification-checks/artifact-provider/candidate-snapshot.json"
 )
@@ -36,6 +37,11 @@ DEFAULT_OUTPUT = DEFAULT_DIR / "acceptance-replay.json"
 DEFAULT_WORK_ROOT = Path("/tmp/statem-verification-checks/acceptance-replay/work")
 
 PLAN_FIELDS = {"candidate_artifact_identity", "checks"}
+BLIND_PLAN_FIELDS = {
+    "candidate_artifact_identity",
+    "preflight_evidence_sha256",
+    "checks",
+}
 CHECK_FIELDS = {
     "check_id",
     "public_surface",
@@ -45,6 +51,7 @@ CHECK_FIELDS = {
     "timeout_seconds",
     "expected_exit_codes",
 }
+BLIND_CHECK_FIELDS = CHECK_FIELDS | {"requirement_ids"}
 CHECK_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,47}$")
 MAX_CHECKS = 4
 MAX_TIMEOUT_SECONDS = 90
@@ -72,6 +79,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--plan", type=Path, default=DEFAULT_PLAN)
     parser.add_argument("--proposal", type=Path, default=DEFAULT_PROPOSAL)
     parser.add_argument("--acceptance-evidence", type=Path, default=DEFAULT_ACCEPTANCE)
+    parser.add_argument(
+        "--preflight-evidence", type=Path, default=DEFAULT_PREFLIGHT_EVIDENCE
+    )
     parser.add_argument("--candidate-snapshot", type=Path, default=DEFAULT_SNAPSHOT)
     parser.add_argument("--artifact-root", type=Path, default=Path("/app"))
     parser.add_argument("--work-root", type=Path, default=DEFAULT_WORK_ROOT)
@@ -81,11 +91,17 @@ def main(argv: list[str] | None = None) -> int:
         plan = _read_json(args.plan)
         proposal = _read_json(args.proposal)
         acceptance = _read_json(args.acceptance_evidence)
+        preflight = (
+            _read_json(args.preflight_evidence)
+            if args.preflight_evidence.is_file()
+            else None
+        )
         snapshot = _read_json(args.candidate_snapshot)
         receipt = replay_acceptance_checks(
             plan=plan,
             proposal=proposal,
             acceptance_evidence=acceptance,
+            preflight_evidence=preflight,
             candidate_snapshot=snapshot,
             artifact_root=args.artifact_root,
             work_root=args.work_root,
@@ -106,6 +122,7 @@ def replay_acceptance_checks(
     plan: dict[str, Any],
     proposal: dict[str, Any],
     acceptance_evidence: dict[str, Any],
+    preflight_evidence: dict[str, Any] | None = None,
     candidate_snapshot: dict[str, Any],
     artifact_root: Path,
     work_root: Path,
@@ -126,6 +143,14 @@ def replay_acceptance_checks(
             raise ValueError(f"{label} belongs to another StateM run")
         if receipt.get("entry_id") != context["entry_id"]:
             raise ValueError(f"{label} belongs to another StateM entry")
+    if preflight_evidence is not None:
+        _require_receipt(preflight_evidence, "plan_preflight_evidence")
+        if preflight_evidence.get("run_id") != context["run_id"]:
+            raise ValueError("preflight evidence belongs to another StateM run")
+        if proposal.get("preflight_evidence_sha256") != stable_sha256(
+            preflight_evidence
+        ):
+            raise ValueError("candidate proposal is not bound to preflight evidence")
 
     proposal_sha256 = stable_sha256(proposal)
     snapshot_sha256 = stable_sha256(candidate_snapshot)
@@ -146,7 +171,11 @@ def replay_acceptance_checks(
     if acceptance_evidence.get("candidate_artifact_identity") != candidate_identity:
         raise ValueError("acceptance evidence is bound to another artifact")
 
-    normalized_plan = _normalize_plan(plan, candidate_identity)
+    normalized_plan = _normalize_plan(
+        plan,
+        candidate_identity,
+        preflight_evidence=preflight_evidence,
+    )
     _reject_sensitive_values(normalized_plan)
     plan_sha256 = stable_sha256(normalized_plan)
     bindings = {
@@ -156,6 +185,8 @@ def replay_acceptance_checks(
         "candidate_artifact_identity": candidate_identity,
         "plan_sha256": plan_sha256,
     }
+    if preflight_evidence is not None:
+        bindings["preflight_evidence_sha256"] = stable_sha256(preflight_evidence)
 
     artifact_root = artifact_root.expanduser().resolve()
     snapshot_root = Path(_text(candidate_snapshot.get("snapshot_path"))).expanduser().resolve()
@@ -240,24 +271,88 @@ def replay_acceptance_checks(
     }
 
 
-def _normalize_plan(plan: dict[str, Any], candidate_identity: str) -> dict[str, Any]:
-    if set(plan) != PLAN_FIELDS:
-        raise ValueError("acceptance replay plan requires exactly candidate_artifact_identity and checks")
+def _normalize_plan(
+    plan: dict[str, Any],
+    candidate_identity: str,
+    *,
+    preflight_evidence: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    expected_plan_fields = (
+        BLIND_PLAN_FIELDS if preflight_evidence is not None else PLAN_FIELDS
+    )
+    if set(plan) != expected_plan_fields:
+        if preflight_evidence is not None:
+            raise ValueError(
+                "candidate-blind acceptance replay plan requires exactly "
+                "candidate_artifact_identity, preflight_evidence_sha256, and checks"
+            )
+        raise ValueError(
+            "acceptance replay plan requires exactly candidate_artifact_identity and checks"
+        )
     if plan.get("candidate_artifact_identity") != candidate_identity:
         raise ValueError("acceptance replay plan is bound to another candidate")
+    required_replay_ids: set[str] = set()
+    if preflight_evidence is not None:
+        preflight_sha256 = stable_sha256(preflight_evidence)
+        if plan.get("preflight_evidence_sha256") != preflight_sha256:
+            raise ValueError("acceptance replay plan is not bound to preflight evidence")
+        acceptance_plan = preflight_evidence.get("acceptance_plan")
+        requirements = (
+            acceptance_plan.get("requirements")
+            if isinstance(acceptance_plan, dict)
+            else None
+        )
+        if not isinstance(requirements, list) or not requirements:
+            raise ValueError(
+                "preflight evidence is missing its candidate-blind acceptance plan"
+            )
+        required_replay_ids = {
+            _text(item.get("requirement_id"))
+            for item in requirements
+            if isinstance(item, dict) and item.get("evidence_mode") == "adapter_replay"
+        }
+        if "" in required_replay_ids:
+            raise ValueError("preflight acceptance plan has an invalid requirement id")
     checks = plan.get("checks")
     if not isinstance(checks, list) or not checks or len(checks) > MAX_CHECKS:
         raise ValueError(f"acceptance replay plan requires 1-{MAX_CHECKS} checks")
     normalized: list[dict[str, Any]] = []
     seen: set[str] = set()
+    covered_requirements: set[str] = set()
     total_timeout = 0
     for index, raw in enumerate(checks):
-        if not isinstance(raw, dict) or set(raw) != CHECK_FIELDS:
-            raise ValueError(f"acceptance replay check {index} has an invalid schema")
+        expected_check_fields = (
+            BLIND_CHECK_FIELDS if preflight_evidence is not None else CHECK_FIELDS
+        )
+        if not isinstance(raw, dict) or set(raw) != expected_check_fields:
+            raise ValueError(
+                f"acceptance replay check {index} has an invalid schema"
+            )
         check_id = _text(raw.get("check_id"))
         if not CHECK_ID.fullmatch(check_id) or check_id in seen:
-            raise ValueError(f"acceptance replay check {index} has an invalid or duplicate id")
+            raise ValueError(
+                f"acceptance replay check {index} has an invalid or duplicate id"
+            )
         seen.add(check_id)
+        requirement_ids: list[str] = []
+        if preflight_evidence is not None:
+            raw_requirement_ids = raw.get("requirement_ids")
+            if (
+                not isinstance(raw_requirement_ids, list)
+                or not raw_requirement_ids
+                or not all(_text(value) for value in raw_requirement_ids)
+            ):
+                raise ValueError(
+                    f"acceptance replay check {check_id} requires requirement_ids"
+                )
+            requirement_ids = sorted(set(map(_text, raw_requirement_ids)))
+            unknown = set(requirement_ids) - required_replay_ids
+            if unknown:
+                raise ValueError(
+                    f"acceptance replay check {check_id} references unknown or "
+                    "non-executable requirements"
+                )
+            covered_requirements.update(requirement_ids)
         public_surface = _bounded_text(raw.get("public_surface"), "public_surface")
         method = _bounded_text(raw.get("method"), "method")
         argv = raw.get("argv")
@@ -268,7 +363,10 @@ def _normalize_plan(plan: dict[str, Any], candidate_identity: str) -> dict[str, 
             or not all(isinstance(item, str) and item and "\x00" not in item for item in argv)
         ):
             raise ValueError(f"acceptance replay check {check_id} has invalid argv")
-        if any(len(item) > MAX_ARG_CHARS for item in argv) or sum(map(len, argv)) > MAX_ARGV_CHARS:
+        if (
+            any(len(item) > MAX_ARG_CHARS for item in argv)
+            or sum(map(len, argv)) > MAX_ARGV_CHARS
+        ):
             raise ValueError(f"acceptance replay check {check_id} argv exceeds its budget")
         cwd = _text(raw.get("cwd")) or "."
         cwd_path = Path(cwd)
@@ -296,23 +394,35 @@ def _normalize_plan(plan: dict[str, Any], candidate_identity: str) -> dict[str, 
             )
         ):
             raise ValueError(f"acceptance replay check {check_id} exit codes are invalid")
-        normalized.append(
-            {
-                "check_id": check_id,
-                "public_surface": public_surface,
-                "method": method,
-                "argv": list(argv),
-                "cwd": cwd_path.as_posix(),
-                "timeout_seconds": timeout_seconds,
-                "expected_exit_codes": sorted(set(exit_codes)),
-            }
-        )
+        normalized_check = {
+            "check_id": check_id,
+            "public_surface": public_surface,
+            "method": method,
+            "argv": list(argv),
+            "cwd": cwd_path.as_posix(),
+            "timeout_seconds": timeout_seconds,
+            "expected_exit_codes": sorted(set(exit_codes)),
+        }
+        if preflight_evidence is not None:
+            normalized_check["requirement_ids"] = requirement_ids
+        normalized.append(normalized_check)
     if total_timeout > MAX_TOTAL_TIMEOUT_SECONDS:
         raise ValueError("acceptance replay plan exceeds the total timeout budget")
-    return {
+    missing_requirements = sorted(required_replay_ids - covered_requirements)
+    if missing_requirements:
+        raise ValueError(
+            "acceptance replay plan does not cover candidate-blind requirements: "
+            + ", ".join(missing_requirements)
+        )
+    normalized_plan = {
         "candidate_artifact_identity": candidate_identity,
         "checks": normalized,
     }
+    if preflight_evidence is not None:
+        normalized_plan["preflight_evidence_sha256"] = stable_sha256(
+            preflight_evidence
+        )
+    return normalized_plan
 
 
 def _run_check(

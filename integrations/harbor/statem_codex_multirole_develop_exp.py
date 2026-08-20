@@ -277,6 +277,11 @@ class EvidenceDevelopV4ExperimentalStatemCodex(
     _REMOTE_ACCEPTANCE_REPLAY = PurePosixPath(
         "/tmp/statem-verification-checks/candidate_acceptance_replay.py"
     )
+    _LOCAL_ACTIVATION_GATE = (
+        Path(__file__).resolve().parent
+        / "experimental"
+        / "develop_activation_gate.py"
+    )
     _LOCAL_REVIEWER_PRACTICES = (
         Path(__file__).resolve().parents[2]
         / "examples"
@@ -353,6 +358,7 @@ class EvidenceDevelopV4ExperimentalStatemCodex(
             *super()._verification_check_paths(),
             self._LOCAL_ARTIFACT_PROVIDER,
             self._LOCAL_ACCEPTANCE_REPLAY,
+            self._LOCAL_ACTIVATION_GATE,
             self._LOCAL_REVIEWER_PRACTICES,
             self._LOCAL_REVIEWER_PROFILE_CATALOG,
             *self._LOCAL_REVIEWER_PROFILES,
@@ -391,9 +397,13 @@ Evidence-develop v4 controls:
   binds this solver attestation to the proposal and immutable snapshot; it is
   evidence for independent review, never promotion authority by itself.
 - Also write acceptance-replay-plan-draft.json using the exact bounded schema
-  in the current StateM prompt. Declare only public, non-interactive checks with
-  argv arrays, relative working directories, explicit expected exit codes, and
-  short timeouts. The adapter replays each check on a fresh disposable copy of
+  in the current StateM prompt. Bind it to the preflight reviewer's
+  candidate-blind acceptance plan and map each executable requirement to at
+  least one public check; do not turn analytic or paired-review obligations into
+  command-shaped proxies merely to satisfy the schema. Declare only public,
+  non-interactive checks with argv arrays, relative working directories,
+  explicit expected exit codes, and short timeouts. The adapter replays each
+  check on a fresh disposable copy of
   the immutable candidate snapshot with a minimal credential-free environment,
   process-group limits, and digest-only output. A replay receipt proves what
   executed on which candidate; it does not prove that the selected checks cover
@@ -441,6 +451,10 @@ Evidence-develop v4 controls:
   Read and address supported findings, but remember this reviewer cannot
   authorize promotion. Consume its compact contract_ledger as hard constraints,
   defeasible claims, probe-required conflicts, and repair implications. Pass
+  its candidate-blind acceptance obligations forward without rewriting them.
+  The preflight role has execution class contract_language; the post-candidate
+  falsifier performs code-semantic and artifact-consumer adjudication against
+  the sealed candidate. Pass
   `--preflight-evidence
   /tmp/statem-verification-checks/multirole/preflight-evidence.json` to the
   initial proposal action so the candidate binds exactly that receipt.
@@ -514,6 +528,18 @@ Evidence-develop v4 controls:
             await super()._collect_statem_artifacts(environment, context, run_id)
         finally:
             self._enforce_final_state = enforce_final_state
+
+        try:
+            await self.exec_as_agent(
+                environment,
+                command=(
+                    "cp -R /tmp/statem-verification-checks/activation "
+                    f"{shlex.quote((agent_statem_dir / 'activation').as_posix())} || true"
+                ),
+                env=self._statem_env(run_id),
+            )
+        except Exception:
+            pass
 
         current = ((context.metadata or {}).get("statem") or {}).get("current")
         if enforce_final_state and current != self._final_state:

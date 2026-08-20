@@ -98,6 +98,25 @@ class RecoveringDevelopGuardTest(unittest.TestCase):
             "verified": True,
         }
 
+    def _retry_case(
+        self,
+        *,
+        evidence: str,
+        repair: str,
+        check: str = "run the public boundary replay on negative, zero, and positive inputs",
+        public: bool = True,
+        bounded: bool = True,
+    ) -> dict[str, object]:
+        return {
+            "failure_evidence": evidence,
+            "repair_action": repair,
+            "discriminating_check": check,
+            "success_interpretation": "the repaired boundary convention matches the public contract",
+            "failure_interpretation": "the boundary attribution is false or the repair is incomplete",
+            "publicly_evaluable": public,
+            "bounded_scope": bounded,
+        }
+
     def test_recoverable_failure_allows_one_bounded_retry(self) -> None:
         self._state("contract_audit", "contract-1")
         with patch.dict("os.environ", self.env, clear=False):
@@ -159,6 +178,104 @@ class RecoveringDevelopGuardTest(unittest.TestCase):
                     application=application,
                     artifact_root=self.app,
                 )
+
+    def test_information_gain_gate_authorizes_a_bound_novel_retry(self) -> None:
+        evidence = "public replay exposed a boundary mismatch"
+        repair = "repair the boundary convention"
+        self._state("contract_audit", "contract-1")
+        with patch.dict("os.environ", self.env, clear=False):
+            open_cycle(
+                ledger_path=self.ledger,
+                seal=self._seal("contract-1"),
+                max_cycles=3,
+            )
+        self._state("final_replay", "replay-1")
+        with patch.dict("os.environ", self.env, clear=False):
+            decision = close_cycle(
+                ledger_path=self.ledger,
+                replay_draft={
+                    "status": "recoverable_failure",
+                    "evidence": [evidence],
+                    "residual_risk": [],
+                    "next_gap": repair,
+                    "retry_case": self._retry_case(evidence=evidence, repair=repair),
+                },
+                application=self._application("promote-1"),
+                artifact_root=self.app,
+                require_information_gain=True,
+            )
+        self.assertEqual(decision["action"], "retry")
+        self.assertTrue(decision["information_gain_authorized"])
+        self.assertEqual(
+            decision["information_gain_reason"],
+            "novel_bounded_public_discriminator",
+        )
+
+    def test_information_gain_gate_hands_off_nonpublic_or_unbounded_work(self) -> None:
+        evidence = "public replay exposed a boundary mismatch"
+        repair = "repair the boundary convention"
+        for index, overrides in enumerate(
+            ({"public": False}, {"bounded": False}), start=1
+        ):
+            ledger = self.root / f"information-gate-{index}.json"
+            self._state("contract_audit", f"contract-{index}")
+            with patch.dict("os.environ", self.env, clear=False):
+                open_cycle(
+                    ledger_path=ledger,
+                    seal=self._seal(f"contract-{index}"),
+                    max_cycles=3,
+                )
+            self._state("final_replay", f"replay-{index}")
+            with patch.dict("os.environ", self.env, clear=False):
+                decision = close_cycle(
+                    ledger_path=ledger,
+                    replay_draft={
+                        "status": "recoverable_failure",
+                        "evidence": [evidence],
+                        "residual_risk": [],
+                        "next_gap": repair,
+                        "retry_case": self._retry_case(
+                            evidence=evidence,
+                            repair=repair,
+                            **overrides,
+                        ),
+                    },
+                    application=self._application(f"promote-{index}"),
+                    artifact_root=self.app,
+                    require_information_gain=True,
+                )
+            self.assertEqual(decision["action"], "handoff")
+            self.assertFalse(decision["information_gain_authorized"])
+
+    def test_information_gain_gate_rejects_a_duplicate_discriminator(self) -> None:
+        evidence = "public replay exposed a boundary mismatch"
+        repair = "repair the boundary convention"
+        retry_case = self._retry_case(evidence=evidence, repair=repair)
+        for cycle in (1, 2):
+            self._state("contract_audit", f"contract-{cycle}")
+            with patch.dict("os.environ", self.env, clear=False):
+                open_cycle(
+                    ledger_path=self.ledger,
+                    seal=self._seal(f"contract-{cycle}"),
+                    max_cycles=3,
+                )
+            self._state("final_replay", f"replay-{cycle}")
+            with patch.dict("os.environ", self.env, clear=False):
+                decision = close_cycle(
+                    ledger_path=self.ledger,
+                    replay_draft={
+                        "status": "recoverable_failure",
+                        "evidence": [evidence],
+                        "residual_risk": [],
+                        "next_gap": repair,
+                        "retry_case": retry_case,
+                    },
+                    application=self._application(f"promote-{cycle}"),
+                    artifact_root=self.app,
+                    require_information_gain=True,
+                )
+        self.assertEqual(decision["action"], "handoff")
+        self.assertEqual(decision["information_gain_reason"], "duplicate_discriminator")
 
     def test_cycle_close_is_idempotent_for_the_same_entry_and_evidence(self) -> None:
         self._state("contract_audit", "contract-1")
@@ -562,6 +679,9 @@ class RecoveringDevelopGuardTest(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("non-cherry-picked population", content)
+        self.assertIn("algorithmically decisive support dimensions", content)
+        self.assertIn("structurally cherry-picked", content)
+        self.assertIn("enumerable but untested public fallback region", content)
         self.assertIn("contiguous or independently seeded", content)
         self.assertIn("at least ten acceptance fixtures", content)
         self.assertIn("changes verdict across consumer-equivalent", content)

@@ -146,6 +146,25 @@ CONTRACT_LEDGER_SCHEMAS = {
 }
 CONTRACT_LEDGER_MAX_ITEMS = 12
 CONTRACT_LEDGER_TEXT_MAX_CHARS = 600
+ACCEPTANCE_PLAN_FIELDS = {"requirements"}
+ACCEPTANCE_REQUIREMENT_FIELDS = {
+    "requirement_id",
+    "claim",
+    "public_surface",
+    "evidence_mode",
+    "support_dimensions",
+    "required_strata",
+    "independence_basis",
+    "rationale",
+}
+ACCEPTANCE_EVIDENCE_MODES = {
+    "adapter_replay",
+    "paired_review",
+    "analytic_review",
+}
+ACCEPTANCE_REQUIREMENT_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,47}$")
+ACCEPTANCE_PLAN_MAX_REQUIREMENTS = 8
+ACCEPTANCE_PLAN_MAX_LIST_ITEMS = 12
 CONTEXT_BUNDLE_MAX_BYTES = 240_000
 CONTEXT_BUNDLE_FILE_MAX_BYTES = 80_000
 CONTEXT_BUNDLE_MAX_ENTRIES = 256
@@ -865,6 +884,8 @@ def preflight_task(
                 "context_bundle": _context_bundle(context_view),
                 "review_profile": review_profile,
                 "contract_ledger_schema": _contract_ledger_task_schema(),
+                "review_execution_class": "contract_language",
+                "acceptance_plan_schema": _candidate_blind_acceptance_plan_task_schema(),
                 "assignment": (
                     "Review the solver plan before a candidate exists, using only the "
                     "embedded context_bundle and selected review_profile. This is a "
@@ -885,7 +906,16 @@ def preflight_task(
                     "plus exact top-level fields advisory_verdict, plan_sha256, "
                     "contract_seal_sha256, context_view_sha256, review_profile_sha256, "
                     "plan_findings, checklist_gaps, assumption_risks, recommendations, and "
-                    "contract_ledger. contract_ledger has exactly hard_constraints, "
+                    "contract_ledger, review_execution_class, and acceptance_plan. Bind "
+                    "review_execution_class exactly as contract_language. acceptance_plan "
+                    "must be selected before any candidate exists and must follow "
+                    "acceptance_plan_schema. It defines task-visible claims, support "
+                    "dimensions and strata, and independence requirements; it must not "
+                    "name candidate implementation details or commands. Use adapter_replay "
+                    "only for obligations that a bounded public command can execute; use "
+                    "paired_review or analytic_review for semantic obligations that should "
+                    "remain reviewer evidence rather than mechanical blockers. "
+                    "contract_ledger has exactly hard_constraints, "
                     "defeasible_claims, conflicts_requiring_probes, and repair_implications. "
                     "Each value is a bounded list of concise objects using exactly the item "
                     "keys in contract_ledger_schema. Do not invent aliases such as assertion "
@@ -924,11 +954,17 @@ def _canonical_preflight_result_payload(raw: dict[str, Any]) -> dict[str, Any]:
         value = raw.get(field)
         if not isinstance(value, list) or not all(_text(item) for item in value):
             raise ValueError(f"preflight reviewer {field} must be a string list")
+    if raw.get("review_execution_class") != "contract_language":
+        raise ValueError("preflight reviewer execution class must be contract_language")
     return {
         "advisory_verdict": verdict,
         **{field: raw.get(field) for field in binding_fields},
         **{field: list(raw[field]) for field in finding_fields},
         "contract_ledger": _contract_ledger(raw.get("contract_ledger")),
+        "review_execution_class": "contract_language",
+        "acceptance_plan": _candidate_blind_acceptance_plan(
+            raw.get("acceptance_plan")
+        ),
     }
 
 
@@ -1091,6 +1127,104 @@ def _contract_ledger_task_schema() -> dict[str, Any]:
     }
 
 
+def _candidate_blind_acceptance_plan(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != ACCEPTANCE_PLAN_FIELDS:
+        raise ValueError("preflight acceptance_plan requires exactly requirements")
+    requirements = value.get("requirements")
+    if (
+        not isinstance(requirements, list)
+        or not requirements
+        or len(requirements) > ACCEPTANCE_PLAN_MAX_REQUIREMENTS
+    ):
+        raise ValueError(
+            "preflight acceptance_plan requires "
+            f"1-{ACCEPTANCE_PLAN_MAX_REQUIREMENTS} requirements"
+        )
+    normalized: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for index, item in enumerate(requirements):
+        if not isinstance(item, dict) or set(item) != ACCEPTANCE_REQUIREMENT_FIELDS:
+            raise ValueError(
+                f"acceptance requirement {index} requires exactly "
+                f"{sorted(ACCEPTANCE_REQUIREMENT_FIELDS)}"
+            )
+        requirement_id = _text(item.get("requirement_id"))
+        if (
+            not ACCEPTANCE_REQUIREMENT_ID.fullmatch(requirement_id)
+            or requirement_id in seen
+        ):
+            raise ValueError(
+                f"acceptance requirement {index} has an invalid or duplicate id"
+            )
+        seen.add(requirement_id)
+        evidence_mode = _text(item.get("evidence_mode"))
+        if evidence_mode not in ACCEPTANCE_EVIDENCE_MODES:
+            raise ValueError(
+                f"acceptance requirement {requirement_id} has an invalid evidence mode"
+            )
+        support_dimensions = _bounded_acceptance_plan_list(
+            item.get("support_dimensions"),
+            field=f"requirements[{index}].support_dimensions",
+        )
+        required_strata = _bounded_acceptance_plan_list(
+            item.get("required_strata"),
+            field=f"requirements[{index}].required_strata",
+        )
+        normalized.append(
+            {
+                "requirement_id": requirement_id,
+                "claim": _bounded_contract_text(item.get("claim"), "claim"),
+                "public_surface": _bounded_contract_text(
+                    item.get("public_surface"), "public_surface"
+                ),
+                "evidence_mode": evidence_mode,
+                "support_dimensions": support_dimensions,
+                "required_strata": required_strata,
+                "independence_basis": _bounded_contract_text(
+                    item.get("independence_basis"), "independence_basis"
+                ),
+                "rationale": _bounded_contract_text(
+                    item.get("rationale"), "rationale"
+                ),
+            }
+        )
+    if not any(item["evidence_mode"] == "adapter_replay" for item in normalized):
+        raise ValueError(
+            "preflight acceptance_plan requires at least one adapter_replay requirement"
+        )
+    return {"requirements": normalized}
+
+
+def _bounded_acceptance_plan_list(value: Any, *, field: str) -> list[str]:
+    if (
+        not isinstance(value, list)
+        or not value
+        or len(value) > ACCEPTANCE_PLAN_MAX_LIST_ITEMS
+    ):
+        raise ValueError(
+            f"preflight acceptance_plan {field} requires "
+            f"1-{ACCEPTANCE_PLAN_MAX_LIST_ITEMS} strings"
+        )
+    return [
+        _bounded_contract_text(item, field)
+        for item in value
+    ]
+
+
+def _candidate_blind_acceptance_plan_task_schema() -> dict[str, Any]:
+    return {
+        "required_top_level_fields": sorted(ACCEPTANCE_PLAN_FIELDS),
+        "requirement_fields": sorted(ACCEPTANCE_REQUIREMENT_FIELDS),
+        "evidence_modes": sorted(ACCEPTANCE_EVIDENCE_MODES),
+        "max_requirements": ACCEPTANCE_PLAN_MAX_REQUIREMENTS,
+        "max_list_items": ACCEPTANCE_PLAN_MAX_LIST_ITEMS,
+        "max_text_chars": CONTRACT_LEDGER_TEXT_MAX_CHARS,
+        "candidate_visibility": "none",
+        "adapter_replay_mapping_required": True,
+        "minimum_adapter_replay_requirements": 1,
+    }
+
+
 def _bounded_contract_text(value: Any, field: str) -> str:
     text = _text(value)
     if not text or len(text) > CONTRACT_LEDGER_TEXT_MAX_CHARS:
@@ -1147,6 +1281,7 @@ def canonicalize_falsifier_result(
         "candidate_artifact_identity": proposal.get("candidate_artifact_identity"),
         "contract_seal_sha256": stable_sha256(seal),
         "context_view_sha256": stable_sha256(context_view),
+        "review_execution_class": "code_semantic_artifact",
     }
     if review_practices is not None:
         bindings["review_protocol_sha256"] = _review_protocol(review_practices)[
@@ -1377,11 +1512,13 @@ def falsifier_task(
                 "context_bundle": context_bundle,
                 "review_protocol": review_protocol,
                 "review_profile": review_profile,
+                "review_execution_class": "code_semantic_artifact",
                 "assignment": (
                     "Independently try to falsify the candidate using only context_bundle, "
                     "which is a trusted read-only projection of the allowed context view. "
                     "Do not call tools, commands, or filesystem APIs; every allowed source "
                     "is embedded in this assignment. "
+                    "Bind review_execution_class exactly as code_semantic_artifact. "
                     "Exercise the stated counter-hypothesis, protected behavior, and "
                     "discriminating checks. Audit every protected behavior's provenance: "
                     "under repair_aware policy, a behavioral docstring in a broken target "
@@ -1447,7 +1584,13 @@ def falsifier_task(
                     "and residual risks. Solver-recorded execution is provenance-bearing evidence, "
                     "not independent review authority. For quantitative claims also require a "
                     "fixed population identity, retained unfavorable cases, repeatability, and "
-                    "margin. Presence never authorizes promotion automatically. "
+                    "margin. Require named support dimensions, selection basis, eligible ranges "
+                    "or categories, boundary/interior strata, and uncovered regions. Fresh "
+                    "nuisance variables do not establish broad support when structural parameters "
+                    "copy exploration or the candidate's favored schedule; a fixed population can "
+                    "still be structurally cherry-picked. Treat an enumerable but untested public "
+                    "region as an observed-public coverage gap, not sealed_unavailable uncertainty. "
+                    "Presence never authorizes promotion automatically. "
                     "When context_bundle contains a candidate_acceptance_replay, independently "
                     "audit its adapter producer, snapshot-copy scope, proposal, snapshot, "
                     "acceptance, and plan bindings, declared argv checks, minimal environment, "
@@ -1480,6 +1623,7 @@ def falsifier_task(
                     "claims, evidence, coverage, children, and prune_proposals, plus these "
                     "top-level gate fields: verdict, candidate_artifact_identity, "
                     "contract_seal_sha256, context_view_sha256, contract_preserved, "
+                    "review_execution_class, "
                     "regressions, contract_violations, protection_assessments, counterevidence, "
                     "hard_contract_gaps, review_stages, "
                     "practice_receipts, profile_receipts, review_protocol_sha256, and "

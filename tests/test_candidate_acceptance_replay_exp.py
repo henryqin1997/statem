@@ -124,6 +124,76 @@ class CandidateAcceptanceReplayTest(unittest.TestCase):
                 existing_receipt=existing,
             )
 
+    def _candidate_blind_inputs(
+        self,
+    ) -> tuple[dict[str, object], dict[str, object], dict[str, object], dict[str, object]]:
+        preflight: dict[str, object] = {
+            "version": 1,
+            "kind": "plan_preflight_evidence",
+            "run_id": self.run_id,
+            "node": "solve",
+            "entry_id": self.entry_id,
+            "acceptance_plan": {
+                "requirements": [
+                    {
+                        "requirement_id": "public-boundaries",
+                        "evidence_mode": "adapter_replay",
+                    },
+                    {
+                        "requirement_id": "public-signature",
+                        "evidence_mode": "adapter_replay",
+                    },
+                    {
+                        "requirement_id": "semantic-variant",
+                        "evidence_mode": "paired_review",
+                    },
+                ]
+            },
+        }
+        proposal = {
+            **self.proposal,
+            "preflight_evidence_sha256": stable_sha256(preflight),
+        }
+        with patch.dict(os.environ, self.env, clear=False):
+            snapshot = snapshot_artifact(
+                artifact_root=self.app,
+                provider_root=self.root / "blind-provider",
+                kind="candidate",
+                expected_receipt=proposal,
+            )
+        acceptance = {
+            **self.acceptance,
+            "proposal_sha256": stable_sha256(proposal),
+            "candidate_snapshot_sha256": stable_sha256(snapshot),
+        }
+        plan = self._plan()
+        plan["preflight_evidence_sha256"] = stable_sha256(preflight)
+        plan["checks"][0]["requirement_ids"] = [
+            "public-boundaries",
+            "public-signature",
+        ]
+        return preflight, proposal, snapshot, acceptance | {"plan": plan}
+
+    def _blind_replay(
+        self,
+        *,
+        mutate_plan=None,
+    ) -> dict[str, object]:
+        preflight, proposal, snapshot, bundle = self._candidate_blind_inputs()
+        plan = bundle.pop("plan")
+        if mutate_plan is not None:
+            mutate_plan(plan)
+        with patch.dict(os.environ, self.env, clear=False):
+            return replay_acceptance_checks(
+                plan=plan,
+                proposal=proposal,
+                acceptance_evidence=bundle,
+                preflight_evidence=preflight,
+                candidate_snapshot=snapshot,
+                artifact_root=self.app,
+                work_root=self.root / "blind-replays",
+            )
+
     def test_replay_binds_and_executes_on_disposable_snapshot_copy(self) -> None:
         before = artifact_identity(self.app)
         receipt = self._replay(self._plan())
@@ -214,6 +284,35 @@ class CandidateAcceptanceReplayTest(unittest.TestCase):
         self.assertTrue(receipt["all_passed"])
         time.sleep(0.9)
         self.assertFalse(marker.exists())
+
+    def test_candidate_blind_plan_requires_every_executable_obligation(self) -> None:
+        receipt = self._blind_replay()
+        self.assertTrue(receipt["all_passed"])
+        self.assertEqual(
+            receipt["plan"]["checks"][0]["requirement_ids"],
+            ["public-boundaries", "public-signature"],
+        )
+
+        with self.assertRaisesRegex(ValueError, "does not cover candidate-blind"):
+            self._blind_replay(
+                mutate_plan=lambda plan: plan["checks"][0].__setitem__(
+                    "requirement_ids", ["public-boundaries"]
+                )
+            )
+
+    def test_candidate_blind_plan_rejects_semantic_proxy_and_stale_binding(self) -> None:
+        with self.assertRaisesRegex(ValueError, "non-executable requirements"):
+            self._blind_replay(
+                mutate_plan=lambda plan: plan["checks"][0].__setitem__(
+                    "requirement_ids", ["semantic-variant"]
+                )
+            )
+        with self.assertRaisesRegex(ValueError, "not bound to preflight evidence"):
+            self._blind_replay(
+                mutate_plan=lambda plan: plan.__setitem__(
+                    "preflight_evidence_sha256", "0" * 64
+                )
+            )
 
 
 if __name__ == "__main__":

@@ -278,6 +278,10 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             ["claim", "basis", "evidence"],
         )
         self.assertIn("Do not invent aliases", assignment["assignment"])
+        self.assertEqual(assignment["review_execution_class"], "contract_language")
+        self.assertEqual(
+            assignment["acceptance_plan_schema"]["candidate_visibility"], "none"
+        )
         raw = {
             "status": "completed",
             "summary": "the plan covers the visible contract",
@@ -295,6 +299,31 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             "checklist_gaps": [],
             "assumption_risks": [],
             "recommendations": ["retain the public signature check"],
+            "review_execution_class": "contract_language",
+            "acceptance_plan": {
+                "requirements": [
+                    {
+                        "requirement_id": "public-boundaries",
+                        "claim": "the public transform handles boundary values",
+                        "public_surface": "the public transform callable",
+                        "evidence_mode": "adapter_replay",
+                        "support_dimensions": ["input sign and zero boundary"],
+                        "required_strata": ["negative", "zero", "positive"],
+                        "independence_basis": "selected before a candidate exists",
+                        "rationale": "the stated behavior differs at these boundaries",
+                    },
+                    {
+                        "requirement_id": "signature-preservation",
+                        "claim": "the public signature remains compatible",
+                        "public_surface": "the callable signature",
+                        "evidence_mode": "paired_review",
+                        "support_dimensions": ["parameter and return contract"],
+                        "required_strata": ["baseline", "candidate"],
+                        "independence_basis": "paired baseline and candidate inspection",
+                        "rationale": "signature drift is a protected-interface concern",
+                    },
+                ]
+            },
             "contract_ledger": {
                 "hard_constraints": [
                     {
@@ -349,6 +378,11 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             evidence["contract_ledger"]["hard_constraints"][0]["claim"],
             "the public transform signature remains stable",
         )
+        self.assertEqual(
+            evidence["acceptance_plan"]["requirements"][0]["requirement_id"],
+            "public-boundaries",
+        )
+        self.assertEqual(evidence["review_execution_class"], "contract_language")
         draft = {
             "target_gap": "transform returns the unmodified value",
             "hypothesis": "the implementation omits the required increment",
@@ -1064,10 +1098,13 @@ class MultiRoleWorkerProfileTest(unittest.TestCase):
         )
         names = [path.name for path in agent._verification_check_paths()]
         self.assertIn("candidate_acceptance_replay.py", names)
+        self.assertIn("develop_activation_gate.py", names)
         runbook = agent._runbook_path.read_text(encoding="utf-8")
         self.assertIn("acceptance-replay-plan-draft.json", runbook)
         self.assertIn("candidate_acceptance_replay.py", runbook)
         self.assertIn("acceptance-replay.json", runbook)
+        self.assertIn("--require-information-gain", runbook)
+        self.assertIn("--mode shadow", runbook)
 
 
 if __name__ == "__main__":

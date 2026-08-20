@@ -42,6 +42,16 @@ HARD_GAP_FIELDS = {
     "repair_action",
 }
 HARD_GAP_RESOLUTION_FIELDS = {"gap_sha256", "status", "evidence"}
+INFORMATION_GAIN_FIELDS = {
+    "failure_evidence",
+    "repair_action",
+    "discriminating_check",
+    "success_interpretation",
+    "failure_interpretation",
+    "publicly_evaluable",
+    "bounded_scope",
+}
+INFORMATION_GAIN_TEXT_MAX_CHARS = 800
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -69,6 +79,7 @@ def main(argv: list[str] | None = None) -> int:
                 replay_draft=_read_json(args.replay_draft),
                 application=_read_json(args.application),
                 artifact_root=args.artifact_root,
+                require_information_gain=args.require_information_gain,
             )
             _write_json(args.output, receipt)
         elif args.action == "require":
@@ -123,6 +134,14 @@ def _parser() -> argparse.ArgumentParser:
     close_parser.add_argument("--application", type=Path, default=DEFAULT_APPLICATION)
     close_parser.add_argument("--artifact-root", type=Path, default=Path("/app"))
     close_parser.add_argument("--output", type=Path, default=DEFAULT_REPLAY_DECISION)
+    close_parser.add_argument(
+        "--require-information-gain",
+        action="store_true",
+        help=(
+            "authorize another cycle only for a bounded public discriminator "
+            "that is bound to the observed failure and concrete repair"
+        ),
+    )
 
     require_parser = subparsers.add_parser("require")
     require_parser.add_argument("--decision", type=Path, default=DEFAULT_REPLAY_DECISION)
@@ -391,6 +410,7 @@ def close_cycle(
     replay_draft: dict[str, Any],
     application: dict[str, Any],
     artifact_root: Path,
+    require_information_gain: bool = False,
 ) -> dict[str, Any]:
     ledger = _read_json(ledger_path)
     _validate_ledger(ledger)
@@ -400,7 +420,10 @@ def close_cycle(
         raise ValueError("a recovery cycle can only close in final_replay")
     if ledger["run_id"] != context["run_id"]:
         raise ValueError("cycle ledger belongs to another StateM run")
-    _validate_replay_draft(replay_draft)
+    _validate_replay_draft(
+        replay_draft,
+        require_information_gain=require_information_gain,
+    )
 
     observed = artifact_identity(artifact_root)
     if not application.get("verified"):
@@ -447,6 +470,42 @@ def close_cycle(
         )
         next_gap = str(unresolved["repair_action"]).strip()
 
+    retry_case = (
+        _normalize_information_gain_case(replay_draft.get("retry_case"))
+        if replay_draft.get("retry_case") is not None
+        else None
+    )
+    if (
+        require_information_gain
+        and effective_status == "recoverable_failure"
+        and retry_case is None
+        and unresolved_gap_sha256s
+    ):
+        unresolved = next(
+            item
+            for item in hard_contract_gaps
+            if stable_sha256(item) == unresolved_gap_sha256s[0]
+        )
+        retry_case = _hard_gap_information_gain_case(
+            unresolved,
+            failure_evidence=replay_draft["evidence"][0],
+        )
+
+    information_gain_authorized = True
+    information_gain_reason = "not_required"
+    information_gain_identity = ""
+    if require_information_gain and effective_status == "recoverable_failure":
+        (
+            information_gain_authorized,
+            information_gain_reason,
+            information_gain_identity,
+        ) = _authorize_information_gain(
+            retry_case=retry_case,
+            replay_evidence=replay_draft["evidence"],
+            next_gap=next_gap,
+            prior_cycles=ledger["cycles"][:-1],
+        )
+
     cycle["status"] = effective_status
     cycle["reported_status"] = reported_status
     cycle["replay_entry_id"] = context["entry_id"]
@@ -456,6 +515,11 @@ def close_cycle(
     cycle["evidence"] = list(replay_draft["evidence"])
     cycle["residual_risk"] = list(replay_draft["residual_risk"])
     cycle["next_gap"] = next_gap
+    cycle["retry_case"] = retry_case
+    cycle["information_gain_required"] = require_information_gain
+    cycle["information_gain_authorized"] = information_gain_authorized
+    cycle["information_gain_reason"] = information_gain_reason
+    cycle["information_gain_identity"] = information_gain_identity
     cycle["hard_gap_resolutions"] = list(replay_draft.get("hard_gap_resolutions") or [])
     cycle["unresolved_hard_gap_sha256s"] = unresolved_gap_sha256s
     cycle["closed_at"] = _now()
@@ -463,11 +527,17 @@ def close_cycle(
     can_retry = (
         effective_status == "recoverable_failure"
         and len(ledger["cycles"]) < ledger["max_cycles"]
+        and information_gain_authorized
     )
     action = "retry" if can_retry else "handoff"
     cycle["action"] = action
     if effective_status == "recoverable_failure" and not can_retry:
-        cycle["residual_risk"].append("recovery cycle budget exhausted")
+        if len(ledger["cycles"]) >= ledger["max_cycles"]:
+            cycle["residual_risk"].append("recovery cycle budget exhausted")
+        elif not information_gain_authorized:
+            cycle["residual_risk"].append(
+                f"information gain gate declined retry: {information_gain_reason}"
+            )
     _write_json(ledger_path, ledger)
     return _replay_decision_receipt(
         ledger=ledger,
@@ -496,6 +566,12 @@ def _replay_decision_receipt(
         "unresolved_hard_gap_sha256s": cycle.get(
             "unresolved_hard_gap_sha256s", []
         ),
+        "information_gain_required": cycle.get("information_gain_required", False),
+        "information_gain_authorized": cycle.get(
+            "information_gain_authorized", True
+        ),
+        "information_gain_reason": cycle.get("information_gain_reason", "not_required"),
+        "information_gain_identity": cycle.get("information_gain_identity", ""),
         "remaining_cycles": ledger["max_cycles"] - len(ledger["cycles"]),
         "ledger_sha256": stable_sha256(ledger),
     }
@@ -556,9 +632,16 @@ def _validate_ledger(ledger: dict[str, Any]) -> None:
                 raise ValueError(f"cycle {index} review {review_index} has invalid status")
 
 
-def _validate_replay_draft(draft: dict[str, Any]) -> None:
+def _validate_replay_draft(
+    draft: dict[str, Any],
+    *,
+    require_information_gain: bool = False,
+) -> None:
     required = {"status", "evidence", "residual_risk", "next_gap"}
     allowed = required | {"hard_gap_resolutions"}
+    if require_information_gain:
+        required.add("retry_case")
+        allowed.add("retry_case")
     missing = sorted(required - set(draft))
     unknown = sorted(set(draft) - allowed)
     if missing:
@@ -578,6 +661,12 @@ def _validate_replay_draft(draft: dict[str, Any]) -> None:
         raise ValueError("recoverable_failure requires a concrete next_gap")
     if draft["status"] != "recoverable_failure" and next_gap:
         raise ValueError("next_gap is only valid for recoverable_failure")
+    if require_information_gain:
+        retry_case = draft.get("retry_case")
+        if draft["status"] == "recoverable_failure":
+            _normalize_information_gain_case(retry_case)
+        elif retry_case is not None:
+            raise ValueError("retry_case is only valid for recoverable_failure")
     resolutions = draft.get("hard_gap_resolutions") or []
     if not isinstance(resolutions, list):
         raise ValueError("hard_gap_resolutions must be a list")
@@ -594,6 +683,79 @@ def _validate_replay_draft(draft: dict[str, Any]) -> None:
         ):
             raise ValueError("hard gap resolution is incomplete or duplicated")
         seen.add(gap_sha256)
+
+
+def _normalize_information_gain_case(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != INFORMATION_GAIN_FIELDS:
+        raise ValueError(
+            "retry_case requires exactly " + ", ".join(sorted(INFORMATION_GAIN_FIELDS))
+        )
+    normalized: dict[str, Any] = {}
+    for field in sorted(INFORMATION_GAIN_FIELDS - {"publicly_evaluable", "bounded_scope"}):
+        text = _text(value.get(field))
+        if not text or len(text) > INFORMATION_GAIN_TEXT_MAX_CHARS:
+            raise ValueError(f"retry_case {field} must be bounded non-empty text")
+        normalized[field] = text
+    for field in ("publicly_evaluable", "bounded_scope"):
+        if not isinstance(value.get(field), bool):
+            raise ValueError(f"retry_case {field} must be boolean")
+        normalized[field] = value[field]
+    return normalized
+
+
+def _authorize_information_gain(
+    *,
+    retry_case: dict[str, Any] | None,
+    replay_evidence: list[str],
+    next_gap: str,
+    prior_cycles: list[dict[str, Any]],
+) -> tuple[bool, str, str]:
+    if retry_case is None:
+        return False, "missing_retry_case", ""
+    if not retry_case["publicly_evaluable"]:
+        return False, "not_publicly_evaluable", ""
+    if not retry_case["bounded_scope"]:
+        return False, "unbounded_repair_scope", ""
+    if retry_case["failure_evidence"] not in replay_evidence:
+        return False, "failure_evidence_not_bound", ""
+    if retry_case["repair_action"] != next_gap:
+        return False, "repair_action_not_bound", ""
+    if (
+        retry_case["success_interpretation"].casefold()
+        == retry_case["failure_interpretation"].casefold()
+    ):
+        return False, "non_discriminating_outcomes", ""
+    identity = stable_sha256(
+        {
+            "discriminating_check": retry_case["discriminating_check"].casefold(),
+            "success_interpretation": retry_case["success_interpretation"].casefold(),
+            "failure_interpretation": retry_case["failure_interpretation"].casefold(),
+        }
+    )
+    prior_identities = {
+        _text(cycle.get("information_gain_identity"))
+        for cycle in prior_cycles
+        if _text(cycle.get("information_gain_identity"))
+    }
+    if identity in prior_identities:
+        return False, "duplicate_discriminator", identity
+    return True, "novel_bounded_public_discriminator", identity
+
+
+def _hard_gap_information_gain_case(
+    gap: dict[str, Any],
+    *,
+    failure_evidence: str,
+) -> dict[str, Any]:
+    return {
+        "failure_evidence": failure_evidence,
+        "repair_action": _text(gap.get("repair_action")),
+        "discriminating_check": _text(gap.get("required_evidence")),
+        "success_interpretation": "fresh acceptance evidence resolves the bound hard gap",
+        "failure_interpretation": _text(gap.get("observed_evidence")),
+        "publicly_evaluable": gap.get("population_access") == "observed_public",
+        "bounded_scope": True,
+    }
 
 
 def _latest_hard_contract_gaps(cycle: dict[str, Any]) -> list[dict[str, Any]]:

@@ -1,0 +1,45 @@
+version: 1
+kind: reviewer_practice_promotion_policy
+
+candidate_requirements:
+  distinct_development_tasks: 2
+  distinct_task_families: 2
+  fresh_holdout_tasks_after_freeze: 1
+  unchanged_sentinel_tasks: 1
+
+required_fields:
+  - practice_id
+  - trigger
+  - procedure
+  - required_evidence
+  - abstention_conditions
+  - known_failure_modes
+  - development_evidence
+  - holdout_evidence
+  - sentinel_evidence
+
+prohibitions:
+  - task identifiers or benchmark-specific names
+  - hidden verifier details
+  - task-local constants, fixtures, or solution fragments
+  - promotion based on one successful development task
+  - promotion without a frozen-practice holdout
+
+decision_rules:
+  promote:
+    - the same failure mechanism is independently observed on two development tasks from different families
+    - the frozen generic practice improves or preserves reward on at least one fresh holdout
+    - the frozen generic practice does not reduce raw reward on at least one previously passing sentinel
+    - trigger and abstention conditions are mechanically complete
+  quarantine:
+    - evidence is promising but any promote rule remains unproved
+  reject:
+    - the candidate contains task-specific material or relies on hidden-verifier evidence
+
+reporting:
+  separate_dimensions:
+    - raw_reward
+    - protocol_validity
+    - cost
+    - wall_time
+  note: Development samples used to create a practice cannot serve as holdout evidence.
