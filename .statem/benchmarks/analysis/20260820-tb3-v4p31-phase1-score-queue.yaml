@@ -35,8 +35,33 @@ triage_policy:
     - narrower_failure_owner
     - candidate_blind_plan_delta_bound_before_retry
     - public_check_or_artifact_improvement
+  bottleneck_preflight:
+    required_fields:
+      - dominant_limit_prior
+      - evidence_basis
+      - cheapest_public_discriminator
+      - expected_api_and_wall_cost
+      - hardware_feasibility
+      - owning_control_layer
+    dominant_limit_classes:
+      - statem_controllable_workflow
+      - base_model_capability
+      - hardware_or_resource
+      - mixed
+      - unresolved
+    allocation_rule: >-
+      Prefer statem-controllable or mixed cells with a cheap public discriminator;
+      defer capability and hardware ceilings unless a new generic hypothesis or
+      feasible resource change makes the next observation informative.
   no_progress_limit: 2
   no_progress_action: park_and_advance_queue
+  no_progress_definition: >-
+    No new reproducible discriminator, narrower owner, candidate-blind validation
+    delta, public artifact improvement, or independently replayable milestone.
+  iteration_rule: >-
+    Continue only when the last cell changed the posterior over failure ownership
+    or advanced a machine-auditable artifact; otherwise spend the next lane on the
+    next ranked task.
   sampling:
     triage: matched_k1_direct_and_statem
     estimate: matched_k5_after_control_promotion
@@ -141,6 +166,10 @@ fresh_holdout_candidates:
     official_mean_cost_usd: 1.09
     framework_control_fit: high
     capability_risk: low_to_medium
+    dominant_limit_prior: mixed
+    hardware_feasibility: high_cpu_only
+    cheapest_public_discriminator: matched_k1_direct_vs_statem_on_same_platform
+    owning_control_layer: structured_transformation_validation
     state: ready_after_family_promotion
   - task: foodstuff-beta-activity
     public_sol_passes: 0
@@ -150,6 +179,10 @@ fresh_holdout_candidates:
     official_mean_cost_usd: 1.24
     framework_control_fit: medium
     capability_risk: medium
+    dominant_limit_prior: mixed
+    hardware_feasibility: high_cpu_only
+    cheapest_public_discriminator: matched_k1_then_numerical_artifact_attribution
+    owning_control_layer: numerical_model_practice_or_base_capability
     state: triage_after_low_cost_structured_cell
   - task: production-planning
     public_sol_passes: 0
@@ -159,6 +192,10 @@ fresh_holdout_candidates:
     official_mean_cost_usd: 2.05
     framework_control_fit: high
     capability_risk: medium
+    dominant_limit_prior: statem_controllable_workflow
+    hardware_feasibility: high_cpu_only
+    cheapest_public_discriminator: matched_k1_with_state_and_deadline_receipts
+    owning_control_layer: stateful_lifecycle_contract_and_practice
     state: ready_after_family_promotion
   - task: cargo-flight-dispatch
     public_sol_passes: 0
@@ -168,6 +205,10 @@ fresh_holdout_candidates:
     official_mean_cost_usd: 1.67
     framework_control_fit: medium_to_high
     capability_risk: medium
+    dominant_limit_prior: mixed
+    hardware_feasibility: high_cpu_only
+    cheapest_public_discriminator: matched_k1_with_plan_and_validation_delta
+    owning_control_layer: numerical_planning_practice_or_base_capability
     state: ready_after_family_promotion
   - task: fix-uautomizer-soundness
     public_sol_passes: 0
@@ -177,6 +218,10 @@ fresh_holdout_candidates:
     official_mean_cost_usd: 2.41
     framework_control_fit: medium
     capability_risk: high
+    dominant_limit_prior: base_model_capability
+    hardware_feasibility: high_cpu_only_but_long
+    cheapest_public_discriminator: defer_until_program_analysis_family_hypothesis
+    owning_control_layer: program_analysis_capability_or_validation
     state: defer_until_low_cost_cells
   - task: roy-polymorph-cn
     public_sol_passes: 0
@@ -186,6 +231,10 @@ fresh_holdout_candidates:
     official_mean_cost_usd: 0.70
     framework_control_fit: medium
     capability_risk: medium_to_high
+    dominant_limit_prior: base_model_capability
+    hardware_feasibility: high_cpu_only_but_long
+    cheapest_public_discriminator: defer_until_numerical_family_hypothesis
+    owning_control_layer: scientific_reasoning_capability_or_numerical_practice
     state: triage_after_numerical_family_attribution
   - task: gsea-proteomics
     public_sol_passes: 0
@@ -195,6 +244,10 @@ fresh_holdout_candidates:
     official_mean_cost_usd: 1.74
     framework_control_fit: medium
     capability_risk: medium_to_high
+    dominant_limit_prior: base_model_capability
+    hardware_feasibility: high_cpu_only_but_long
+    cheapest_public_discriminator: defer_until_numerical_family_hypothesis
+    owning_control_layer: scientific_reasoning_capability_or_numerical_practice
     state: triage_after_numerical_family_attribution
   - task: nextjs-performance
     public_sol_passes: 1

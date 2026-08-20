@@ -83,6 +83,23 @@ Two consecutive attempts without such progress park the task and advance the
 queue. This prevents repeated search on model-capability or hardware ceilings
 from consuming the low-cost lanes.
 
+Before allocating a `0/5` cell, write a bottleneck preflight with the dominant
+limit prior, evidence basis, cheapest public discriminator, expected API/wall
+cost, hardware feasibility, and owning control layer. The prior must distinguish
+StateM-controllable workflow failures, base-model capability limits,
+hardware/resource limits, mixed failures, and unresolved failures. A low public
+score alone is not evidence that StateM can help. Capability- or hardware-led
+cells remain behind cheap workflow-led cells unless a new generic hypothesis or
+feasible resource change makes the next observation informative.
+
+Develop progress means more than another trajectory. Continue only when the
+last cell changes the posterior over failure ownership or advances a
+machine-auditable artifact: a reproducible discriminator, a narrower owner, a
+candidate-blind validation delta, a public-check improvement, or an independently
+replayable milestone. Two consecutive attempts without one of these signals
+park the task. A successful internal test with no new coverage or attribution
+does not reset this counter.
+
 The initial fresh priority order is `bun-sourcemap-leak`, then the lowest-cost
 plausibly controllable numerical/stateful cells (`foodstuff-beta-activity`,
 `production-planning`, and `cargo-flight-dispatch`). `roy-polymorph-cn`,
@@ -128,7 +145,9 @@ adaptive and cannot later become that repair's holdout.
   inside the second solve cycle. It is adapted, protocol-invalid, preserved,
   and excluded from score.
 - Remote A: `mvcc-lsm-compaction` v4p32 final adapted lifecycle cell.
-- Remote B: `session-window-debug` v4p32 final adapted stratum-coverage cell.
+- Completed remote B: `session-window-debug` v4p32 final adapted cell. It made
+  no candidate/preflight progress on its second attempt and is parked until a
+  new generic hypothesis arrives from another task.
 - Local: `bun-sourcemap-leak` native direct k=1, the first half of a predeclared
   local ARM64 fresh pair. Its v4p32 StateM half runs only after the direct cell
   is preserved so local resource contention cannot change the comparison.
