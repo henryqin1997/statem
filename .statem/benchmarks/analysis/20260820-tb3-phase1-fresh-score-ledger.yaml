@@ -81,13 +81,24 @@ pairs:
       job: tb3-sol-evidence-v4p33-bun-sourcemap-leak-k1-local-b
       agent: ziheng-yaxin-statem-codex-evidence-develop-v4p33-exp
       source_manifest_sha256: e7aa59496560ade7804be5e18326ddb2273ee2c8d042fa95ca2208e25b530402
-      state: active
+      state: completed_protocol_invalid_final_revise
       raw_reward: null
-      protocol_valid: null
-      cost_usd: null
-      backup_tree_sha256: null
-    matched_verdict: pending_statem
-    score_eligible: pending
+      protocol_valid: false
+      error_bucket: final_state_revise_before_handoff
+      cost_usd: 8.731877
+      input_tokens: 11339563
+      cache_tokens: 11108864
+      output_tokens: 67465
+      wall_seconds: 1839.399382
+      atif_schema: ATIF-v1.5
+      atif_steps: 140
+      final_statem_state: revise
+      raw_session_paths: 0
+      backup_files: 126
+      backup_bytes: 3263425
+      backup_tree_sha256: dcdc08297d8d8260c4ebd5561ac5573bfe1e91a8be305df94d435c305ae5b361
+    matched_verdict: direct_zero_statem_protocol_invalid_no_score
+    score_eligible: false
 
   - pair_id: bun-sourcemap-leak-aws-x86-v4p33-k1-a
     task: terminal-bench/bun-sourcemap-leak
@@ -132,16 +143,28 @@ pairs:
       job: tb3-sol-evidence-v4p33-bun-sourcemap-leak-k1-aws-x86-b
       agent: ziheng-yaxin-statem-codex-evidence-develop-v4p33-exp
       source_manifest_sha256: e7aa59496560ade7804be5e18326ddb2273ee2c8d042fa95ca2208e25b530402
-      state: active
+      state: completed_protocol_invalid_final_revise
       raw_reward: null
-      protocol_valid: null
-      cost_usd: null
-      backup_tree_sha256: null
-    matched_verdict: pending_statem
-    score_eligible: pending
+      protocol_valid: false
+      error_bucket: final_state_revise_before_handoff
+      cost_usd: 6.704198
+      input_tokens: 5944054
+      cache_tokens: 5561856
+      output_tokens: 67076
+      wall_seconds: 1865.584240
+      atif_schema: ATIF-v1.5
+      atif_steps: 88
+      final_statem_state: revise
+      raw_session_paths: 0
+      backup_files: 111
+      backup_bytes: 2838388
+      backup_tree_sha256: 52c49c5f2515492274a09e26bd01129e97d4c83e053b2be137f7834819f48c40
+    matched_verdict: direct_zero_statem_protocol_invalid_no_score
+    score_eligible: false
 
 aggregate:
   completed_pairs: 0
+  protocol_invalid_statem_pairs: 2
   eligible_direct_reward: 0
   eligible_statem_reward: 0
   observed_reward_delta: 0

@@ -221,11 +221,29 @@ fresh_holdout_candidates:
     official_mean_cost_usd: 1.09
     framework_control_fit: high
     capability_risk: low_to_medium
-    dominant_limit_prior: mixed
+    dominant_limit_prior: statem_controllable_workflow
+    evidence_basis: >-
+      Matched direct cells scored raw 0.0 on local ARM64 and AWS x86. Both
+      v4p33 StateM cells independently completed solve and falsify, selected
+      revise for a real generalization gap, and then ended protocol-invalid
+      because the standard deadline expired before revise and handoff.
     hardware_feasibility: high_cpu_only
     cheapest_public_discriminator: matched_k1_direct_vs_statem_on_same_platform
-    owning_control_layer: structured_transformation_validation
-    state: matched_k1_active
+    owning_control_layer: activation_and_lifecycle_budgeting
+    capability_ceiling_risk: medium_but_not_current_primary_owner
+    hardware_resource_risk: low
+    expected_api_cost: observed_statem_6_70_to_8_73_per_cell
+    expected_wall_time: standard_1800_seconds_or_extended_diagnostic_3600_seconds
+    observable_progress_target: complete_revise_then_handoff_with_candidate_bound_replay
+    stop_or_park_condition: >-
+      Park after one bounded extended diagnostic if revise does not close a
+      public validation delta or if no new independently replayable milestone
+      appears.
+    development_attempts_for_current_hypothesis: 1
+    platform_replications: 2
+    development_progress: solve_falsify_revise_with_real_repair_obligation
+    next_generic_control: entry_deadline_route_budget_admission_or_degradation
+    state: matched_k1_complete_statem_protocol_invalid_on_two_platforms
   - task: production-planning
     public_sol_passes: 0
     expected_family: stateful-lifecycle
