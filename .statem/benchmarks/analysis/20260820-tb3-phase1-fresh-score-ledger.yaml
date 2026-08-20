@@ -27,6 +27,7 @@ eligibility_contract:
     - ziheng-yaxin-statem-codex-evidence-develop-v4p33-exp
     - ziheng-yaxin-statem-codex-evidence-develop-v4p34-exp
     - ziheng-yaxin-statem-codex-evidence-develop-v4p35-exp
+    - ziheng-yaxin-statem-codex-evidence-develop-v4p36-exp
   require:
     - standard_timeout
     - no_retry
@@ -331,7 +332,7 @@ pairs:
     score_eligible: true
     use: k1_triage_only_not_pass_rate_estimate
 
-  - pair_id: data-anonymization-aws-x86-v4p35-k1-a
+  - pair_id: data-anonymization-aws-x86-v4p36-k1-a
     task: terminal-bench/data-anonymization
     sample_count_per_agent: 1
     model: gpt-5.6-sol
@@ -341,20 +342,21 @@ pairs:
     timeout_multiplier: 1.0
     environment_build_timeout_multiplier: 1.0
     retry_policy: no_retries
-    frozen_control_commit: 81d15e0
+    frozen_control_commit: 037e5d8
     direct:
       job: tb3-sol-native-baseline-v2-data-anonymization-k1-aws-x86-a
       agent: codex-auth-no-session-baseline-v2
-      state: predeclared_waiting_for_remote_lane_and_admission
+      state: active_after_valid_admission
+      initial_runner_pid: 316112
       raw_reward: null
       protocol_valid: null
       cost_usd: null
       backup_tree_sha256: null
     statem:
-      job: tb3-sol-evidence-v4p35-data-anonymization-k1-aws-x86-b
-      agent: ziheng-yaxin-statem-codex-evidence-develop-v4p35-exp
-      source_manifest_sha256: 008248e50f9bd3e262376b154e95c5ffd25651e1c38d5e8521088dfa51188bdc
-      state: predeclared_waiting_for_direct_preservation
+      job: tb3-sol-evidence-v4p36-data-anonymization-k1-aws-x86-b
+      agent: ziheng-yaxin-statem-codex-evidence-develop-v4p36-exp
+      source_manifest_sha256: d4f1995d67683b336b79bb03a7906070c44fdd10c58b1307c3fc6291b70e6c4d
+      state: predeclared_unsigned_waiting_for_direct_and_risk_preservation
       raw_reward: null
       protocol_valid: null
       cost_usd: null
