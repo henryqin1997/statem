@@ -1,0 +1,64 @@
+version: 1
+objective:
+  metric: terminal_bench_3_raw_percentage_points
+  target_delta: 15
+  count_only:
+    - standard_timeout
+    - no_retry
+    - fresh_for_tested_control
+  exclude:
+    - adapted_development
+    - diagnostic_replay
+    - extended_timeout
+    - repeated_sentinel
+
+families:
+  stateful-lifecycle:
+    development:
+      - task: mvcc-lsm-compaction
+        public_sol_passes: 0
+        public_sol_attempts: 5
+        state: ready
+      - task: session-window-debug
+        public_sol_passes: 0
+        public_sol_attempts: 5
+        state: sentinel
+  structured-transformation:
+    development:
+      - task: html-js-filter
+        public_sol_passes: 1
+        public_sol_attempts: 5
+        state: extended_diagnostic
+      - task: interleaved-vigenere
+        public_sol_passes: 1
+        public_sol_attempts: 5
+        state: sentinel
+  algorithm-performance:
+    development:
+      - task: vf2-speedup-networkx
+        public_sol_passes: 1
+        public_sol_attempts: 5
+        state: expensive_sentinel
+  numerical-model:
+    development:
+      - task: lake-temp-glm
+        public_sol_passes: 1
+        public_sol_attempts: 5
+        state: attribution_needed
+  simulation-artifact:
+    development:
+      - task: cad-model
+        public_sol_passes: 1
+        public_sol_attempts: 5
+        state: deferred_ambiguous_projection
+
+initial_lanes:
+  local:
+    task: html-js-filter
+    mode: extended_diagnostic
+  remote_a:
+    task: mvcc-lsm-compaction
+    mode: adapted_development
+  remote_b:
+    task: session-window-debug
+    mode: repeated_sentinel

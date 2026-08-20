@@ -14,6 +14,13 @@ try:
 except ImportError:
     from artifact_identity import artifact_identity, stable_sha256  # type: ignore[no-redef]
 
+try:
+    from integrations.harbor.verification_checks.deadline_status import (
+        get_deadline_status,
+    )
+except ImportError:
+    from deadline_status import get_deadline_status  # type: ignore[no-redef]
+
 
 DEFAULT_DIR = Path("/tmp/statem-verification-checks/recovering-develop")
 DEFAULT_LEDGER = DEFAULT_DIR / "cycle-ledger.json"
@@ -27,6 +34,10 @@ DEFAULT_APPLICATION = Path(
     "/tmp/statem-verification-checks/multirole/application-receipt.json"
 )
 DEFAULT_SEAL = Path("/tmp/statem-verification-checks/multirole/contract-seal.json")
+DEFAULT_DEADLINE = Path("/tmp/statem-verification-checks/deadline.json")
+DEFAULT_FAMILY_SELECTION = Path(
+    "/tmp/statem-verification-checks/family/family-selection.json"
+)
 REPLAY_STATUSES = {"passed", "recoverable_failure", "terminal_failure"}
 REVIEW_ROUTES = {"promote", "revise", "quarantine", "rollback"}
 HARD_GAP_FIELDS = {
@@ -52,6 +63,41 @@ INFORMATION_GAIN_FIELDS = {
     "bounded_scope",
 }
 INFORMATION_GAIN_TEXT_MAX_CHARS = 800
+FAILURE_OWNERS = {
+    "implementation_defect": "lead_solver",
+    "acceptance_plan_gap": "test_planner",
+    "contract_authority_error": "contract_reviewer",
+    "evidence_projection_gap": "adapter",
+    "orchestration_lifecycle_error": "host",
+    "sealed_uncertainty": "acceptance_authority",
+    "infrastructure_error": "host",
+}
+FAILURE_OWNERSHIP_FIELDS = {
+    "failure_class",
+    "owner_role",
+    "observed_failure",
+    "causal_hypothesis",
+    "repair_action",
+    "required_validation_update",
+    "confidence",
+}
+VALIDATION_DELTA_FIELDS = {
+    "action",
+    "discriminating_check",
+    "success_interpretation",
+    "failure_interpretation",
+    "preserves_prior_obligations",
+    "superseded_check_ids",
+    "rationale",
+}
+VALIDATION_ACTIONS = {
+    "append_regression",
+    "expand_population",
+    "repair_invalid_check",
+    "clarify_oracle",
+    "no_public_delta",
+}
+RETRY_OWNERS = {"lead_solver", "test_planner", "contract_reviewer"}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -80,6 +126,13 @@ def main(argv: list[str] | None = None) -> int:
                 application=_read_json(args.application),
                 artifact_root=args.artifact_root,
                 require_information_gain=args.require_information_gain,
+                require_failure_closure=args.require_failure_closure,
+                deadline_path=args.deadline,
+                family_selection=(
+                    _read_json(args.family_selection)
+                    if args.require_failure_closure
+                    else None
+                ),
             )
             _write_json(args.output, receipt)
         elif args.action == "require":
@@ -141,6 +194,18 @@ def _parser() -> argparse.ArgumentParser:
             "authorize another cycle only for a bounded public discriminator "
             "that is bound to the observed failure and concrete repair"
         ),
+    )
+    close_parser.add_argument(
+        "--require-failure-closure",
+        action="store_true",
+        help=(
+            "require a host-validated failure owner and append-only validation "
+            "delta before considering another candidate cycle"
+        ),
+    )
+    close_parser.add_argument("--deadline", type=Path, default=DEFAULT_DEADLINE)
+    close_parser.add_argument(
+        "--family-selection", type=Path, default=DEFAULT_FAMILY_SELECTION
     )
 
     require_parser = subparsers.add_parser("require")
@@ -411,6 +476,9 @@ def close_cycle(
     application: dict[str, Any],
     artifact_root: Path,
     require_information_gain: bool = False,
+    require_failure_closure: bool = False,
+    deadline_path: Path | None = None,
+    family_selection: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     ledger = _read_json(ledger_path)
     _validate_ledger(ledger)
@@ -423,6 +491,7 @@ def close_cycle(
     _validate_replay_draft(
         replay_draft,
         require_information_gain=require_information_gain,
+        require_failure_closure=require_failure_closure,
     )
 
     observed = artifact_identity(artifact_root)
@@ -470,6 +539,16 @@ def close_cycle(
         )
         next_gap = str(unresolved["repair_action"]).strip()
 
+    failure_ownership = (
+        _normalize_failure_ownership(replay_draft.get("failure_ownership"))
+        if replay_draft.get("failure_ownership") is not None
+        else None
+    )
+    validation_delta = (
+        _normalize_validation_delta(replay_draft.get("validation_delta"))
+        if replay_draft.get("validation_delta") is not None
+        else None
+    )
     retry_case = (
         _normalize_information_gain_case(replay_draft.get("retry_case"))
         if replay_draft.get("retry_case") is not None
@@ -490,6 +569,41 @@ def close_cycle(
             unresolved,
             failure_evidence=replay_draft["evidence"][0],
         )
+    if (
+        require_failure_closure
+        and effective_status == "recoverable_failure"
+        and failure_ownership is None
+        and unresolved_gap_sha256s
+    ):
+        unresolved = next(
+            item
+            for item in hard_contract_gaps
+            if stable_sha256(item) == unresolved_gap_sha256s[0]
+        )
+        failure_ownership, validation_delta = _hard_gap_failure_closure(
+            unresolved,
+            failure_evidence=replay_draft["evidence"][0],
+        )
+    if require_failure_closure and effective_status != "passed":
+        if failure_ownership is None or validation_delta is None:
+            raise ValueError("failed replay requires failure ownership and validation delta")
+        if failure_ownership["observed_failure"] not in replay_draft["evidence"]:
+            raise ValueError("failure ownership is not bound to replay evidence")
+        if (
+            effective_status == "recoverable_failure"
+            and failure_ownership["repair_action"] != next_gap
+        ):
+            raise ValueError("failure ownership repair action is not bound to next_gap")
+        if failure_ownership["required_validation_update"] != validation_delta["rationale"]:
+            raise ValueError("failure ownership is not bound to the validation delta")
+        if not validation_delta["preserves_prior_obligations"]:
+            raise ValueError("validation delta must preserve prior contract obligations")
+        _validate_failure_delta_pair(failure_ownership, validation_delta)
+        if effective_status == "recoverable_failure":
+            retry_case = _failure_closure_information_gain_case(
+                failure_ownership=failure_ownership,
+                validation_delta=validation_delta,
+            )
 
     information_gain_authorized = True
     information_gain_reason = "not_required"
@@ -506,6 +620,42 @@ def close_cycle(
             prior_cycles=ledger["cycles"][:-1],
         )
 
+    family = (
+        _normalize_family_selection(family_selection)
+        if require_failure_closure
+        else None
+    )
+    failure_owner_authorized = True
+    failure_owner_reason = "not_required"
+    if require_failure_closure and effective_status == "recoverable_failure":
+        owner = failure_ownership["owner_role"] if failure_ownership else ""
+        failure_owner_authorized = owner in RETRY_OWNERS
+        failure_owner_reason = (
+            "cycle_recoverable_owner"
+            if failure_owner_authorized
+            else f"owner_{owner}_requires_external_control"
+        )
+
+    deadline_feasible = True
+    deadline_reason = "not_required"
+    deadline_remaining_seconds: int | None = None
+    retry_reserve_seconds = family["retry_reserve_seconds"] if family else 0
+    if require_failure_closure and effective_status == "recoverable_failure":
+        deadline = get_deadline_status(deadline_path or DEFAULT_DEADLINE)
+        if deadline.get("configured"):
+            raw_remaining = deadline.get("remaining_seconds")
+            deadline_remaining_seconds = (
+                int(raw_remaining) if isinstance(raw_remaining, int) else 0
+            )
+            deadline_feasible = deadline_remaining_seconds >= retry_reserve_seconds
+            deadline_reason = (
+                "full_cycle_reserve_available"
+                if deadline_feasible
+                else "insufficient_full_cycle_reserve"
+            )
+        else:
+            deadline_reason = "unbounded_deadline"
+
     cycle["status"] = effective_status
     cycle["reported_status"] = reported_status
     cycle["replay_entry_id"] = context["entry_id"]
@@ -520,6 +670,25 @@ def close_cycle(
     cycle["information_gain_authorized"] = information_gain_authorized
     cycle["information_gain_reason"] = information_gain_reason
     cycle["information_gain_identity"] = information_gain_identity
+    cycle["failure_ownership"] = failure_ownership
+    cycle["validation_delta"] = validation_delta
+    cycle["failure_closure_sha256"] = (
+        stable_sha256(
+            {
+                "failure_ownership": failure_ownership,
+                "validation_delta": validation_delta,
+            }
+        )
+        if failure_ownership is not None and validation_delta is not None
+        else ""
+    )
+    cycle["failure_owner_authorized"] = failure_owner_authorized
+    cycle["failure_owner_reason"] = failure_owner_reason
+    cycle["family_id"] = family["family_id"] if family else ""
+    cycle["retry_reserve_seconds"] = retry_reserve_seconds
+    cycle["deadline_remaining_seconds"] = deadline_remaining_seconds
+    cycle["deadline_feasible"] = deadline_feasible
+    cycle["deadline_reason"] = deadline_reason
     cycle["hard_gap_resolutions"] = list(replay_draft.get("hard_gap_resolutions") or [])
     cycle["unresolved_hard_gap_sha256s"] = unresolved_gap_sha256s
     cycle["closed_at"] = _now()
@@ -528,6 +697,8 @@ def close_cycle(
         effective_status == "recoverable_failure"
         and len(ledger["cycles"]) < ledger["max_cycles"]
         and information_gain_authorized
+        and failure_owner_authorized
+        and deadline_feasible
     )
     action = "retry" if can_retry else "handoff"
     cycle["action"] = action
@@ -537,6 +708,14 @@ def close_cycle(
         elif not information_gain_authorized:
             cycle["residual_risk"].append(
                 f"information gain gate declined retry: {information_gain_reason}"
+            )
+        elif not failure_owner_authorized:
+            cycle["residual_risk"].append(
+                f"failure owner gate declined task cycle: {failure_owner_reason}"
+            )
+        elif not deadline_feasible:
+            cycle["residual_risk"].append(
+                "deadline gate declined retry: insufficient time for a full family cycle"
             )
     _write_json(ledger_path, ledger)
     return _replay_decision_receipt(
@@ -572,6 +751,16 @@ def _replay_decision_receipt(
         ),
         "information_gain_reason": cycle.get("information_gain_reason", "not_required"),
         "information_gain_identity": cycle.get("information_gain_identity", ""),
+        "failure_ownership": cycle.get("failure_ownership"),
+        "validation_delta": cycle.get("validation_delta"),
+        "failure_closure_sha256": cycle.get("failure_closure_sha256", ""),
+        "failure_owner_authorized": cycle.get("failure_owner_authorized", True),
+        "failure_owner_reason": cycle.get("failure_owner_reason", "not_required"),
+        "family_id": cycle.get("family_id", ""),
+        "retry_reserve_seconds": cycle.get("retry_reserve_seconds", 0),
+        "deadline_remaining_seconds": cycle.get("deadline_remaining_seconds"),
+        "deadline_feasible": cycle.get("deadline_feasible", True),
+        "deadline_reason": cycle.get("deadline_reason", "not_required"),
         "remaining_cycles": ledger["max_cycles"] - len(ledger["cycles"]),
         "ledger_sha256": stable_sha256(ledger),
     }
@@ -636,12 +825,16 @@ def _validate_replay_draft(
     draft: dict[str, Any],
     *,
     require_information_gain: bool = False,
+    require_failure_closure: bool = False,
 ) -> None:
     required = {"status", "evidence", "residual_risk", "next_gap"}
     allowed = required | {"hard_gap_resolutions"}
-    if require_information_gain:
+    if require_information_gain and not require_failure_closure:
         required.add("retry_case")
         allowed.add("retry_case")
+    if require_failure_closure:
+        required.update({"failure_ownership", "validation_delta"})
+        allowed.update({"failure_ownership", "validation_delta"})
     missing = sorted(required - set(draft))
     unknown = sorted(set(draft) - allowed)
     if missing:
@@ -661,12 +854,21 @@ def _validate_replay_draft(
         raise ValueError("recoverable_failure requires a concrete next_gap")
     if draft["status"] != "recoverable_failure" and next_gap:
         raise ValueError("next_gap is only valid for recoverable_failure")
-    if require_information_gain:
+    if require_information_gain and not require_failure_closure:
         retry_case = draft.get("retry_case")
         if draft["status"] == "recoverable_failure":
             _normalize_information_gain_case(retry_case)
         elif retry_case is not None:
             raise ValueError("retry_case is only valid for recoverable_failure")
+    if require_failure_closure:
+        ownership = draft.get("failure_ownership")
+        delta = draft.get("validation_delta")
+        if draft["status"] == "passed":
+            if ownership is not None or delta is not None:
+                raise ValueError("passed replay cannot claim failure ownership or validation delta")
+        else:
+            _normalize_failure_ownership(ownership)
+            _normalize_validation_delta(delta)
     resolutions = draft.get("hard_gap_resolutions") or []
     if not isinstance(resolutions, list):
         raise ValueError("hard_gap_resolutions must be a list")
@@ -701,6 +903,164 @@ def _normalize_information_gain_case(value: Any) -> dict[str, Any]:
             raise ValueError(f"retry_case {field} must be boolean")
         normalized[field] = value[field]
     return normalized
+
+
+def _normalize_failure_ownership(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != FAILURE_OWNERSHIP_FIELDS:
+        raise ValueError(
+            "failure_ownership requires exactly "
+            + ", ".join(sorted(FAILURE_OWNERSHIP_FIELDS))
+        )
+    failure_class = _text(value.get("failure_class"))
+    if failure_class not in FAILURE_OWNERS:
+        raise ValueError("failure_ownership failure_class is invalid")
+    owner_role = _text(value.get("owner_role"))
+    if owner_role != FAILURE_OWNERS[failure_class]:
+        raise ValueError(
+            f"failure class {failure_class!r} must be owned by {FAILURE_OWNERS[failure_class]!r}"
+        )
+    confidence = _text(value.get("confidence"))
+    if confidence not in {"low", "medium", "high"}:
+        raise ValueError("failure_ownership confidence must be low, medium, or high")
+    normalized = {
+        "failure_class": failure_class,
+        "owner_role": owner_role,
+        "confidence": confidence,
+    }
+    for field in sorted(
+        FAILURE_OWNERSHIP_FIELDS - {"failure_class", "owner_role", "confidence"}
+    ):
+        text = _text(value.get(field))
+        if not text or len(text) > INFORMATION_GAIN_TEXT_MAX_CHARS:
+            raise ValueError(f"failure_ownership {field} must be bounded non-empty text")
+        normalized[field] = text
+    return normalized
+
+
+def _normalize_validation_delta(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != VALIDATION_DELTA_FIELDS:
+        raise ValueError(
+            "validation_delta requires exactly "
+            + ", ".join(sorted(VALIDATION_DELTA_FIELDS))
+        )
+    action = _text(value.get("action"))
+    if action not in VALIDATION_ACTIONS:
+        raise ValueError("validation_delta action is invalid")
+    if not isinstance(value.get("preserves_prior_obligations"), bool):
+        raise ValueError("validation_delta preserves_prior_obligations must be boolean")
+    superseded = value.get("superseded_check_ids")
+    if not isinstance(superseded, list) or not all(_text(item) for item in superseded):
+        raise ValueError("validation_delta superseded_check_ids must be a string list")
+    if superseded and action != "repair_invalid_check":
+        raise ValueError("only repair_invalid_check may supersede prior checks")
+    normalized: dict[str, Any] = {
+        "action": action,
+        "preserves_prior_obligations": value["preserves_prior_obligations"],
+        "superseded_check_ids": [_text(item) for item in superseded],
+    }
+    for field in sorted(
+        VALIDATION_DELTA_FIELDS
+        - {"action", "preserves_prior_obligations", "superseded_check_ids"}
+    ):
+        text = _text(value.get(field))
+        if not text or len(text) > INFORMATION_GAIN_TEXT_MAX_CHARS:
+            raise ValueError(f"validation_delta {field} must be bounded non-empty text")
+        normalized[field] = text
+    return normalized
+
+
+def _normalize_family_selection(value: Any) -> dict[str, Any]:
+    if (
+        not isinstance(value, dict)
+        or value.get("version") != 1
+        or value.get("kind") != "develop_family_selection"
+    ):
+        raise ValueError("failure closure requires a version-1 develop family selection")
+    family_id = _text(value.get("family_id"))
+    reserve = value.get("retry_reserve_seconds")
+    if not family_id or not isinstance(reserve, int) or reserve < 300:
+        raise ValueError("develop family selection has an invalid retry reserve")
+    return {"family_id": family_id, "retry_reserve_seconds": reserve}
+
+
+def _validate_failure_delta_pair(
+    failure_ownership: dict[str, Any],
+    validation_delta: dict[str, Any],
+) -> None:
+    allowed_actions = {
+        "implementation_defect": {"append_regression", "expand_population"},
+        "acceptance_plan_gap": {
+            "expand_population",
+            "repair_invalid_check",
+            "clarify_oracle",
+        },
+        "contract_authority_error": {"clarify_oracle", "append_regression"},
+        "evidence_projection_gap": {"no_public_delta"},
+        "orchestration_lifecycle_error": {"no_public_delta"},
+        "sealed_uncertainty": {"no_public_delta"},
+        "infrastructure_error": {"no_public_delta"},
+    }
+    failure_class = failure_ownership["failure_class"]
+    action = validation_delta["action"]
+    if action not in allowed_actions[failure_class]:
+        raise ValueError(
+            f"failure class {failure_class!r} cannot use validation action {action!r}"
+        )
+
+
+def _failure_closure_information_gain_case(
+    *,
+    failure_ownership: dict[str, Any],
+    validation_delta: dict[str, Any],
+) -> dict[str, Any]:
+    owner = failure_ownership["owner_role"]
+    action = validation_delta["action"]
+    publicly_evaluable = owner in RETRY_OWNERS and action != "no_public_delta"
+    return {
+        "failure_evidence": failure_ownership["observed_failure"],
+        "repair_action": failure_ownership["repair_action"],
+        "discriminating_check": validation_delta["discriminating_check"],
+        "success_interpretation": validation_delta["success_interpretation"],
+        "failure_interpretation": validation_delta["failure_interpretation"],
+        "publicly_evaluable": publicly_evaluable,
+        "bounded_scope": validation_delta["preserves_prior_obligations"],
+    }
+
+
+def _hard_gap_failure_closure(
+    gap: dict[str, Any],
+    *,
+    failure_evidence: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    is_public = gap.get("population_access") == "observed_public"
+    failure_class = "acceptance_plan_gap" if is_public else "sealed_uncertainty"
+    owner_role = FAILURE_OWNERS[failure_class]
+    repair_action = _text(gap.get("repair_action"))
+    required_evidence = _text(gap.get("required_evidence"))
+    validation_rationale = (
+        "append the unresolved public acceptance population to the next candidate-blind plan"
+        if is_public
+        else "record the sealed population as residual uncertainty without inventing a public proxy"
+    )
+    ownership = {
+        "failure_class": failure_class,
+        "owner_role": owner_role,
+        "observed_failure": failure_evidence,
+        "causal_hypothesis": _text(gap.get("observed_evidence")),
+        "repair_action": repair_action,
+        "required_validation_update": validation_rationale,
+        "confidence": "high" if is_public else "medium",
+    }
+    delta = {
+        "action": "expand_population" if is_public else "no_public_delta",
+        "discriminating_check": required_evidence,
+        "success_interpretation": "fresh independent evidence resolves the bound acceptance gap",
+        "failure_interpretation": _text(gap.get("observed_evidence")),
+        "preserves_prior_obligations": True,
+        "superseded_check_ids": [],
+        "rationale": validation_rationale,
+    }
+    return _normalize_failure_ownership(ownership), _normalize_validation_delta(delta)
 
 
 def _authorize_information_gain(

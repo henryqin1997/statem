@@ -556,3 +556,115 @@ class EvidenceDevelopV4p30ExperimentalStatemCodex(
     @staticmethod
     def name() -> str:
         return "ziheng-yaxin-statem-codex-evidence-develop-v4p30-exp"
+
+
+class EvidenceDevelopV4p31ExperimentalStatemCodex(
+    EvidenceDevelopV4ExperimentalStatemCodex
+):
+    """Family-routed failure closure with deadline-feasible recovery cycles."""
+
+    _LOCAL_FAMILY_ROUTER = (
+        Path(__file__).resolve().parent
+        / "experimental"
+        / "develop_family_router.py"
+    )
+    _LOCAL_FAMILY_CATALOG = (
+        Path(__file__).resolve().parents[2]
+        / "examples"
+        / "develop-family-router-v1.yaml"
+    )
+    _LOCAL_FAILURE_FEEDBACK_GATE = (
+        Path(__file__).resolve().parent
+        / "experimental"
+        / "failure_feedback_gate.py"
+    )
+
+    def __init__(
+        self,
+        *args: Any,
+        runbook_path: str | None = None,
+        **kwargs: Any,
+    ):
+        repo_root = Path(__file__).resolve().parents[2]
+        runbook = (
+            repo_root
+            / "examples"
+            / "frontier-bench-agent-evidence-develop-v4p31-exp.yaml"
+        )
+        super().__init__(
+            *args,
+            runbook_path=runbook_path or str(runbook),
+            **kwargs,
+        )
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p31-exp"
+
+    def _verification_check_paths(self) -> list[Path]:
+        return [
+            *super()._verification_check_paths(),
+            self._LOCAL_FAMILY_ROUTER,
+            self._LOCAL_FAMILY_CATALOG,
+            self._LOCAL_FAILURE_FEEDBACK_GATE,
+        ]
+
+    def _augment_instruction(
+        self,
+        instruction: str,
+        run_id: str,
+        current_context: str,
+    ) -> str:
+        base = super()._augment_instruction(instruction, run_id, current_context)
+        return base.replace(
+            "--include\n"
+            "  /tmp/statem-verification-checks/multirole/review-profile.json --include\n"
+            "  /tmp/statem-verification-checks/multirole/solver-plan.json --output",
+            "--include\n"
+            "  /tmp/statem-verification-checks/multirole/review-profile.json --include\n"
+            "  /tmp/statem-verification-checks/family/family-selection.json --include\n"
+            "  /tmp/statem-verification-checks/recovering-develop/retry-brief.json --include\n"
+            "  /tmp/statem-verification-checks/multirole/solver-plan.json --output",
+        ) + """
+
+Evidence-develop v4p31 controls:
+- Treat family-selection.json as host-owned routing. It limits procedural
+  practice and retry reserve but cannot weaken or reinterpret the visible task
+  contract.
+- On a retry cycle, the candidate-blind preflight context includes the immutable
+  retry brief. Copy its exact discriminating_check into required_strata of an
+  acceptance requirement while preserving all prior obligations. The host
+  rejects a candidate whose preflight plan fails this validation delta.
+- Classify failures by owner before requesting another cycle. Artifact repairs
+  belong to lead_solver, acceptance-plan defects to test_planner, and authority
+  conflicts to contract_reviewer. Adapter, host, sealed-acceptance, and
+  infrastructure failures must hand off to their owning control rather than
+  consuming another task-agent cycle.
+- A novel discriminator is necessary but insufficient for retry. The host also
+  requires the family-specific full-cycle reserve needed for solve, review,
+  replay, receipt closure, and handoff.
+"""
+
+    async def _collect_statem_artifacts(
+        self,
+        environment: BaseEnvironment,
+        context: AgentContext,
+        run_id: str,
+    ) -> None:
+        agent_statem_dir = (
+            PurePosixPath(EnvironmentPaths.agent_dir.as_posix()) / "statem"
+        )
+        try:
+            await super()._collect_statem_artifacts(environment, context, run_id)
+        finally:
+            try:
+                await self.exec_as_agent(
+                    environment,
+                    command=(
+                        "cp -R /tmp/statem-verification-checks/family "
+                        f"{shlex.quote((agent_statem_dir / 'family').as_posix())} || true"
+                    ),
+                    env=self._statem_env(run_id),
+                )
+            except Exception:
+                pass
