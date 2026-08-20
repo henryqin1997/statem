@@ -116,6 +116,7 @@ triage_policy:
       - experiment_mode
       - platform_class
       - dominant_limit_prior
+      - evidence_basis
       - owning_control_layer
       - hardware_feasibility
       - cheapest_public_discriminator
@@ -519,8 +520,8 @@ negative_transfer_sentinels:
         files: 27
         bytes: 80792
         tree_sha256: 422aad3aedea798ee834af926f661b286bdcef0e39548755fa3d2d8a93778c72
-      replacement_job: tb3-sol-native-baseline-v1-risk-scorer-replay-k1-aws-x86-a2
-      replacement_state: blocked_on_generic_nonroot_auth_fix
+      replacement_job: tb3-sol-native-baseline-v2-risk-scorer-replay-k1-aws-x86-a2
+      replacement_state: generic_nonroot_auth_fix_tested_pending_admission
     statem:
       job: tb3-sol-evidence-v4p34-risk-scorer-replay-k1-aws-x86-b
       state: predeclared_waiting_for_remote_lane

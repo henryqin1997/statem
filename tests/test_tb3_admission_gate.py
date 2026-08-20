@@ -53,6 +53,7 @@ class Tb3AdmissionGateTest(unittest.TestCase):
 
         self.assertTrue(receipt["valid"])
         self.assertEqual(receipt["admission_decision"], "admit")
+        self.assertEqual(receipt["evidence_basis"], self.request["evidence_basis"])
         self.assertEqual(
             receipt["receipt_sha256"],
             stable_sha256({key: value for key, value in receipt.items() if key != "receipt_sha256"}),

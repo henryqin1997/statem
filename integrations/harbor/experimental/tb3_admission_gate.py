@@ -191,6 +191,7 @@ def evaluate_admission(
         "experiment_mode": request["experiment_mode"],
         "platform_class": request["platform_class"],
         "dominant_limit_prior": request["dominant_limit_prior"],
+        "evidence_basis": request["evidence_basis"],
         "owning_control_layer": request["owning_control_layer"],
         "hardware_feasibility": request["hardware_feasibility"],
         "resources": {
