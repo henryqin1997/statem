@@ -546,3 +546,13 @@ Evidence-develop v4 controls:
             raise RuntimeError(
                 f"statem final state is {current!r}, expected {self._final_state!r}"
             )
+
+
+class EvidenceDevelopV4p30ExperimentalStatemCodex(
+    EvidenceDevelopV4ExperimentalStatemCodex
+):
+    """Versioned identity for the candidate-blind and information-gain ablation."""
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p30-exp"

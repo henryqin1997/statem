@@ -33,6 +33,7 @@ from integrations.harbor.experimental.recovering_develop_guard import (
 )
 from integrations.harbor.statem_codex_multirole_develop_exp import (
     EvidenceDevelopV4ExperimentalStatemCodex,
+    EvidenceDevelopV4p30ExperimentalStatemCodex,
     RecoveringMultiRoleDevelopExperimentalStatemCodex,
 )
 from integrations.harbor.statem_codex import TeamRunStatemCodex
@@ -1107,6 +1108,19 @@ class RecoveringDevelopRunbookTest(unittest.TestCase):
             agent.name(),
             "ziheng-yaxin-statem-codex-evidence-develop-v4-exp",
         )
+
+    def test_v4p30_adapter_has_an_unambiguous_experiment_identity(self) -> None:
+        agent = EvidenceDevelopV4p30ExperimentalStatemCodex.__new__(
+            EvidenceDevelopV4p30ExperimentalStatemCodex
+        )
+        agent._statem_source_dir = REPO
+        names = [path.name for path in agent._verification_check_paths()]
+        self.assertEqual(
+            agent.name(),
+            "ziheng-yaxin-statem-codex-evidence-develop-v4p30-exp",
+        )
+        self.assertIn("develop_activation_gate.py", names)
+        self.assertIn("candidate_acceptance_replay.py", names)
 
     def test_v4_adapter_enforces_terminal_state_and_installs_runtime_hook(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
