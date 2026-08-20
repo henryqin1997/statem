@@ -305,7 +305,23 @@ fresh_holdout_candidates:
     hardware_feasibility: high_cpu_only
     cheapest_public_discriminator: matched_k1_with_plan_and_validation_delta
     owning_control_layer: numerical_planning_practice_or_base_capability
-    state: second_after_bun
+    evidence_basis: >-
+      Public Sol Max is 0/5, the task is CPU-feasible, and the unresolved split
+      is between numerical planning capability and workflow validation. A
+      matched direct cell is the cheapest current discriminator and does not
+      require changing the frozen v4p34 source.
+    hardware_resource_risk: low
+    expected_api_cost: official_mean_1_67_per_cell
+    expected_wall_time: standard_3600_seconds
+    observable_progress_target: >-
+      Bind a candidate-blind plan to at least one independently replayable
+      planning or validation milestone and complete terminal handoff.
+    stop_or_park_condition: >-
+      Park after two hypothesis-scoped StateM develop cells without a narrower
+      owner, new public discriminator, artifact improvement, or replayable
+      milestone.
+    matched_pair_id: cargo-flight-dispatch-aws-x86-v4p34-k1-a
+    state: matched_k1_direct_predeclared
   - task: foodstuff-beta-activity
     public_sol_passes: 0
     expected_family: numerical-model
