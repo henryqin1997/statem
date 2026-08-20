@@ -103,11 +103,19 @@ pairs:
     direct:
       job: tb3-sol-native-baseline-v1-bun-sourcemap-leak-k1-aws-x86-a2
       agent: codex-auth-no-session-baseline-v1
-      state: active_after_startup_invalid_attempt
-      raw_reward: null
-      protocol_valid: null
-      cost_usd: null
-      backup_tree_sha256: null
+      state: completed_valid_after_startup_invalid_attempt
+      raw_reward: 0.0
+      protocol_valid: true
+      cost_usd: 1.858764
+      input_tokens: 973242
+      cache_tokens: 892928
+      output_tokens: 33691
+      wall_seconds: 990.883043
+      atif_schema: ATIF-v1.5
+      raw_session_paths: 0
+      backup_files: 24
+      backup_bytes: 294482
+      backup_tree_sha256: a9fc369c63436f14ce1f30263a0edd409d2ee9552459d6d2613df276aaaba7fc
       attempts:
         - job: tb3-sol-native-baseline-v1-bun-sourcemap-leak-k1-aws-x86-a
           state: completed_startup_invalid
@@ -129,7 +137,7 @@ pairs:
       protocol_valid: null
       cost_usd: null
       backup_tree_sha256: null
-    matched_verdict: pending_both_active
+    matched_verdict: pending_statem
     score_eligible: pending
 
 aggregate:
