@@ -1,0 +1,248 @@
+name: frontier-bench-statem-recovering-multirole-develop-experiment
+initial: contract_audit
+
+nodes:
+  contract_audit:
+    prompt: |
+      Inspect the fresh contract seal and preserve a task-native rollback
+      locator for the currently selected artifact. This state opens one bounded
+      recovery cycle. Public signatures and task-supplied contract sources are
+      hard constraints. Behavioral docstrings inside modules explicitly named
+      as broken are defeasible evidence: preserve them only when task wording,
+      public examples, standards, or discriminating behavior corroborates them.
+    in_hook:
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py seal --artifact-root /app --contract-source /tmp/statem-verification-checks/task.txt --contract-policy repair_aware --output /tmp/statem-verification-checks/multirole/contract-seal.json"
+        timeout: 30
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/recovering_develop_guard.py open"
+        timeout: 15
+    before_transfer:
+      - type: predicate
+        path: /tmp/statem-verification-checks/multirole/contract-seal.json
+        exists: true
+      - type: predicate
+        path: /tmp/statem-verification-checks/recovering-develop/cycle-ledger.json
+        exists: true
+    state_hooks:
+      - name: continue_contract_audit
+        event: stop
+        host: any
+        template: statem_autoloop
+        scope: current_entry
+        prompt: "Inspect the sealed visible contract, preserve rollback capability, then move to solve."
+
+  solve:
+    prompt: |
+      Continue as the primary task agent while failures are recoverable. Inspect,
+      edit, run, attribute the latest failure, and try the smallest supported
+      repair in this same context. A command failure is evidence, not a reason
+      to abandon the task. Stop only for a task-visible terminal blocker, a
+      complete runnable candidate, or the benchmark reserve.
+
+      Treat implementation comments and behavioral docstrings in broken target
+      modules as hypotheses, not ground truth. Check them against task wording,
+      ordinary domain definitions, public examples, cross-module invariants,
+      and behavior that distinguishes plausible interpretations. Keep public
+      signatures stable, and update a misleading behavioral docstring only when
+      current evidence supports the corrected contract.
+
+      Every protected_behavior in the proposal needs a concrete provenance
+      other than the broken target module alone. For a named algorithm with
+      several standard variants, enumerate the variants and run a probe that
+      distinguishes them before preserving one. Residual risks and unsupported
+      extreme cases are not candidate regressions unless paired baseline and
+      candidate evidence shows that this candidate introduced the failure.
+
+      Before leaving, exercise both a concrete hypothesis and a plausible
+      counter-hypothesis through the public consumer surface. Preserve existing
+      behavior and do not delegate ordinary implementation work to reviewers.
+      Write exactly target_gap, hypothesis, counter_hypothesis,
+      protected_behavior, discriminating_checks,
+      rollback_artifact_identity, and rollback_locator to
+      /tmp/statem-verification-checks/multirole/proposal-draft.json, then bind
+      the live candidate with `python3
+      /tmp/statem-verification-checks/multirole_promotion_gate.py proposal
+      --draft /tmp/statem-verification-checks/multirole/proposal-draft.json`.
+    before_transfer:
+      type: predicate
+      path: /tmp/statem-verification-checks/multirole/candidate-proposal.json
+      exists: true
+    state_hooks:
+      - name: continue_solver
+        event: stop
+        host: any
+        template: statem_autoloop
+        scope: current_entry
+        prompt: "Keep diagnosing and repairing recoverable failures; leave only with one runnable, receipt-bound candidate."
+
+  falsify:
+    prompt: |
+      Launch the one independent read-only falsifier assigned by the in-hook.
+      It may inspect only the explicit context view. It must attack the current
+      interpretation, counter-hypothesis, protected behavior, and evidence
+      freshness; it must not repair the artifact or inspect solver trajectory.
+      It may veto only a task-contract violation or a candidate-caused
+      regression supported by paired baseline/candidate evidence. Put novel or
+      unpaired concerns in counterevidence as residual risk, not regressions.
+
+      After the trusted worker submits, run `statem team advance reducing` and
+      `statem team reduce --strategy all-claims-table`. The deterministic gate
+      consumes the CLI-owned result. Never author or rewrite worker identity.
+    in_hook:
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py context-view --role falsifier --include /app --include /tmp/statem-verification-checks/task.txt --include /tmp/statem-verification-checks/multirole/contract-seal.json --include /tmp/statem-verification-checks/multirole/candidate-proposal.json"
+        timeout: 30
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py falsifier-task --output /tmp/statem-verification-checks/multirole/falsifier-task.json"
+        timeout: 10
+      - type: command
+        run: "statem team init /tmp/statem-verification-checks/multirole/falsifier-task.json --run-id \"$STATEM_RUN_ID\" --state-dir \"$STATEM_STATE_DIR\" --agent-id \"$STATEM_AGENT_ID\" --agent-role solver"
+        timeout: 15
+    multi_agent:
+      mode: fanout_search_reduce
+      max_parallel: 1
+      required: true
+      require_all_tasks_done: true
+      task_schema:
+        required:
+          - candidate_artifact_identity
+          - contract_seal_sha256
+          - context_view_sha256
+          - assignment
+        types:
+          candidate_artifact_identity: string
+          contract_seal_sha256: string
+          context_view_sha256: string
+          assignment: string
+      result_schema:
+        required:
+          - status
+          - claims
+          - evidence
+          - coverage.complete
+          - verdict
+          - candidate_artifact_identity
+          - contract_seal_sha256
+          - context_view_sha256
+          - contract_preserved
+          - regressions
+          - counterevidence
+        types:
+          status: string
+          claims: list
+          evidence: list
+          coverage: mapping
+          verdict: string
+          candidate_artifact_identity: string
+          contract_seal_sha256: string
+          context_view_sha256: string
+          contract_preserved: boolean
+          regressions: list
+          counterevidence: list
+      reducer:
+        strategy: all-claims-table
+    before_transfer:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py decide"
+      timeout: 30
+    state_hooks:
+      - name: continue_falsifier
+        event: stop
+        host: any
+        template: statem_autoloop
+        scope: current_entry
+        prompt: "Collect the scoped falsifier, reduce TeamRun, and follow the deterministic decision."
+
+  promote:
+    prompt: |
+      Promotion is authorized. The candidate should already be live, so the
+      task-native provider normally performs no operation. If activation is
+      needed, activate exactly the authorized identity. The hook verifies the
+      result; authorization alone is not a committed artifact transaction.
+    before_transfer:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py verify-application --mode promote"
+      timeout: 30
+
+  rollback:
+    prompt: |
+      Promotion was rejected or inconclusive. Restore the cycle baseline with
+      the proposal's task-native rollback locator. StateM does not execute that
+      locator. The hook verifies the restored identity before replay.
+    before_transfer:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py verify-application --mode rollback"
+      timeout: 30
+
+  final_replay:
+    prompt: |
+      Replay the selected live artifact through the strongest bounded public
+      consumer path. Check the repaired behavior, protected behavior, format,
+      lifecycle, cleanup, and semantic interpretation. Do not call a proxy or
+      stale check sufficient evidence.
+
+      Write exactly status, evidence, residual_risk, and next_gap to
+      /tmp/statem-verification-checks/recovering-develop/replay-draft.json.
+      Status is passed, recoverable_failure, or terminal_failure. A recoverable
+      failure needs one concrete next_gap; other statuses require an empty
+      next_gap. The guard permits one more cycle only when the failure is
+      concrete and budget remains.
+    before_transfer:
+      - type: predicate
+        path: /tmp/statem-verification-checks/multirole/application-receipt.json
+        exists: true
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/recovering_develop_guard.py close"
+        timeout: 30
+    state_hooks:
+      - name: continue_final_replay
+        event: stop
+        host: any
+        template: statem_autoloop
+        scope: current_entry
+        prompt: "Finish current public replay and record a concrete retry gap or honest handoff status."
+
+  handoff:
+    prompt: |
+      Final state. Preserve the verified selected artifact and report current
+      public evidence, cycle decisions, and residual risk. Do not start another
+      candidate or turn task-local findings into persistent policy.
+    in_hook:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/recovering_develop_guard.py require --allow handoff"
+      timeout: 10
+
+edges:
+  - from: contract_audit
+    to: solve
+  - from: solve
+    to: falsify
+  - from: falsify
+    to: promote
+    condition:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py require --allow promote"
+      timeout: 10
+  - from: falsify
+    to: rollback
+    condition:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py require --allow rollback --allow inconclusive"
+      timeout: 10
+  - from: promote
+    to: final_replay
+  - from: rollback
+    to: final_replay
+  - from: final_replay
+    to: contract_audit
+    condition:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/recovering_develop_guard.py require --allow retry"
+      timeout: 10
+  - from: final_replay
+    to: handoff
+    condition:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/recovering_develop_guard.py require --allow handoff"
+      timeout: 10

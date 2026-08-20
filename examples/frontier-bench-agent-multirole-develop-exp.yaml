@@ -1,0 +1,209 @@
+name: frontier-bench-statem-multirole-develop-experiment
+initial: contract_audit
+
+nodes:
+  contract_audit:
+    prompt: |
+      The stateful in-hook sealed the initial artifact identity, task prompt,
+      and existing public Python signatures/docstrings before solver work.
+      Inspect the seal. Preserve a task-native rollback locator (for example a
+      clean git ref, snapshot, or provider handle) before changing the artifact.
+      StateM records the identity but does not copy or restore the artifact.
+    in_hook:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py seal --artifact-root /app --contract-source /tmp/statem-verification-checks/task.txt --output /tmp/statem-verification-checks/multirole/contract-seal.json"
+      timeout: 30
+    before_transfer:
+      type: predicate
+      path: /tmp/statem-verification-checks/multirole/contract-seal.json
+      exists: true
+    state_hooks:
+      - name: continue_contract_audit
+        event: stop
+        host: any
+        template: statem_autoloop
+        scope: current_entry
+        prompt: "Preserve a rollback locator, inspect the sealed visible contract, then move to solve."
+
+  solve:
+    prompt: |
+      Diagnose one concrete recoverable gap and produce one bounded candidate.
+      Keep the sealed baseline recoverable through the task-native artifact
+      provider. Exercise both the hypothesis and counter-hypothesis, preserve
+      pre-existing behavior, and run current task-visible checks.
+
+      Write only these fields to
+      /tmp/statem-verification-checks/multirole/proposal-draft.json:
+      target_gap, hypothesis, counter_hypothesis, protected_behavior (list),
+      discriminating_checks (list), rollback_artifact_identity, and
+      rollback_locator. Then bind the live candidate and StateM solver identity:
+      `python3 /tmp/statem-verification-checks/multirole_promotion_gate.py
+      proposal --draft
+      /tmp/statem-verification-checks/multirole/proposal-draft.json`.
+      The rollback identity must be copied from the contract seal; the locator
+      is interpreted only by the external task-native provider, never by the gate.
+    before_transfer:
+      type: predicate
+      path: /tmp/statem-verification-checks/multirole/candidate-proposal.json
+      exists: true
+    state_hooks:
+      - name: continue_solver
+        event: stop
+        host: any
+        template: statem_autoloop
+        scope: current_entry
+        prompt: "Finish one bounded candidate, bind its proposal receipt, then move to falsify."
+
+  falsify:
+    prompt: |
+      The in-hook created exactly one falsifier assignment bound to this
+      candidate, contract seal, and context view. Launch the scoped child with
+      the read-only-review command supplied by the adapter. The child may read
+      only the task artifact and explicit context-view files; it must not edit
+      the candidate, inspect the solver trajectory, or repair a failure.
+
+      After submission, run `statem team advance reducing` followed by
+      `statem team reduce --strategy all-claims-table`. The deterministic
+      promotion gate will consume the CLI-owned falsifier result. Do not author
+      or rewrite its producer identity.
+    in_hook:
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py context-view --role falsifier --include /app --include /tmp/statem-verification-checks/task.txt --include /tmp/statem-verification-checks/multirole/contract-seal.json --include /tmp/statem-verification-checks/multirole/candidate-proposal.json"
+        timeout: 30
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py falsifier-task --output /tmp/statem-verification-checks/multirole/falsifier-task.json"
+        timeout: 10
+      - type: command
+        run: "statem team init /tmp/statem-verification-checks/multirole/falsifier-task.json --run-id \"$STATEM_RUN_ID\" --state-dir \"$STATEM_STATE_DIR\" --agent-id \"$STATEM_AGENT_ID\" --agent-role solver"
+        timeout: 15
+    multi_agent:
+      mode: fanout_search_reduce
+      max_parallel: 1
+      required: true
+      require_all_tasks_done: true
+      task_schema:
+        required:
+          - candidate_artifact_identity
+          - contract_seal_sha256
+          - context_view_sha256
+          - assignment
+        types:
+          candidate_artifact_identity: string
+          contract_seal_sha256: string
+          context_view_sha256: string
+          assignment: string
+      result_schema:
+        required:
+          - status
+          - claims
+          - evidence
+          - coverage.complete
+          - verdict
+          - candidate_artifact_identity
+          - contract_seal_sha256
+          - context_view_sha256
+          - contract_preserved
+          - regressions
+          - counterevidence
+        types:
+          status: string
+          claims: list
+          evidence: list
+          coverage: mapping
+          verdict: string
+          candidate_artifact_identity: string
+          contract_seal_sha256: string
+          context_view_sha256: string
+          contract_preserved: boolean
+          regressions: list
+          counterevidence: list
+      reducer:
+        strategy: all-claims-table
+    before_transfer:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py decide"
+      timeout: 30
+    state_hooks:
+      - name: continue_falsifier
+        event: stop
+        host: any
+        template: statem_autoloop
+        scope: current_entry
+        prompt: "Collect one independent read-only falsifier result, reduce TeamRun, then follow the gate decision."
+
+  promote:
+    prompt: |
+      Promotion is authorized. If the candidate is already the live artifact,
+      the external provider operation is a no-op; otherwise activate exactly
+      the authorized candidate. Do not reinterpret the gate. The hook verifies
+      the resulting identity but does not perform the operation.
+    before_transfer:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py verify-application --mode promote"
+      timeout: 30
+
+  rollback:
+    prompt: |
+      Promotion was rejected or inconclusive. Use the proposal's external
+      rollback_locator to restore the sealed baseline. StateM does not execute
+      the locator. The hook only verifies that the restored artifact matches
+      the sealed baseline identity.
+    before_transfer:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py verify-application --mode rollback"
+      timeout: 30
+
+  final_replay:
+    prompt: |
+      Replay the selected live artifact through the strongest bounded public
+      consumer path available. Recheck the target behavior, protected behavior,
+      output format, lifecycle, and cleanup constraints. Record compact current
+      evidence and residual risk in progress.md. Do not start a new candidate.
+    before_transfer:
+      - type: predicate
+        path: /tmp/statem-verification-checks/multirole/application-receipt.json
+        exists: true
+      - type: predicate
+        path: /app/progress.md
+        exists: true
+    state_hooks:
+      - name: continue_final_replay
+        event: stop
+        host: any
+        template: statem_autoloop
+        scope: current_entry
+        prompt: "Finish public replay, record residual risk, and move to handoff."
+
+  handoff:
+    prompt: |
+      Final state. Leave the verified selected artifact active and do not start
+      new work.
+
+edges:
+  - from: contract_audit
+    to: solve
+    condition: "The initial visible contract is sealed and a rollback locator is preserved."
+  - from: solve
+    to: falsify
+    condition: "One candidate proposal is bound to the solver identity and current artifact."
+  - from: falsify
+    to: promote
+    condition:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py require --allow promote"
+      timeout: 10
+  - from: falsify
+    to: rollback
+    condition:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py require --allow rollback --allow inconclusive"
+      timeout: 10
+  - from: promote
+    to: final_replay
+    condition: "The external artifact provider applied the authorized candidate identity."
+  - from: rollback
+    to: final_replay
+    condition: "The external artifact provider restored the sealed baseline identity."
+  - from: final_replay
+    to: handoff
+    condition: "The selected artifact has current public replay evidence and recorded residual risk."
