@@ -294,12 +294,13 @@ pairs:
       job: tb3-sol-evidence-v4p34-foodstuff-beta-activity-k1-local-b
       agent: ziheng-yaxin-statem-codex-evidence-develop-v4p34-exp
       source_manifest_sha256: c6ddf782bd8695e1c30dfee371e2a21d0237f3aff5bc785a8943c6cc3a557973
-      state: predeclared_waiting_for_local_lane
+      state: active
+      initial_runner_pid: 27879
       raw_reward: null
       protocol_valid: null
       cost_usd: null
       backup_tree_sha256: null
-    matched_verdict: pending_statem_predeclared_direct_zero
+    matched_verdict: pending_statem_active_direct_zero
     score_eligible: pending
 
 aggregate:
