@@ -350,7 +350,35 @@ fresh_holdout_candidates:
     direct_runner_pid: 248146
     direct_backup_tree_sha256: 69e82994784f745d68d2614238a0ed08f4c9ce62fac3337b7eab7006bb52ef2c
     statem_runner_pid: 259984
-    state: matched_k1_direct_zero_statem_active
+    statem_raw_reward: 0.0
+    statem_protocol_valid: true
+    statem_cost_usd: 10.170479
+    statem_route:
+      - solve
+      - falsify
+      - revise
+      - falsify
+      - promote
+      - final_replay
+      - handoff
+    statem_backup_files: 128
+    statem_backup_bytes: 5018153
+    statem_backup_tree_sha256: 1876a2f2b64f1c2bdced55eca3649983310df63ebb2e7ba7913707beacd7526f
+    development_attempts_for_current_hypothesis: 1
+    hypothesis_scoped_no_progress_count: 0
+    development_progress: >-
+      Completed a revised candidate, independent exhaustive public-data oracle,
+      candidate-bound adapter replay, two falsifier reviews, promotion, final
+      replay, and terminal handoff. The raw zero narrows the unresolved owner to
+      contract/test-plan authority rather than lifecycle or hardware.
+    final_attempt_result: matched_direct_zero_statem_zero
+    dominant_limit: unresolved_semantic_fork_authority_after_public_replay
+    next_generic_control: >-
+      Candidate-blind objective and semantic-fork authority must require a
+      genuinely discriminating public population; a fixed instance that makes
+      alternatives observationally identical cannot close the fork.
+    state: parked_after_substantive_zero_waiting_generic_authority_control
+    score_eligible_as_future_holdout_for_this_control: false
   - task: foodstuff-beta-activity
     public_sol_passes: 0
     expected_family: numerical-model
