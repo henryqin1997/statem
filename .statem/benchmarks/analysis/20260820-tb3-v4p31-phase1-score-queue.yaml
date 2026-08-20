@@ -210,7 +210,7 @@ initial_lanes:
 
 current_control:
   branch: codex/tb3-v4p31-failure-loop-20260820
-  commit: working_tree_pending_commit
+  source_commit: 037e5d8
   adapter: ziheng-yaxin-statem-codex-evidence-develop-v4p36-exp
   canonical_manifest_file_count: 35
   canonical_manifest_sha256: d4f1995d67683b336b79bb03a7906070c44fdd10c58b1307c3fc6291b70e6c4d
