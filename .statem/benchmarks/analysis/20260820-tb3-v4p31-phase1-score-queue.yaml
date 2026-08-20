@@ -351,7 +351,24 @@ fresh_holdout_candidates:
     hardware_feasibility: high_cpu_only_but_long
     cheapest_public_discriminator: matched_k1_then_numerical_artifact_attribution
     owning_control_layer: numerical_model_practice_or_base_capability
-    state: third_after_bun_due_to_longer_reserve_and_lower_control_fit
+    evidence_basis: >-
+      Public Sol Max is 0/5. The environment is CPU-only and uses a multi-arch
+      Python base image, so a local ARM direct cell is feasible. The long
+      9,000-second reserve and mixed scientific-capability prior make this a
+      lower lane-hour priority, but the official API-cost prior is low and the
+      local lane is otherwise idle.
+    hardware_resource_risk: low_on_local_arm64
+    expected_api_cost: official_mean_1_24_per_cell
+    expected_wall_time: up_to_9000_seconds
+    observable_progress_target: >-
+      Produce a valid public artifact and independently replayable numerical
+      validation milestone within the standard task deadline.
+    stop_or_park_condition: >-
+      Park after an infrastructure-valid direct zero plus two hypothesis-scoped
+      StateM cells without a narrower owner, public artifact improvement,
+      validation delta, or replayable milestone.
+    matched_pair_id: foodstuff-beta-activity-local-arm64-v4p34-k1-a
+    state: matched_k1_direct_predeclared
   - task: fix-uautomizer-soundness
     public_sol_passes: 0
     expected_family: structured-transformation
