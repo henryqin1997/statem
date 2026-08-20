@@ -73,10 +73,13 @@ families:
       - task: mvcc-lsm-compaction
         public_sol_passes: 0
         public_sol_attempts: 5
-        state: v4p32_final_adapted_attempt_active
+        state: v4p32_completed_protocol_invalid_after_substantive_progress
         development_attempts_for_current_hypothesis: 2
-        development_progress: generic_lifecycle_gap_identified
-        park_unless: same_state_progress_witness_enables_additional_public_artifact_or_milestone_progress
+        development_progress: preflight_candidate_snapshot_and_stratum_complete_replay
+        final_attempt_result: promotion_transition_blocked_by_requirement_id_case
+        dominant_limit: statem_host_receipt_canonicalization
+        next_generic_control: v4p33_mechanical_requirement_id_normalization
+        score_eligible: false
       - task: session-window-debug
         public_sol_passes: 0
         public_sol_attempts: 5
@@ -126,8 +129,9 @@ initial_lanes:
     backup_tree_sha256: d661ad65b60f983b771c9c299d5a2ad33899b0c956eae86b1c15299acc7c37b6
   remote_a:
     task: mvcc-lsm-compaction
-    mode: final_adapted_development
+    mode: completed_adapted_protocol_invalid_with_substantive_progress
     control_version: v4p32
+    backup_tree_sha256: 324374b9683815333b7eaeed9b14e5c697540e37095a38a29a72e69cb6366631
   remote_b:
     task: session-window-debug
     mode: completed_and_parked
@@ -141,6 +145,21 @@ current_control:
   canonical_manifest_file_count: 35
   canonical_manifest_sha256: 1a7d5f58bd3e7cee94b347928b8f5e082c0f02fed52efbc44db44387ac4921ef
   native_baseline_harness_commit: ca2415f
+
+candidate_control:
+  version: v4p33
+  adapter: ziheng-yaxin-statem-codex-evidence-develop-v4p33-exp
+  canonical_manifest_file_count: 35
+  canonical_manifest_sha256: e7aa59496560ade7804be5e18326ddb2273ee2c8d042fa95ca2208e25b530402
+  repair: canonicalize_mechanical_acceptance_requirement_ids_before_validation
+  semantic_fields_unchanged:
+    - claim
+    - evidence_mode
+    - required_strata
+    - reviewer_verdict
+  collision_policy: reject_after_canonicalization
+  focused_validation: 48_tests_passed
+  promotion_state: pending_full_suite_and_end_to_end_adapted_validation
 
 official_reference:
   tasks: 74

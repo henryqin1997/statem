@@ -303,7 +303,7 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             "acceptance_plan": {
                 "requirements": [
                     {
-                        "requirement_id": "public-boundaries",
+                        "requirement_id": "PUBLIC-BOUNDARIES",
                         "claim": "the public transform handles boundary values",
                         "public_surface": "the public transform callable",
                         "evidence_mode": "adapter_replay",
@@ -313,7 +313,7 @@ class MultiRolePromotionGateTest(unittest.TestCase):
                         "rationale": "the stated behavior differs at these boundaries",
                     },
                     {
-                        "requirement_id": "signature-preservation",
+                        "requirement_id": "SIGNATURE-PRESERVATION",
                         "claim": "the public signature remains compatible",
                         "public_surface": "the callable signature",
                         "evidence_mode": "paired_review",
@@ -382,6 +382,10 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             evidence["acceptance_plan"]["requirements"][0]["requirement_id"],
             "public-boundaries",
         )
+        self.assertEqual(
+            evidence["acceptance_plan"]["requirements"][1]["requirement_id"],
+            "signature-preservation",
+        )
         self.assertEqual(evidence["review_execution_class"], "contract_language")
         draft = {
             "target_gap": "transform returns the unmodified value",
@@ -433,6 +437,19 @@ class MultiRolePromotionGateTest(unittest.TestCase):
                     context_view=view,
                     review_profile=profile,
                     reviewer_result=invalid_schema_result,
+                )
+        collision_result = json.loads(json.dumps(reviewer_result))
+        collision_result["raw"]["acceptance_plan"]["requirements"][1][
+            "requirement_id"
+        ] = "public-boundaries"
+        with patch.dict("os.environ", self.env, clear=False):
+            with self.assertRaisesRegex(ValueError, "invalid or duplicate id"):
+                record_preflight_evidence(
+                    plan=plan,
+                    seal=seal,
+                    context_view=view,
+                    review_profile=profile,
+                    reviewer_result=collision_result,
                 )
         tampered = dict(evidence)
         tampered["recommendations"] = ["different advice"]

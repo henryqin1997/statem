@@ -144,7 +144,12 @@ adaptive and cannot later become that repair's holdout.
   concrete implementation owner and append-only validation delta, then stopped
   inside the second solve cycle. It is adapted, protocol-invalid, preserved,
   and excluded from score.
-- Remote A: `mvcc-lsm-compaction` v4p32 final adapted lifecycle cell.
+- Completed remote A: `mvcc-lsm-compaction` v4p32 produced a preflight,
+  candidate snapshot, and stratum-complete replay, then remained in `solve`
+  because uppercase reviewer requirement ids failed a lowercase-only mechanical
+  gate. This is substantive generic progress plus a host receipt-normalization
+  defect, not a lead-solver failure or raw score. v4p33 canonicalizes identifier
+  case before validation and rejects collisions after canonicalization.
 - Completed remote B: `session-window-debug` v4p32 final adapted cell. It made
   no candidate/preflight progress on its second attempt and is parked until a
   new generic hypothesis arrives from another task.

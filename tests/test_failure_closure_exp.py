@@ -26,6 +26,7 @@ from integrations.harbor.experimental.artifact_identity import (
 from integrations.harbor.statem_codex_multirole_develop_exp import (
     EvidenceDevelopV4p31ExperimentalStatemCodex,
     EvidenceDevelopV4p32ExperimentalStatemCodex,
+    EvidenceDevelopV4p33ExperimentalStatemCodex,
 )
 from statem.core import validate_spec
 
@@ -33,6 +34,7 @@ from statem.core import validate_spec
 REPO = Path(__file__).resolve().parents[1]
 RUNBOOK = REPO / "examples/frontier-bench-agent-evidence-develop-v4p31-exp.yaml"
 RUNBOOK_V4P32 = REPO / "examples/frontier-bench-agent-evidence-develop-v4p32-exp.yaml"
+RUNBOOK_V4P33 = REPO / "examples/frontier-bench-agent-evidence-develop-v4p33-exp.yaml"
 FAMILY_CATALOG = REPO / "examples/develop-family-router-v1.yaml"
 
 
@@ -164,6 +166,24 @@ class FailureClosureTest(unittest.TestCase):
             "ziheng-yaxin-statem-codex-evidence-develop-v4p32-exp",
         )
         self.assertEqual(agent._runbook_path, RUNBOOK_V4P32)
+
+    def test_v4p33_runbook_canonicalizes_mechanical_requirement_ids(self) -> None:
+        text = RUNBOOK_V4P33.read_text(encoding="utf-8")
+        validate_spec(RUNBOOK_V4P33, strict=True)
+        self.assertIn("frontier-bench-statem-evidence-develop-v4p33-experiment", text)
+        self.assertIn("collisions after canonicalization", text)
+        self.assertEqual(text.count("--require-strata-coverage"), 2)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            agent = EvidenceDevelopV4p33ExperimentalStatemCodex(
+                logs_dir=Path(temp_dir),
+                model_name="gpt-5.6-sol",
+            )
+        self.assertEqual(
+            agent.name(),
+            "ziheng-yaxin-statem-codex-evidence-develop-v4p33-exp",
+        )
+        self.assertEqual(agent._runbook_path, RUNBOOK_V4P33)
 
     def test_deadline_gate_requires_a_complete_family_cycle_reserve(self) -> None:
         self._open()

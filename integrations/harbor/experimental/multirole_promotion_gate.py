@@ -911,8 +911,10 @@ def preflight_task(
                     "must be selected before any candidate exists and must follow "
                     "acceptance_plan_schema. It defines task-visible claims, support "
                     "dimensions and strata, and independence requirements; it must not "
-                    "name candidate implementation details or commands. Use adapter_replay "
-                    "only for obligations that a bounded public command can execute; use "
+                    "name candidate implementation details or commands. Use requirement_id "
+                    "values as unique lowercase slugs. The host repairs ASCII case "
+                    "mechanically and rejects collisions after canonicalization. Use "
+                    "adapter_replay only for obligations that a bounded public command can execute; use "
                     "paired_review or analytic_review for semantic obligations that should "
                     "remain reviewer evidence rather than mechanical blockers. "
                     "contract_ledger has exactly hard_constraints, "
@@ -1148,7 +1150,10 @@ def _candidate_blind_acceptance_plan(value: Any) -> dict[str, Any]:
                 f"acceptance requirement {index} requires exactly "
                 f"{sorted(ACCEPTANCE_REQUIREMENT_FIELDS)}"
             )
-        requirement_id = _text(item.get("requirement_id"))
+        # Requirement ids are mechanical receipt keys, not semantic claims.
+        # Canonicalize ASCII case before validation so a reviewer cannot strand
+        # valid evidence on a repairable spelling distinction.
+        requirement_id = _text(item.get("requirement_id")).lower()
         if (
             not ACCEPTANCE_REQUIREMENT_ID.fullmatch(requirement_id)
             or requirement_id in seen
@@ -1220,6 +1225,8 @@ def _candidate_blind_acceptance_plan_task_schema() -> dict[str, Any]:
         "max_list_items": ACCEPTANCE_PLAN_MAX_LIST_ITEMS,
         "max_text_chars": CONTRACT_LEDGER_TEXT_MAX_CHARS,
         "candidate_visibility": "none",
+        "requirement_id_pattern": ACCEPTANCE_REQUIREMENT_ID.pattern,
+        "requirement_id_canonicalization": "trim_then_lowercase",
         "adapter_replay_mapping_required": True,
         "minimum_adapter_replay_requirements": 1,
     }

@@ -761,3 +761,49 @@ Evidence-develop v4p32 controls:
         except Exception:
             witness = "progress-witness-unavailable"
         return (*base, witness)
+
+
+class EvidenceDevelopV4p33ExperimentalStatemCodex(
+    EvidenceDevelopV4p32ExperimentalStatemCodex
+):
+    """Canonical preflight receipt identifiers before transition gating."""
+
+    def __init__(
+        self,
+        *args: Any,
+        runbook_path: str | None = None,
+        **kwargs: Any,
+    ):
+        repo_root = Path(__file__).resolve().parents[2]
+        runbook = (
+            repo_root
+            / "examples"
+            / "frontier-bench-agent-evidence-develop-v4p33-exp.yaml"
+        )
+        super().__init__(
+            *args,
+            runbook_path=runbook_path or str(runbook),
+            **kwargs,
+        )
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p33-exp"
+
+    def _augment_instruction(
+        self,
+        instruction: str,
+        run_id: str,
+        current_context: str,
+    ) -> str:
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
+
+Evidence-develop v4p33 controls:
+- Acceptance requirement ids are mechanical receipt keys. The host trims and
+  lowercases them before schema validation, rejects canonical collisions, and
+  leaves claims, evidence modes, strata, and verdicts unchanged.
+"""
