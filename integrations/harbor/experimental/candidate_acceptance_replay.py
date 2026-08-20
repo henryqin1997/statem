@@ -52,6 +52,7 @@ CHECK_FIELDS = {
     "expected_exit_codes",
 }
 BLIND_CHECK_FIELDS = CHECK_FIELDS | {"requirement_ids"}
+BLIND_STRATA_CHECK_FIELDS = BLIND_CHECK_FIELDS | {"covered_strata"}
 CHECK_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,47}$")
 MAX_CHECKS = 4
 MAX_TIMEOUT_SECONDS = 90
@@ -86,6 +87,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--artifact-root", type=Path, default=Path("/app"))
     parser.add_argument("--work-root", type=Path, default=DEFAULT_WORK_ROOT)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument(
+        "--require-strata-coverage",
+        action="store_true",
+        help="Require every candidate-blind adapter-replay stratum to be bound to a check.",
+    )
     args = parser.parse_args(argv)
     try:
         plan = _read_json(args.plan)
@@ -105,6 +111,7 @@ def main(argv: list[str] | None = None) -> int:
             candidate_snapshot=snapshot,
             artifact_root=args.artifact_root,
             work_root=args.work_root,
+            require_strata_coverage=args.require_strata_coverage,
             existing_receipt=(
                 _read_json(args.output) if args.output.is_file() else None
             ),
@@ -126,6 +133,7 @@ def replay_acceptance_checks(
     candidate_snapshot: dict[str, Any],
     artifact_root: Path,
     work_root: Path,
+    require_strata_coverage: bool = False,
     existing_receipt: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     _require_receipt(proposal, "candidate_proposal")
@@ -175,6 +183,7 @@ def replay_acceptance_checks(
         plan,
         candidate_identity,
         preflight_evidence=preflight_evidence,
+        require_strata_coverage=require_strata_coverage,
     )
     _reject_sensitive_values(normalized_plan)
     plan_sha256 = stable_sha256(normalized_plan)
@@ -256,6 +265,7 @@ def replay_acceptance_checks(
             "per_check_timeout_seconds": MAX_TIMEOUT_SECONDS,
             "total_timeout_seconds": MAX_TOTAL_TIMEOUT_SECONDS,
             "stream_bytes": MAX_STREAM_BYTES,
+            "required_strata_coverage": require_strata_coverage,
         },
         "environment_policy": "minimal_allowlist_no_solver_credentials",
         "workspace_policy": "fresh_disposable_copy_per_check",
@@ -276,6 +286,7 @@ def _normalize_plan(
     candidate_identity: str,
     *,
     preflight_evidence: dict[str, Any] | None = None,
+    require_strata_coverage: bool = False,
 ) -> dict[str, Any]:
     expected_plan_fields = (
         BLIND_PLAN_FIELDS if preflight_evidence is not None else PLAN_FIELDS
@@ -292,6 +303,7 @@ def _normalize_plan(
     if plan.get("candidate_artifact_identity") != candidate_identity:
         raise ValueError("acceptance replay plan is bound to another candidate")
     required_replay_ids: set[str] = set()
+    required_replay_strata: dict[str, set[str]] = {}
     if preflight_evidence is not None:
         preflight_sha256 = stable_sha256(preflight_evidence)
         if plan.get("preflight_evidence_sha256") != preflight_sha256:
@@ -313,17 +325,38 @@ def _normalize_plan(
         }
         if "" in required_replay_ids:
             raise ValueError("preflight acceptance plan has an invalid requirement id")
+        if require_strata_coverage:
+            for item in requirements:
+                if not isinstance(item, dict) or item.get("evidence_mode") != "adapter_replay":
+                    continue
+                requirement_id = _text(item.get("requirement_id"))
+                raw_strata = item.get("required_strata")
+                if (
+                    not isinstance(raw_strata, list)
+                    or not raw_strata
+                    or not all(_text(value) for value in raw_strata)
+                ):
+                    raise ValueError(
+                        f"candidate-blind requirement {requirement_id} is missing required_strata"
+                    )
+                required_replay_strata[requirement_id] = set(map(_text, raw_strata))
     checks = plan.get("checks")
     if not isinstance(checks, list) or not checks or len(checks) > MAX_CHECKS:
         raise ValueError(f"acceptance replay plan requires 1-{MAX_CHECKS} checks")
     normalized: list[dict[str, Any]] = []
     seen: set[str] = set()
     covered_requirements: set[str] = set()
+    covered_strata: dict[str, set[str]] = {
+        requirement_id: set() for requirement_id in required_replay_ids
+    }
     total_timeout = 0
     for index, raw in enumerate(checks):
-        expected_check_fields = (
-            BLIND_CHECK_FIELDS if preflight_evidence is not None else CHECK_FIELDS
-        )
+        if preflight_evidence is None:
+            expected_check_fields = CHECK_FIELDS
+        elif require_strata_coverage:
+            expected_check_fields = BLIND_STRATA_CHECK_FIELDS
+        else:
+            expected_check_fields = BLIND_CHECK_FIELDS
         if not isinstance(raw, dict) or set(raw) != expected_check_fields:
             raise ValueError(
                 f"acceptance replay check {index} has an invalid schema"
@@ -353,6 +386,34 @@ def _normalize_plan(
                     "non-executable requirements"
                 )
             covered_requirements.update(requirement_ids)
+            if require_strata_coverage:
+                raw_covered_strata = raw.get("covered_strata")
+                if (
+                    not isinstance(raw_covered_strata, dict)
+                    or set(raw_covered_strata) != set(requirement_ids)
+                ):
+                    raise ValueError(
+                        f"acceptance replay check {check_id} must bind covered_strata "
+                        "for exactly its requirement_ids"
+                    )
+                for requirement_id in requirement_ids:
+                    values = raw_covered_strata.get(requirement_id)
+                    if (
+                        not isinstance(values, list)
+                        or not values
+                        or not all(_text(value) for value in values)
+                    ):
+                        raise ValueError(
+                            f"acceptance replay check {check_id} has invalid covered_strata"
+                        )
+                    normalized_values = set(map(_text, values))
+                    unknown_strata = normalized_values - required_replay_strata[requirement_id]
+                    if unknown_strata:
+                        raise ValueError(
+                            f"acceptance replay check {check_id} references unknown strata "
+                            f"for {requirement_id}: {', '.join(sorted(unknown_strata))}"
+                        )
+                    covered_strata[requirement_id].update(normalized_values)
         public_surface = _bounded_text(raw.get("public_surface"), "public_surface")
         method = _bounded_text(raw.get("method"), "method")
         argv = raw.get("argv")
@@ -405,6 +466,13 @@ def _normalize_plan(
         }
         if preflight_evidence is not None:
             normalized_check["requirement_ids"] = requirement_ids
+            if require_strata_coverage:
+                normalized_check["covered_strata"] = {
+                    requirement_id: sorted(
+                        set(map(_text, raw["covered_strata"][requirement_id]))
+                    )
+                    for requirement_id in requirement_ids
+                }
         normalized.append(normalized_check)
     if total_timeout > MAX_TOTAL_TIMEOUT_SECONDS:
         raise ValueError("acceptance replay plan exceeds the total timeout budget")
@@ -414,6 +482,23 @@ def _normalize_plan(
             "acceptance replay plan does not cover candidate-blind requirements: "
             + ", ".join(missing_requirements)
         )
+    if require_strata_coverage:
+        missing_strata = {
+            requirement_id: sorted(
+                required_replay_strata[requirement_id] - covered_strata[requirement_id]
+            )
+            for requirement_id in sorted(required_replay_ids)
+            if required_replay_strata[requirement_id] - covered_strata[requirement_id]
+        }
+        if missing_strata:
+            summary = "; ".join(
+                f"{requirement_id}: {', '.join(strata)}"
+                for requirement_id, strata in missing_strata.items()
+            )
+            raise ValueError(
+                "acceptance replay plan does not cover candidate-blind required strata: "
+                + summary
+            )
     normalized_plan = {
         "candidate_artifact_identity": candidate_identity,
         "checks": normalized,

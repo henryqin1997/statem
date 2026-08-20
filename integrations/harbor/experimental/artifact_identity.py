@@ -67,6 +67,69 @@ def artifact_identity(
     return "tree-sha256:" + stable_sha256(entries)
 
 
+def artifact_progress_identity(
+    root: Path,
+    *,
+    excluded_parts: Iterable[str] = DEFAULT_EXCLUDED_PARTS,
+) -> str:
+    """Return a content-free metadata witness for same-session progress."""
+
+    root = root.expanduser().resolve()
+    if not root.is_dir():
+        raise ValueError(f"artifact root is not a directory: {root}")
+    excluded = set(excluded_parts)
+    entries: list[dict[str, Any]] = []
+    for current_root, directory_names, file_names in os.walk(root, topdown=True):
+        current = Path(current_root)
+        kept_directories: list[str] = []
+        for name in sorted(directory_names):
+            path = current / name
+            relative = path.relative_to(root)
+            if name in excluded:
+                continue
+            if path.is_symlink():
+                entries.append(
+                    {
+                        "path": relative.as_posix(),
+                        "type": "symlink",
+                        "target": os.readlink(path),
+                    }
+                )
+            else:
+                kept_directories.append(name)
+        directory_names[:] = kept_directories
+        for name in sorted(file_names):
+            if name in DEFAULT_EXCLUDED_NAMES:
+                continue
+            path = current / name
+            relative = path.relative_to(root)
+            if path.is_symlink():
+                entries.append(
+                    {
+                        "path": relative.as_posix(),
+                        "type": "symlink",
+                        "target": os.readlink(path),
+                    }
+                )
+                continue
+            try:
+                stat = path.stat()
+            except OSError:
+                continue
+            if not path.is_file():
+                continue
+            entries.append(
+                {
+                    "path": relative.as_posix(),
+                    "type": "file",
+                    "size": stat.st_size,
+                    "mtime_ns": stat.st_mtime_ns,
+                    "executable": bool(stat.st_mode & 0o111),
+                }
+            )
+    return "progress-sha256:" + stable_sha256(entries)
+
+
 def public_contract_snapshot(root: Path) -> dict[str, dict[str, str]]:
     root = root.expanduser().resolve()
     snapshot: dict[str, dict[str, str]] = {}

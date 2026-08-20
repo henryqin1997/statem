@@ -204,6 +204,20 @@ class StatemCodex(Codex):
         except (OSError, TypeError, ValueError):
             return None
 
+    async def _session_progress_identity(
+        self,
+        environment: BaseEnvironment,
+        run_id: str,
+        current: dict[str, Any],
+    ) -> tuple[str, ...]:
+        """Return the bounded witness used to detect stalled resumes."""
+
+        del environment, run_id
+        return (
+            str(current.get("current") or ""),
+            str(current.get("current_entry_id") or ""),
+        )
+
     async def _run_codex_with_state_resumes(
         self,
         instruction: str,
@@ -291,9 +305,10 @@ class StatemCodex(Codex):
                 remaining = await self._session_deadline_remaining_seconds(environment)
                 if remaining is not None and remaining <= 30:
                     break
-                before = (
-                    str(current.get("current") or ""),
-                    str(current.get("current_entry_id") or ""),
+                before = await self._session_progress_identity(
+                    environment,
+                    run_id,
+                    current,
                 )
                 resume_prompt = self._session_resume_prompt(current)
                 resume_command = (
@@ -308,9 +323,10 @@ class StatemCodex(Codex):
                 self._session_resume_attempts += 1
                 await self.exec_as_agent(environment, command=resume_command, env=env)
                 _, after = await self._current_statem(environment, run_id)
-                after_identity = (
-                    str((after or {}).get("current") or ""),
-                    str((after or {}).get("current_entry_id") or ""),
+                after_identity = await self._session_progress_identity(
+                    environment,
+                    run_id,
+                    after or {},
                 )
                 if after_identity == before:
                     no_progress_resumes += 1

@@ -138,14 +138,17 @@ class CandidateAcceptanceReplayTest(unittest.TestCase):
                     {
                         "requirement_id": "public-boundaries",
                         "evidence_mode": "adapter_replay",
+                        "required_strata": ["zero", "one"],
                     },
                     {
                         "requirement_id": "public-signature",
                         "evidence_mode": "adapter_replay",
+                        "required_strata": ["call-shape"],
                     },
                     {
                         "requirement_id": "semantic-variant",
                         "evidence_mode": "paired_review",
+                        "required_strata": ["variant-a", "variant-b"],
                     },
                 ]
             },
@@ -178,9 +181,15 @@ class CandidateAcceptanceReplayTest(unittest.TestCase):
         self,
         *,
         mutate_plan=None,
+        require_strata_coverage: bool = False,
     ) -> dict[str, object]:
         preflight, proposal, snapshot, bundle = self._candidate_blind_inputs()
         plan = bundle.pop("plan")
+        if require_strata_coverage:
+            plan["checks"][0]["covered_strata"] = {
+                "public-boundaries": ["zero", "one"],
+                "public-signature": ["call-shape"],
+            }
         if mutate_plan is not None:
             mutate_plan(plan)
         with patch.dict(os.environ, self.env, clear=False):
@@ -192,6 +201,7 @@ class CandidateAcceptanceReplayTest(unittest.TestCase):
                 candidate_snapshot=snapshot,
                 artifact_root=self.app,
                 work_root=self.root / "blind-replays",
+                require_strata_coverage=require_strata_coverage,
             )
 
     def test_replay_binds_and_executes_on_disposable_snapshot_copy(self) -> None:
@@ -306,6 +316,34 @@ class CandidateAcceptanceReplayTest(unittest.TestCase):
                 mutate_plan=lambda plan: plan["checks"][0].__setitem__(
                     "requirement_ids", ["semantic-variant"]
                 )
+            )
+
+    def test_candidate_blind_plan_requires_every_predeclared_stratum(self) -> None:
+        receipt = self._blind_replay(require_strata_coverage=True)
+        self.assertTrue(receipt["all_passed"])
+        self.assertTrue(receipt["limits"]["required_strata_coverage"])
+        self.assertEqual(
+            receipt["plan"]["checks"][0]["covered_strata"],
+            {
+                "public-boundaries": ["one", "zero"],
+                "public-signature": ["call-shape"],
+            },
+        )
+
+        with self.assertRaisesRegex(ValueError, "does not cover candidate-blind required strata"):
+            self._blind_replay(
+                require_strata_coverage=True,
+                mutate_plan=lambda plan: plan["checks"][0]["covered_strata"].__setitem__(
+                    "public-boundaries", ["zero"]
+                ),
+            )
+
+        with self.assertRaisesRegex(ValueError, "references unknown strata"):
+            self._blind_replay(
+                require_strata_coverage=True,
+                mutate_plan=lambda plan: plan["checks"][0]["covered_strata"].__setitem__(
+                    "public-signature", ["wrong-shape"]
+                ),
             )
         with self.assertRaisesRegex(ValueError, "not bound to preflight evidence"):
             self._blind_replay(

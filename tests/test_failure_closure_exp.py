@@ -5,7 +5,8 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 import yaml
 
@@ -19,14 +20,19 @@ from integrations.harbor.experimental.recovering_develop_guard import (
     close_cycle,
     open_cycle,
 )
+from integrations.harbor.experimental.artifact_identity import (
+    artifact_progress_identity,
+)
 from integrations.harbor.statem_codex_multirole_develop_exp import (
     EvidenceDevelopV4p31ExperimentalStatemCodex,
+    EvidenceDevelopV4p32ExperimentalStatemCodex,
 )
 from statem.core import validate_spec
 
 
 REPO = Path(__file__).resolve().parents[1]
 RUNBOOK = REPO / "examples/frontier-bench-agent-evidence-develop-v4p31-exp.yaml"
+RUNBOOK_V4P32 = REPO / "examples/frontier-bench-agent-evidence-develop-v4p32-exp.yaml"
 FAMILY_CATALOG = REPO / "examples/develop-family-router-v1.yaml"
 
 
@@ -140,6 +146,24 @@ class FailureClosureTest(unittest.TestCase):
         selected = select_family(catalog=catalog, review_profile=profile)
         self.assertEqual(selected["family_id"], "structured-transformation")
         self.assertEqual(selected["retry_reserve_seconds"], 2100)
+
+    def test_v4p32_runbook_requires_stratum_complete_replay(self) -> None:
+        text = RUNBOOK_V4P32.read_text(encoding="utf-8")
+        validate_spec(RUNBOOK_V4P32, strict=True)
+        self.assertIn("frontier-bench-statem-evidence-develop-v4p32-experiment", text)
+        self.assertIn("covered_strata", text)
+        self.assertEqual(text.count("--require-strata-coverage"), 2)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            agent = EvidenceDevelopV4p32ExperimentalStatemCodex(
+                logs_dir=Path(temp_dir),
+                model_name="gpt-5.6-sol",
+            )
+        self.assertEqual(
+            agent.name(),
+            "ziheng-yaxin-statem-codex-evidence-develop-v4p32-exp",
+        )
+        self.assertEqual(agent._runbook_path, RUNBOOK_V4P32)
 
     def test_deadline_gate_requires_a_complete_family_cycle_reserve(self) -> None:
         self._open()
@@ -310,6 +334,54 @@ class FailureClosureTest(unittest.TestCase):
         self.assertIn("family/family-selection.json", instruction)
         self.assertIn("recovering-develop/retry-brief.json", instruction)
         validate_spec(RUNBOOK, strict=True)
+
+
+class V4p32ProgressWitnessTest(unittest.IsolatedAsyncioTestCase):
+    async def test_progress_identity_uses_metadata_and_excludes_progress_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            artifact = root / "artifact.txt"
+            artifact.write_text("before", encoding="utf-8")
+            before = artifact_progress_identity(root)
+            artifact.write_text("after-change", encoding="utf-8")
+            self.assertNotEqual(artifact_progress_identity(root), before)
+
+            stable = artifact_progress_identity(root)
+            (root / "progress.md").write_text("working", encoding="utf-8")
+            excluded = root / "node_modules"
+            excluded.mkdir()
+            (excluded / "vendor.js").write_text("large-vendor-tree", encoding="utf-8")
+            self.assertEqual(artifact_progress_identity(root), stable)
+
+    async def test_same_state_artifact_or_receipt_progress_changes_identity(self) -> None:
+        agent = object.__new__(EvidenceDevelopV4p32ExperimentalStatemCodex)
+        agent._statem_env = lambda run_id: {"STATEM_RUN_ID": run_id}
+        agent.exec_as_agent = AsyncMock(
+            side_effect=[
+                SimpleNamespace(stdout="witness-a\n"),
+                SimpleNamespace(stdout="witness-b\n"),
+                SimpleNamespace(stdout="witness-b\n"),
+            ]
+        )
+        current = {"current": "solve", "current_entry_id": "solve-1"}
+
+        first = await agent._session_progress_identity(
+            SimpleNamespace(), "run-1", current
+        )
+        second = await agent._session_progress_identity(
+            SimpleNamespace(), "run-1", current
+        )
+        unchanged = await agent._session_progress_identity(
+            SimpleNamespace(), "run-1", current
+        )
+
+        self.assertEqual(first[:2], ("solve", "solve-1"))
+        self.assertNotEqual(first, second)
+        self.assertEqual(second, unchanged)
+        command = agent.exec_as_agent.await_args_list[0].kwargs["command"]
+        self.assertIn("artifact_progress_identity", command)
+        self.assertIn("/app", command)
+        self.assertIn("cycle-ledger.json", command)
 
 
 if __name__ == "__main__":

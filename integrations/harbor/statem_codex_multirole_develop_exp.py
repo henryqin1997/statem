@@ -668,3 +668,96 @@ Evidence-develop v4p31 controls:
                 )
             except Exception:
                 pass
+
+
+class EvidenceDevelopV4p32ExperimentalStatemCodex(
+    EvidenceDevelopV4p31ExperimentalStatemCodex
+):
+    """Stratum-complete replay with same-state implementation progress."""
+
+    _PROGRESS_RECEIPTS = (
+        "multirole/solver-plan.json",
+        "multirole/preflight-evidence.json",
+        "multirole/candidate-proposal.json",
+        "multirole/acceptance-evidence.json",
+        "multirole/acceptance-replay.json",
+        "multirole/promotion-decision.json",
+        "recovering-develop/cycle-ledger.json",
+        "recovering-develop/replay-decision.json",
+        "recovering-develop/validation-delta-receipt.json",
+    )
+
+    def __init__(
+        self,
+        *args: Any,
+        runbook_path: str | None = None,
+        **kwargs: Any,
+    ):
+        repo_root = Path(__file__).resolve().parents[2]
+        runbook = (
+            repo_root
+            / "examples"
+            / "frontier-bench-agent-evidence-develop-v4p32-exp.yaml"
+        )
+        super().__init__(
+            *args,
+            runbook_path=runbook_path or str(runbook),
+            **kwargs,
+        )
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p32-exp"
+
+    def _augment_instruction(
+        self,
+        instruction: str,
+        run_id: str,
+        current_context: str,
+    ) -> str:
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
+
+Evidence-develop v4p32 controls:
+- Same-node continuation is real progress when the task artifact or a bounded
+  milestone receipt changes. The host compares that composite witness before
+  consuming a no-progress resume allowance.
+- Candidate-blind adapter replay must bind every predeclared required_strata
+  value through covered_strata. Requirement-id coverage alone is insufficient.
+"""
+
+    async def _session_progress_identity(
+        self,
+        environment: BaseEnvironment,
+        run_id: str,
+        current: dict[str, Any],
+    ) -> tuple[str, ...]:
+        base = await super()._session_progress_identity(environment, run_id, current)
+        receipt_paths = [
+            f"/tmp/statem-verification-checks/{relative}"
+            for relative in self._PROGRESS_RECEIPTS
+        ]
+        script = "\n".join(
+            [
+                "import sys",
+                "from pathlib import Path",
+                "sys.path.insert(0, '/tmp/statem-verification-checks')",
+                "from artifact_identity import artifact_progress_identity, file_sha256, stable_sha256",
+                f"paths = {receipt_paths!r}",
+                "receipts = {path: file_sha256(Path(path)) if Path(path).is_file() else None for path in paths}",
+                "print(stable_sha256({'artifact': artifact_progress_identity(Path('/app')), 'receipts': receipts}))",
+            ]
+        )
+        try:
+            result = await self.exec_as_agent(
+                environment,
+                command="python3 -c " + shlex.quote(script),
+                env=self._statem_env(run_id),
+            )
+            witness = (result.stdout or "").strip()
+        except Exception:
+            witness = "progress-witness-unavailable"
+        return (*base, witness)
