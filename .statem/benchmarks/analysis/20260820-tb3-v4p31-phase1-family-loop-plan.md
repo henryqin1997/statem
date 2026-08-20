@@ -126,6 +126,18 @@ replayable milestone. Two consecutive attempts without one of these signals
 park the task. A successful internal test with no new coverage or attribution
 does not reset this counter.
 
+The queue contract is currently structured but must not remain prompt-only.
+The minimal enforcement point is a benchmark-orchestration prelaunch gate, not
+StateM core and not task-agent context. It issues a receipt bound to the queue
+hash, task, frozen control, mode, platform, bottleneck prior, owner, hardware
+feasibility, cheapest discriminator, estimated API/wall budget, observable
+progress target, park condition, and hypothesis-scoped no-progress count. The
+receipt decision is `admit`, `defer`, or `reject`. This gate validates that the
+selection argument is complete and internally consistent; it does not pretend
+that a semantic prior is mechanically proven. Because the receipt remains
+host-side, it adds no task-solver cognitive load and cannot leak selection
+metadata into the solution trajectory.
+
 The no-progress counter is hypothesis-scoped. A parked task reopens only when a
 different task supplies a new generic control, a cheaper public discriminator,
 new feasible hardware, or a materially narrower owner. Re-running the same

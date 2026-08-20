@@ -101,6 +101,38 @@ triage_policy:
     triage: matched_k1_direct_and_statem
     estimate: matched_k5_after_control_promotion
     note: adapted samples never become final holdouts
+  admission_enforcement:
+    layer: benchmark_orchestration
+    status: designed_pending_active_v4p34_source_exit
+    mechanism: signed_prelaunch_receipt
+    excluded_layers:
+      - statem_core
+      - task_agent_context
+    receipt_must_bind:
+      - queue_sha256
+      - task
+      - control_version
+      - experiment_mode
+      - platform_class
+      - dominant_limit_prior
+      - owning_control_layer
+      - hardware_feasibility
+      - cheapest_public_discriminator
+      - expected_api_cost
+      - expected_wall_time
+      - observable_progress_target
+      - stop_or_park_condition
+      - hypothesis_scoped_no_progress_count
+      - admission_decision
+      - decision_reasons
+    decisions:
+      - admit
+      - defer
+      - reject
+    note: >-
+      The validator checks completeness, consistency, and explicit resource and
+      no-progress policy. It does not convert a semantic bottleneck prior into
+      ground truth or expose the receipt to the task agent.
 
 families:
   stateful-lifecycle:
