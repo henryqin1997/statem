@@ -11,6 +11,7 @@
 [![Version](https://img.shields.io/badge/version-0.1.0-2ea44f)](https://github.com/henryqin1997/statem)
 [![Python](https://img.shields.io/badge/python-%E2%89%A53.11-3776ab)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+</div>
 
 ## News
 
@@ -18,7 +19,7 @@
 
 [**2026-08-18**]🔥 We released the DeepSeek-V4-Flash [StateM runbook and reproducibility release](https://github.com/henryqin1997/statem/releases/tag/deepseek-policy9-tb21-artifacts-20260818), reaching **88.8% descriptive accuracy** on Terminal-Bench 2.1 (395/445 trials; 88.76% unrounded). Everyone can try!
 
-
+<div align="center">
 [![StateM demo](https://henryqin1997.github.io/media/statem/statem-demo-poster-v2.jpg)](https://henryqin1997.github.io/media/statem/statem-demo.mp4)
 
 [Watch or download the 40-second demo](https://henryqin1997.github.io/media/statem/statem-demo.mp4)
