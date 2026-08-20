@@ -320,7 +320,8 @@ fresh_holdout_candidates:
     statem_backup_files: 146
     statem_backup_bytes: 7172327
     statem_backup_tree_sha256: 0d4d4e8cc896928f93aa6a3cc4d09ee12eb26fc1b7ac817b229f09ed290ac93f
-    state: deferred_after_progress_waiting_generic_authority_control
+    state: v4p35_admission_pending_for_generic_authority_control
+    next_job: tb3-sol-evidence-v4p35-production-planning-k1-aws-x86-c
     score_eligible_as_future_holdout_for_this_control: false
   - task: cargo-flight-dispatch
     public_sol_passes: 0
@@ -443,7 +444,8 @@ fresh_holdout_candidates:
       cannot be closed by solver-recorded values or an unrelated output-format
       replay; unresolved or independence-inadequate obligations route to revise
       or quarantine.
-    state: parked_after_substantive_zero_waiting_obligation_closure_control
+    state: v4p35_admission_pending_for_obligation_closure_control
+    next_job: tb3-sol-evidence-v4p35-foodstuff-beta-activity-k1-local-c
     score_eligible_as_future_holdout_for_this_control: false
   - task: fix-uautomizer-soundness
     public_sol_passes: 0
