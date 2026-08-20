@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.statem.tb3.html.v4p36.extended</string>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>/Users/qinziheng/workspace/statem/.statem/benchmarks/launch/run_tb3_evidence_v4p36_html_js_extended_local_b.sh</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardErrorPath</key>
+  <string>/Users/qinziheng/workspace/statem/.statem/benchmarks/launch/tb3-v4p36-html-extended-b.err.log</string>
+  <key>StandardOutPath</key>
+  <string>/Users/qinziheng/workspace/statem/.statem/benchmarks/launch/tb3-v4p36-html-extended-b.out.log</string>
+  <key>WorkingDirectory</key>
+  <string>/Users/qinziheng/workspace/statem</string>
+</dict>
+</plist>

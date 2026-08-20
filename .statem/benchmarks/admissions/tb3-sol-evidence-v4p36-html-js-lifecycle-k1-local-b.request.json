@@ -1,0 +1,22 @@
+{
+  "job_name": "tb3-sol-evidence-v4p36-html-js-lifecycle-k1-local-b",
+  "task": "html-js-filter",
+  "control_version": "v4p36",
+  "experiment_mode": "adapted_extended_lifecycle_diagnostic",
+  "platform_class": "local_arm64_cpu",
+  "dominant_limit_prior": "statem_controllable_workflow",
+  "evidence_basis": "Earlier HTML/JS cells exposed implementation-owned validation deltas but timed out or stopped before terminal handoff. Foodstuff and Production independently identified the generic two-resume lifecycle stop as a host owner; v4p36 directly repairs that owner.",
+  "owning_control_layer": "host_lifecycle_and_structured_transformation_validation",
+  "hardware_feasibility": "available",
+  "required_cpus": 2,
+  "required_memory_mb": 4096,
+  "required_gpus": 0,
+  "cheapest_public_discriminator": "one extended adapted lifecycle cell that must close the existing public validation delta and reach terminal handoff",
+  "expected_api_cost_usd": 17.0,
+  "expected_wall_time_seconds": 7200,
+  "observable_progress_target": "record bounded resume decisions, preserve prior failure ownership and validation delta, and either reach protocol-valid handoff or narrow the remaining owner beyond lifecycle scheduling",
+  "stop_or_park_condition": "park HTML/JS if v4p36 still cannot produce a new replayable milestone or terminal handoff; never count this adapted extended cell toward the phase-one score target",
+  "hypothesis_scoped_no_progress_count": 0,
+  "new_generic_hypothesis": true,
+  "requested_decision": "admit"
+}

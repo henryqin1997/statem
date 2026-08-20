@@ -1,0 +1,38 @@
+{
+  "admission_decision": "admit",
+  "cheapest_public_discriminator": "one extended adapted lifecycle cell that must close the existing public validation delta and reach terminal handoff",
+  "control_version": "v4p36",
+  "created_at_epoch": 1787250492,
+  "decision_reasons": [
+    "complete_low_risk_information_gain_case"
+  ],
+  "dominant_limit_prior": "statem_controllable_workflow",
+  "evidence_basis": "Earlier HTML/JS cells exposed implementation-owned validation deltas but timed out or stopped before terminal handoff. Foodstuff and Production independently identified the generic two-resume lifecycle stop as a host owner; v4p36 directly repairs that owner.",
+  "expected_api_cost_usd": 17.0,
+  "expected_wall_time_seconds": 7200,
+  "experiment_mode": "adapted_extended_lifecycle_diagnostic",
+  "hardware_feasibility": "available",
+  "hypothesis_scoped_no_progress_count": 0,
+  "job_name": "tb3-sol-evidence-v4p36-html-js-lifecycle-k1-local-b",
+  "kind": "tb3_prelaunch_admission_receipt",
+  "new_generic_hypothesis": true,
+  "observable_progress_target": "record bounded resume decisions, preserve prior failure ownership and validation delta, and either reach protocol-valid handoff or narrow the remaining owner beyond lifecycle scheduling",
+  "owning_control_layer": "host_lifecycle_and_structured_transformation_validation",
+  "platform_class": "local_arm64_cpu",
+  "queue_sha256": "048ae344fd18b51f7259ac0e9119562bee28fc5e0aaf7269404a1cc0e422636e",
+  "receipt_sha256": "51174d608d1a79db1c154c1dc64fc9165f41e04c830bbfc46271da6a871d9c0b",
+  "request_sha256": "1242fc70c68564235f6b9c0684e5d084dfd09102c29991bad8d919568c8bd6b1",
+  "requested_decision": "admit",
+  "resources": {
+    "available_cpus": 10,
+    "available_gpus": 0,
+    "available_memory_mb": 30000,
+    "required_cpus": 2,
+    "required_gpus": 0,
+    "required_memory_mb": 4096
+  },
+  "stop_or_park_condition": "park HTML/JS if v4p36 still cannot produce a new replayable milestone or terminal handoff; never count this adapted extended cell toward the phase-one score target",
+  "task": "html-js-filter",
+  "valid": true,
+  "version": 2
+}
