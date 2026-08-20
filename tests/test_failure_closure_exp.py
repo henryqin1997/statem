@@ -31,6 +31,7 @@ from integrations.harbor.statem_codex_multirole_develop_exp import (
     EvidenceDevelopV4p33ExperimentalStatemCodex,
     EvidenceDevelopV4p34ExperimentalStatemCodex,
     EvidenceDevelopV4p35ExperimentalStatemCodex,
+    EvidenceDevelopV4p36ExperimentalStatemCodex,
 )
 from statem.core import validate_spec
 
@@ -513,6 +514,29 @@ class V4p32ProgressWitnessTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("artifact_progress_identity", command)
         self.assertIn("/app", command)
         self.assertIn("cycle-ledger.json", command)
+
+
+class V4p36LifecycleProgressTest(unittest.TestCase):
+    def test_candidate_blind_drafts_are_progress_witnesses(self) -> None:
+        paths = EvidenceDevelopV4p36ExperimentalStatemCodex._PROGRESS_RECEIPTS
+
+        self.assertIn("multirole/solver-plan-draft.json", paths)
+        self.assertIn("multirole/review-profile-draft.json", paths)
+        self.assertIn("multirole/acceptance-evidence-draft.json", paths)
+
+    def test_lifecycle_budget_allows_bounded_plan_revision(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            agent = EvidenceDevelopV4p36ExperimentalStatemCodex(
+                logs_dir=Path(temp_dir),
+                model_name="gpt-5.6-sol",
+            )
+
+        self.assertEqual(agent._session_no_progress_limit(), 4)
+        self.assertEqual(
+            agent.name(),
+            "ziheng-yaxin-statem-codex-evidence-develop-v4p36-exp",
+        )
+        self.assertEqual(agent._runbook_path, RUNBOOK_V4P35)
 
 
 if __name__ == "__main__":

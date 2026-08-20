@@ -154,6 +154,7 @@ class StatemCodex(Codex):
             raise ValueError("max_session_resumes must be between 0 and 12")
         self._max_session_resumes = int(max_session_resumes)
         self._session_resume_attempts = 0
+        self._session_resume_trace: list[dict[str, Any]] = []
         self._source_manifest: dict[str, Any] | None = None
 
     @staticmethod
@@ -217,6 +218,11 @@ class StatemCodex(Codex):
             str(current.get("current") or ""),
             str(current.get("current_entry_id") or ""),
         )
+
+    def _session_no_progress_limit(self) -> int:
+        """Consecutive unchanged resumes allowed before lifecycle handoff."""
+
+        return 2
 
     async def _run_codex_with_state_resumes(
         self,
@@ -328,9 +334,18 @@ class StatemCodex(Codex):
                     run_id,
                     after or {},
                 )
-                if after_identity == before:
+                progress_changed = after_identity != before
+                self._session_resume_trace.append(
+                    {
+                        "attempt": self._session_resume_attempts,
+                        "before_state": before[0] if before else "",
+                        "after_state": after_identity[0] if after_identity else "",
+                        "progress_changed": progress_changed,
+                    }
+                )
+                if not progress_changed:
                     no_progress_resumes += 1
-                    if no_progress_resumes >= 2:
+                    if no_progress_resumes >= self._session_no_progress_limit():
                         break
                 else:
                     no_progress_resumes = 0
@@ -1120,6 +1135,7 @@ Benchmark task:
             "run_id": run_id,
             "agent": self.name(),
             "session_resume_attempts": self._session_resume_attempts,
+            "session_resume_trace": self._session_resume_trace,
         }
         if self._source_manifest:
             metadata["source_manifest_sha256"] = self._source_manifest.get("manifest_sha256")

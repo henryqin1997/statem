@@ -905,3 +905,47 @@ Evidence-develop v4p35 controls:
 - Multiple plausible objective orderings remain unresolved until visible
   authority or a fixed public population actually distinguishes their outputs.
 """
+
+
+class EvidenceDevelopV4p36ExperimentalStatemCodex(
+    EvidenceDevelopV4p35ExperimentalStatemCodex
+):
+    """Lifecycle-aware progress for candidate-blind planning and review."""
+
+    _PROGRESS_RECEIPTS = (
+        *EvidenceDevelopV4p35ExperimentalStatemCodex._PROGRESS_RECEIPTS,
+        "multirole/solver-plan-draft.json",
+        "multirole/review-profile-draft.json",
+        "multirole/proposal-draft.json",
+        "multirole/acceptance-replay-plan-draft.json",
+        "multirole/acceptance-evidence-draft.json",
+    )
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p36-exp"
+
+    def _session_no_progress_limit(self) -> int:
+        return 4
+
+    def _augment_instruction(
+        self,
+        instruction: str,
+        run_id: str,
+        current_context: str,
+    ) -> str:
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
+
+Evidence-develop v4p36 controls:
+- Candidate-blind plan and reviewer-profile revisions are lifecycle progress
+  even before they mutate the task artifact or produce a sealed receipt.
+- The host permits four consecutive unchanged same-context resumes before
+  declaring lifecycle no-progress. The hard eight-resume and task-deadline
+  bounds remain unchanged.
+- Each resume records only bounded state and progress-change metadata so a
+  protocol stop can be attributed without exposing task trajectories.
+"""

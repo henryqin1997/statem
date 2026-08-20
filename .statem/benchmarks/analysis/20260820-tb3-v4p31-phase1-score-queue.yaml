@@ -210,10 +210,10 @@ initial_lanes:
 
 current_control:
   branch: codex/tb3-v4p31-failure-loop-20260820
-  commit: ce651e0
-  adapter: ziheng-yaxin-statem-codex-evidence-develop-v4p33-exp
+  commit: working_tree_pending_commit
+  adapter: ziheng-yaxin-statem-codex-evidence-develop-v4p36-exp
   canonical_manifest_file_count: 35
-  canonical_manifest_sha256: e7aa59496560ade7804be5e18326ddb2273ee2c8d042fa95ca2208e25b530402
+  canonical_manifest_sha256: d4f1995d67683b336b79bb03a7906070c44fdd10c58b1307c3fc6291b70e6c4d
   native_baseline_harness_commit: ca2415f
 
 previous_control:
@@ -337,9 +337,19 @@ fresh_holdout_candidates:
     statem_backup_files: 146
     statem_backup_bytes: 7172327
     statem_backup_tree_sha256: 0d4d4e8cc896928f93aa6a3cc4d09ee12eb26fc1b7ac817b229f09ed290ac93f
-    state: v4p35_active_adapted_generic_authority_control
+    state: parked_after_v4p35_host_lifecycle_failure
     next_job: tb3-sol-evidence-v4p35-production-planning-k1-aws-x86-c
-    v4p35_initial_runner_pid: 287125
+    v4p35_raw_reward: null
+    v4p35_reward_valid: false
+    v4p35_protocol_valid: false
+    v4p35_error_class: nonterminal_solve_after_two_host_resumes
+    v4p35_cost_usd: 0.612203
+    v4p35_backup_tree_sha256: 2705a17504ad24bc935fb05b5d065e8fabe2ad98e93c10ffc17ab3072c4417d6
+    v4p35_development_progress: >-
+      Preflight reviewer returned revise_plan before candidate construction,
+      independently identifying the candidate-blind objective-authority gap.
+      Host lifecycle ownership then terminated the nonterminal solve state.
+    reopen_only_with: validated_generic_lifecycle_progress_control
     score_eligible_as_future_holdout_for_this_control: false
   - task: cargo-flight-dispatch
     public_sol_passes: 0
@@ -462,10 +472,20 @@ fresh_holdout_candidates:
       cannot be closed by solver-recorded values or an unrelated output-format
       replay; unresolved or independence-inadequate obligations route to revise
       or quarantine.
-    state: v4p35_active_adapted_obligation_closure_control
+    state: parked_after_v4p35_host_lifecycle_failure
     next_job: tb3-sol-evidence-v4p35-foodstuff-beta-activity-k1-local-c
-    v4p35_launchd_label: com.statem.tb3.foodstuff.v4p35.k1.c
-    v4p35_initial_runner_pid: 36762
+    v4p35_raw_reward: null
+    v4p35_reward_valid: false
+    v4p35_protocol_valid: false
+    v4p35_error_class: nonterminal_falsify_after_two_host_resumes
+    v4p35_cost_usd: 0.515696
+    v4p35_backup_tree_sha256: d92bae16a2e730204c1dcc930c1368ce2dbec535689e0e68cfd3fee13be750ee
+    v4p35_development_progress: >-
+      Six candidate-blind obligations were declared and candidate-bound public
+      replay passed 4/4 planned checks, but the host stopped before launching
+      the falsifier reviewer. Production independently reproduced the lifecycle
+      owner.
+    reopen_only_with: validated_generic_lifecycle_progress_control
     score_eligible_as_future_holdout_for_this_control: false
   - task: data-anonymization
     public_sol_passes: 0
@@ -505,10 +525,10 @@ fresh_holdout_candidates:
       independently replayable milestone.
     matched_pair_id: data-anonymization-aws-x86-v4p35-k1-a
     direct_job: tb3-sol-native-baseline-v2-data-anonymization-k1-aws-x86-a
-    statem_job: tb3-sol-evidence-v4p35-data-anonymization-k1-aws-x86-b
+    statem_job: tb3-sol-evidence-v4p36-data-anonymization-k1-aws-x86-b
     development_attempts_for_current_hypothesis: 0
     hypothesis_scoped_no_progress_count: 0
-    state: next_fresh_candidate_waiting_for_remote_lane
+    state: next_fresh_candidate_waiting_for_v4p36_lifecycle_sentinel
     score_eligible: true
   - task: fix-uautomizer-soundness
     public_sol_passes: 0
@@ -587,8 +607,15 @@ negative_transfer_sentinels:
         bytes: 80792
         tree_sha256: 422aad3aedea798ee834af926f661b286bdcef0e39548755fa3d2d8a93778c72
       replacement_job: tb3-sol-native-baseline-v2-risk-scorer-replay-k1-aws-x86-a3
-      replacement_state: active_with_exact_v2_alias_and_adapter_identity
+      replacement_state: completed_valid_raw_one
       replacement_initial_runner_pid: 283978
+      replacement_raw_reward: 1.0
+      replacement_protocol_valid: true
+      replacement_cost_usd: 5.060885
+      replacement_backup:
+        files: 30
+        bytes: 717510
+        tree_sha256: 1c158c532acc415eb5f889ab22bdb01dec126ccb928d889e4db0943fd108cf3f
       identity_invalid_attempt:
         job: tb3-sol-native-baseline-v2-risk-scorer-replay-k1-aws-x86-a2
         raw_reward: null
@@ -599,15 +626,14 @@ negative_transfer_sentinels:
           bytes: 113000
           tree_sha256: 3caf4fc0138dee79fb51259ae7c4890c2f4767e0aa985ae41cdd547bdcd1a180
     statem:
-      job: tb3-sol-evidence-v4p34-risk-scorer-replay-k1-aws-x86-b
-      state: predeclared_waiting_for_remote_lane
-      source_manifest_sha256: c6ddf782bd8695e1c30dfee371e2a21d0237f3aff5bc785a8943c6cc3a557973
-    matched_verdict: direct_invalid_replacement_required
+      job: tb3-sol-evidence-v4p36-risk-scorer-replay-k1-aws-x86-b
+      state: next_regression_sentinel_after_v4p36_validation
+      source_manifest_sha256: d4f1995d67683b336b79bb03a7906070c44fdd10c58b1307c3fc6291b70e6c4d
+    matched_verdict: direct_valid_stateM_required
     note: >-
-      The first direct attempt is excluded: the task image runs as a non-root
-      user with HOME=/tmp, while the native baseline harness left uploaded
-      file authentication root-owned. This is a generic harness ownership gap,
-      not a task failure or provider outage. Preserve the invalid attempt and
-      run the predeclared replacement only after a tested generic fix. This
-      repeated k1 pair remains an early regression discriminator only; a
-      promotion claim still requires the predeclared matched k5 sentinel.
+      The first direct attempt is excluded for non-root authentication
+      ownership and a2 is excluded for experiment-identity mismatch. The exact
+      baseline-v2 a3 replacement is valid raw one. Run the v4p36 StateM half on
+      the same platform before fresh score cells. This repeated k1 pair remains
+      an early regression discriminator only; a promotion claim still requires
+      the predeclared matched k5 sentinel.
