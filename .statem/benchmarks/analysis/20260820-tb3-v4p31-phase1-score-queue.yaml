@@ -368,7 +368,8 @@ fresh_holdout_candidates:
       StateM cells without a narrower owner, public artifact improvement,
       validation delta, or replayable milestone.
     matched_pair_id: foodstuff-beta-activity-local-arm64-v4p34-k1-a
-    state: matched_k1_direct_predeclared
+    direct_runner_pid: 24632
+    state: matched_k1_direct_active
   - task: fix-uautomizer-soundness
     public_sol_passes: 0
     expected_family: structured-transformation
