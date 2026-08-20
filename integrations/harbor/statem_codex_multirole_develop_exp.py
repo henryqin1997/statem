@@ -949,3 +949,32 @@ Evidence-develop v4p36 controls:
 - Each resume records only bounded state and progress-change metadata so a
   protocol stop can be attributed without exposing task trajectories.
 """
+
+
+class EvidenceDevelopV4p37ExperimentalStatemCodex(
+    EvidenceDevelopV4p36ExperimentalStatemCodex
+):
+    """Canonical preflight evidence across the full review lifecycle."""
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p37-exp"
+
+    def _augment_instruction(
+        self,
+        instruction: str,
+        run_id: str,
+        current_context: str,
+    ) -> str:
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
+
+Evidence-develop v4p37 controls:
+- The canonical plan_preflight_evidence receipt remains mechanically valid
+  across falsifier initialization, acceptance-obligation adjudication, and the
+  final promotion decision. Receipt naming cannot discard bound semantic
+  evidence or strand the run in the falsify state.
+"""

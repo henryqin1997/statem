@@ -210,11 +210,23 @@ initial_lanes:
 
 current_control:
   branch: codex/tb3-v4p31-failure-loop-20260820
-  source_commit: 037e5d8
-  adapter: ziheng-yaxin-statem-codex-evidence-develop-v4p36-exp
+  source_commit: pending_local_commit
+  adapter: ziheng-yaxin-statem-codex-evidence-develop-v4p37-exp
   canonical_manifest_file_count: 35
-  canonical_manifest_sha256: d4f1995d67683b336b79bb03a7906070c44fdd10c58b1307c3fc6291b70e6c4d
+  canonical_manifest_sha256: d86bd75ed48702ff8313d1fdde2aba583e9970556fdcbb4360a93f6279190897
   native_baseline_harness_commit: ca2415f
+  repair: canonical_plan_preflight_evidence_across_review_consumers
+  semantic_fields_unchanged:
+    - task_contract
+    - candidate_artifact
+    - reviewer_verdict
+    - promotion_authorization
+    - rollback_policy
+  focused_validation: 94_tests_passed
+  full_validation: >-
+    720 tests run and 11 skipped; one known unrelated git-webserver-family
+    subprocess import failure remained.
+  promotion_state: awaiting_protocol_valid_risk_k1
 
 previous_control:
   version: v4p34
@@ -523,12 +535,12 @@ fresh_holdout_candidates:
       Park after two hypothesis-scoped StateM cells without a narrower owner,
       new public discriminator, artifact improvement, validation delta, or
       independently replayable milestone.
-    matched_pair_id: data-anonymization-aws-x86-v4p35-k1-a
+    matched_pair_id: data-anonymization-aws-x86-v4p37-k1-a
     direct_job: tb3-sol-native-baseline-v2-data-anonymization-k1-aws-x86-a
-    statem_job: tb3-sol-evidence-v4p36-data-anonymization-k1-aws-x86-b
+    statem_job: tb3-sol-evidence-v4p37-data-anonymization-k1-aws-x86-b
     development_attempts_for_current_hypothesis: 0
     hypothesis_scoped_no_progress_count: 0
-    state: next_fresh_candidate_waiting_for_v4p36_lifecycle_sentinel
+    state: direct_valid_zero_backed_up_stateM_waiting_for_v4p37_risk_gate
     score_eligible: true
   - task: fix-uautomizer-soundness
     public_sol_passes: 0
@@ -627,13 +639,26 @@ negative_transfer_sentinels:
           tree_sha256: 3caf4fc0138dee79fb51259ae7c4890c2f4767e0aa985ae41cdd547bdcd1a180
     statem:
       job: tb3-sol-evidence-v4p36-risk-scorer-replay-k1-aws-x86-b
-      state: next_regression_sentinel_after_v4p36_validation
+      state: completed_protocol_invalid_canonical_preflight_kind_mismatch
       source_manifest_sha256: d4f1995d67683b336b79bb03a7906070c44fdd10c58b1307c3fc6291b70e6c4d
-    matched_verdict: direct_valid_stateM_required
+      raw_reward: null
+      protocol_valid: false
+      cost_usd: 0.424777
+      backup:
+        files: 107
+        bytes: 2851059
+        tree_sha256: 959b967443c312abc2190f0fbf8c55bc25f520b4b80b0d578284479bfbe1bdc4
+    next_statem:
+      job: tb3-sol-evidence-v4p37-risk-scorer-replay-k1-aws-x86-c
+      state: waiting_for_v4p37_deployment_and_admission
+      source_manifest_sha256: d86bd75ed48702ff8313d1fdde2aba583e9970556fdcbb4360a93f6279190897
+    matched_verdict: direct_valid_v4p36_protocol_invalid_v4p37_required
     note: >-
       The first direct attempt is excluded for non-root authentication
       ownership and a2 is excluded for experiment-identity mismatch. The exact
-      baseline-v2 a3 replacement is valid raw one. Run the v4p36 StateM half on
+      baseline-v2 a3 replacement is valid raw one. The v4p36 StateM half was
+      protocol-invalid because downstream consumers rejected the canonical
+      preflight receipt kind. Run the minimal v4p37 repair on
       the same platform before fresh score cells. This repeated k1 pair remains
       an early regression discriminator only; a promotion claim still requires
       the predeclared matched k5 sentinel.

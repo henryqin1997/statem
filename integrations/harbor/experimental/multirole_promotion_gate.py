@@ -1290,7 +1290,7 @@ def _acceptance_obligation_assessment_state(
 ) -> tuple[bool, bool, list[dict[str, str]]]:
     if preflight_evidence is None:
         return True, True, []
-    _require_receipt(preflight_evidence, "preflight_evidence")
+    _require_receipt(preflight_evidence, "plan_preflight_evidence")
     acceptance_plan = preflight_evidence.get("acceptance_plan")
     if not isinstance(acceptance_plan, dict):
         return False, False, []
@@ -1653,7 +1653,7 @@ def falsifier_task(
             raise ValueError("review profile is not bound to the contract seal")
     acceptance_plan: dict[str, Any] | None = None
     if preflight_evidence is not None:
-        _require_receipt(preflight_evidence, "preflight_evidence")
+        _require_receipt(preflight_evidence, "plan_preflight_evidence")
         if proposal.get("preflight_evidence_sha256") != stable_sha256(
             preflight_evidence
         ):
@@ -2210,7 +2210,7 @@ def decide_promotion(
     )
     preflight_evidence_bound = True
     if preflight_evidence is not None:
-        _require_receipt(preflight_evidence, "preflight_evidence")
+        _require_receipt(preflight_evidence, "plan_preflight_evidence")
         preflight_evidence_bound = proposal.get(
             "preflight_evidence_sha256"
         ) == stable_sha256(preflight_evidence)

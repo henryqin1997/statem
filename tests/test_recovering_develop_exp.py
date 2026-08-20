@@ -34,6 +34,7 @@ from integrations.harbor.experimental.recovering_develop_guard import (
 from integrations.harbor.statem_codex_multirole_develop_exp import (
     EvidenceDevelopV4ExperimentalStatemCodex,
     EvidenceDevelopV4p30ExperimentalStatemCodex,
+    EvidenceDevelopV4p37ExperimentalStatemCodex,
     RecoveringMultiRoleDevelopExperimentalStatemCodex,
 )
 from integrations.harbor.statem_codex import TeamRunStatemCodex
@@ -1121,6 +1122,15 @@ class RecoveringDevelopRunbookTest(unittest.TestCase):
         )
         self.assertIn("develop_activation_gate.py", names)
         self.assertIn("candidate_acceptance_replay.py", names)
+
+    def test_v4p37_adapter_has_canonical_preflight_identity(self) -> None:
+        agent = EvidenceDevelopV4p37ExperimentalStatemCodex.__new__(
+            EvidenceDevelopV4p37ExperimentalStatemCodex
+        )
+        self.assertEqual(
+            agent.name(),
+            "ziheng-yaxin-statem-codex-evidence-develop-v4p37-exp",
+        )
 
     def test_v4_adapter_enforces_terminal_state_and_installs_runtime_hook(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

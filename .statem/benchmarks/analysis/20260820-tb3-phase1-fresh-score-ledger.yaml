@@ -28,6 +28,7 @@ eligibility_contract:
     - ziheng-yaxin-statem-codex-evidence-develop-v4p34-exp
     - ziheng-yaxin-statem-codex-evidence-develop-v4p35-exp
     - ziheng-yaxin-statem-codex-evidence-develop-v4p36-exp
+    - ziheng-yaxin-statem-codex-evidence-develop-v4p37-exp
   require:
     - standard_timeout
     - no_retry
@@ -332,7 +333,7 @@ pairs:
     score_eligible: true
     use: k1_triage_only_not_pass_rate_estimate
 
-  - pair_id: data-anonymization-aws-x86-v4p36-k1-a
+  - pair_id: data-anonymization-aws-x86-v4p37-k1-a
     task: terminal-bench/data-anonymization
     sample_count_per_agent: 1
     model: gpt-5.6-sol
@@ -342,26 +343,34 @@ pairs:
     timeout_multiplier: 1.0
     environment_build_timeout_multiplier: 1.0
     retry_policy: no_retries
-    frozen_control_commit: 037e5d8
+    frozen_control_commit: pending_local_commit
     direct:
       job: tb3-sol-native-baseline-v2-data-anonymization-k1-aws-x86-a
       agent: codex-auth-no-session-baseline-v2
-      state: active_after_valid_admission
+      state: completed_valid_backed_up
       initial_runner_pid: 316112
-      raw_reward: null
-      protocol_valid: null
-      cost_usd: null
-      backup_tree_sha256: null
+      raw_reward: 0.0
+      protocol_valid: true
+      cost_usd: 3.566399
+      input_tokens: 3852595
+      cache_tokens: 3747328
+      output_tokens: 38880
+      atif_schema: ATIF-v1.5
+      atif_steps: 90
+      raw_session_paths: 0
+      backup_files: 15
+      backup_bytes: 466985
+      backup_tree_sha256: 5aad7b1a116b435514c7163926cf2d1b05c80bfe0a9518d959d2528db1f1b096
     statem:
-      job: tb3-sol-evidence-v4p36-data-anonymization-k1-aws-x86-b
-      agent: ziheng-yaxin-statem-codex-evidence-develop-v4p36-exp
-      source_manifest_sha256: d4f1995d67683b336b79bb03a7906070c44fdd10c58b1307c3fc6291b70e6c4d
-      state: predeclared_unsigned_waiting_for_direct_and_risk_preservation
+      job: tb3-sol-evidence-v4p37-data-anonymization-k1-aws-x86-b
+      agent: ziheng-yaxin-statem-codex-evidence-develop-v4p37-exp
+      source_manifest_sha256: d86bd75ed48702ff8313d1fdde2aba583e9970556fdcbb4360a93f6279190897
+      state: unsigned_waiting_for_direct_preservation_and_v4p37_risk_gate
       raw_reward: null
       protocol_valid: null
       cost_usd: null
       backup_tree_sha256: null
-    matched_verdict: pending
+    matched_verdict: direct_valid_zero_stateM_blocked_on_v4p37_risk_gate
     score_eligible: pending
     use: fresh_k1_triage_then_matched_k5_if_promoted
 

@@ -589,7 +589,7 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         seal, proposal, view = self._receipts()
         preflight = {
             "version": 1,
-            "kind": "preflight_evidence",
+            "kind": "plan_preflight_evidence",
             "run_id": self.run_id,
             "node": "solve",
             "entry_id": "solve-entry",
