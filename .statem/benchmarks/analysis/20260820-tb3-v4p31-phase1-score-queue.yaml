@@ -450,13 +450,28 @@ negative_transfer_sentinels:
     score_eligible: false
     direct:
       job: tb3-sol-native-baseline-v1-risk-scorer-replay-k1-aws-x86-a
-      state: active
+      state: completed_infrastructure_invalid_nonroot_auth_ownership
       initial_runner_pid: 267349
+      raw_reward: null
+      protocol_valid: false
+      error_class: NonZeroAgentExitCodeError
+      api_cost_usd: null
+      backup:
+        files: 27
+        bytes: 80792
+        tree_sha256: 422aad3aedea798ee834af926f661b286bdcef0e39548755fa3d2d8a93778c72
+      replacement_job: tb3-sol-native-baseline-v1-risk-scorer-replay-k1-aws-x86-a2
+      replacement_state: blocked_on_generic_nonroot_auth_fix
     statem:
       job: tb3-sol-evidence-v4p34-risk-scorer-replay-k1-aws-x86-b
       state: predeclared_waiting_for_remote_lane
       source_manifest_sha256: c6ddf782bd8695e1c30dfee371e2a21d0237f3aff5bc785a8943c6cc3a557973
-    matched_verdict: pending_direct_active_statem_predeclared
+    matched_verdict: direct_invalid_replacement_required
     note: >-
-      This repeated k1 pair is an early regression discriminator only. A
+      The first direct attempt is excluded: the task image runs as a non-root
+      user with HOME=/tmp, while the native baseline harness left uploaded
+      file authentication root-owned. This is a generic harness ownership gap,
+      not a task failure or provider outage. Preserve the invalid attempt and
+      run the predeclared replacement only after a tested generic fix. This
+      repeated k1 pair remains an early regression discriminator only; a
       promotion claim still requires the predeclared matched k5 sentinel.
