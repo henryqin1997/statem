@@ -195,13 +195,27 @@ pairs:
       job: tb3-sol-evidence-v4p34-production-planning-k1-aws-x86-b
       agent: ziheng-yaxin-statem-codex-evidence-develop-v4p34-exp
       source_manifest_sha256: c6ddf782bd8695e1c30dfee371e2a21d0237f3aff5bc785a8943c6cc3a557973
-      state: active
-      raw_reward: null
-      protocol_valid: null
-      cost_usd: null
-      backup_tree_sha256: null
-    matched_verdict: pending_statem_active_direct_zero
-    score_eligible: pending
+      state: completed_valid
+      raw_reward: 0.0
+      protocol_valid: true
+      cost_usd: 13.842118
+      input_tokens: 16520168
+      cache_tokens: 16045056
+      output_tokens: 114801
+      wall_seconds: 3191.544864
+      agent_seconds: 3113.479060
+      atif_schema: ATIF-v1.5
+      atif_steps: 162
+      final_statem_state: handoff
+      family_id: stateful-lifecycle
+      primary_profile: data-database
+      raw_session_paths: 0
+      backup_files: 146
+      backup_bytes: 7172327
+      backup_tree_sha256: 0d4d4e8cc896928f93aa6a3cc4d09ee12eb26fc1b7ac817b229f09ed290ac93f
+    matched_verdict: valid_zero_to_zero_no_gain_contract_authority_delta
+    score_eligible: true
+    use: k1_triage_only_not_pass_rate_estimate
 
   - pair_id: cargo-flight-dispatch-aws-x86-v4p34-k1-a
     task: terminal-bench/cargo-flight-dispatch
@@ -278,7 +292,7 @@ pairs:
     score_eligible: pending
 
 aggregate:
-  completed_pairs: 0
+  completed_pairs: 1
   protocol_invalid_statem_pairs: 2
   eligible_direct_reward: 0
   eligible_statem_reward: 0

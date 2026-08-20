@@ -308,7 +308,17 @@ fresh_holdout_candidates:
     cheapest_public_discriminator: matched_k1_with_state_and_deadline_receipts
     owning_control_layer: stateful_lifecycle_contract_and_practice
     matched_pair_id: production-planning-aws-x86-v4p34-k1-a
-    state: matched_k1_active
+    development_attempts_for_current_hypothesis: 1
+    development_progress: >-
+      protocol_valid_handoff_with_contract_reviewer_owner_and_fixed_population_objective_discriminator
+    final_attempt_result: matched_direct_zero_statem_zero
+    dominant_limit: contract_authority_semantic_fork_discovered_after_candidate_work
+    next_generic_control: preflight_objective_order_authority_practice
+    statem_backup_files: 146
+    statem_backup_bytes: 7172327
+    statem_backup_tree_sha256: 0d4d4e8cc896928f93aa6a3cc4d09ee12eb26fc1b7ac817b229f09ed290ac93f
+    state: deferred_after_progress_waiting_generic_authority_control
+    score_eligible_as_future_holdout_for_this_control: false
   - task: cargo-flight-dispatch
     public_sol_passes: 0
     expected_family: numerical-model
