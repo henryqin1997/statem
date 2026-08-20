@@ -1078,3 +1078,25 @@ Evidence-develop v4p38 controls:
 - Failed validation-delta application removes any prior success receipt before
   returning failure, so stale evidence cannot affect progress or audit tools.
 """
+
+
+class EvidenceDevelopV4p39ExperimentalStatemCodex(
+    EvidenceDevelopV4p38ExperimentalStatemCodex
+):
+    """Keep matched development cells on the evaluated Codex release."""
+
+    _PINNED_CODEX_VERSION = "0.148.0"
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        requested_version = kwargs.get("version")
+        if requested_version not in (None, self._PINNED_CODEX_VERSION):
+            raise ValueError(
+                "Evidence develop v4p39 requires Codex "
+                f"{self._PINNED_CODEX_VERSION}, got {requested_version}"
+            )
+        kwargs["version"] = self._PINNED_CODEX_VERSION
+        super().__init__(*args, **kwargs)
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p39-exp"

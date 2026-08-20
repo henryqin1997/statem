@@ -36,6 +36,7 @@ from integrations.harbor.statem_codex_multirole_develop_exp import (
     EvidenceDevelopV4p30ExperimentalStatemCodex,
     EvidenceDevelopV4p37ExperimentalStatemCodex,
     EvidenceDevelopV4p38ExperimentalStatemCodex,
+    EvidenceDevelopV4p39ExperimentalStatemCodex,
     RecoveringMultiRoleDevelopExperimentalStatemCodex,
 )
 from integrations.harbor.statem_codex import TeamRunStatemCodex
@@ -1140,6 +1141,21 @@ class RecoveringDevelopRunbookTest(unittest.TestCase):
         self.assertEqual(
             agent.name(),
             "ziheng-yaxin-statem-codex-evidence-develop-v4p38-exp",
+        )
+
+    def test_v4p39_adapter_pins_the_matched_codex_version(self) -> None:
+        with self.assertRaisesRegex(ValueError, "requires Codex 0.148.0"):
+            EvidenceDevelopV4p39ExperimentalStatemCodex(version="0.149.0")
+        with patch.object(
+            EvidenceDevelopV4p38ExperimentalStatemCodex,
+            "__init__",
+            return_value=None,
+        ) as init:
+            agent = EvidenceDevelopV4p39ExperimentalStatemCodex()
+        self.assertEqual(init.call_args.kwargs["version"], "0.148.0")
+        self.assertEqual(
+            agent.name(),
+            "ziheng-yaxin-statem-codex-evidence-develop-v4p39-exp",
         )
 
     def test_v4_adapter_enforces_terminal_state_and_installs_runtime_hook(self) -> None:
