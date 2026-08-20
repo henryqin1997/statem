@@ -100,9 +100,13 @@ replayable milestone. Two consecutive attempts without one of these signals
 park the task. A successful internal test with no new coverage or attribution
 does not reset this counter.
 
-The initial fresh priority order is `bun-sourcemap-leak`, then the lowest-cost
-plausibly controllable numerical/stateful cells (`foodstuff-beta-activity`,
-`production-planning`, and `cargo-flight-dispatch`). `roy-polymorph-cn`,
+The initial fresh priority order is `bun-sourcemap-leak`, then
+`production-planning`, `cargo-flight-dispatch`, and
+`foodstuff-beta-activity`. This is not a price-only order: hardware/platform
+feasibility and StateM control ownership lead, then the cheapest public
+discriminator and expected raw gain, then API and wall cost. Foodstuff is
+cheaper in API dollars but has a much longer reserve and a larger base-model
+capability component. `roy-polymorph-cn`,
 `gsea-proteomics`, and `fix-uautomizer-soundness` remain available but start
 behind those cells because scientific-domain or program-analysis capability may
 dominate their failures. This is a metadata prior only; matched evidence may

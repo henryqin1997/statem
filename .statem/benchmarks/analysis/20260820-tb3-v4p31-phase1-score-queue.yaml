@@ -49,10 +49,20 @@ triage_policy:
       - hardware_or_resource
       - mixed
       - unresolved
-    allocation_rule: >-
-      Prefer statem-controllable or mixed cells with a cheap public discriminator;
-      defer capability and hardware ceilings unless a new generic hypothesis or
-      feasible resource change makes the next observation informative.
+  allocation_rule: >-
+    Prefer statem-controllable or mixed cells with a cheap public discriminator;
+    defer capability and hardware ceilings unless a new generic hypothesis or
+    feasible resource change makes the next observation informative.
+  ranking_order:
+    - hardware_and_platform_feasible
+    - statem_control_ownership_likelihood
+    - cheapest_public_discriminator
+    - expected_raw_gain
+    - expected_api_cost
+    - expected_wall_time
+  note: >-
+    Lowest API price alone does not lead the queue when the dominant uncertainty
+    is base-model capability or the wall-time reserve is much larger.
   no_progress_limit: 2
   no_progress_action: park_and_advance_queue
   no_progress_definition: >-
@@ -190,20 +200,7 @@ fresh_holdout_candidates:
     hardware_feasibility: high_cpu_only
     cheapest_public_discriminator: matched_k1_direct_vs_statem_on_same_platform
     owning_control_layer: structured_transformation_validation
-    state: ready_after_family_promotion
-  - task: foodstuff-beta-activity
-    public_sol_passes: 0
-    expected_family: numerical-model
-    cpus: 2
-    agent_timeout_sec: 9000
-    official_mean_cost_usd: 1.24
-    framework_control_fit: medium
-    capability_risk: medium
-    dominant_limit_prior: mixed
-    hardware_feasibility: high_cpu_only
-    cheapest_public_discriminator: matched_k1_then_numerical_artifact_attribution
-    owning_control_layer: numerical_model_practice_or_base_capability
-    state: triage_after_low_cost_structured_cell
+    state: matched_k1_active
   - task: production-planning
     public_sol_passes: 0
     expected_family: stateful-lifecycle
@@ -216,7 +213,7 @@ fresh_holdout_candidates:
     hardware_feasibility: high_cpu_only
     cheapest_public_discriminator: matched_k1_with_state_and_deadline_receipts
     owning_control_layer: stateful_lifecycle_contract_and_practice
-    state: ready_after_family_promotion
+    state: next_after_bun
   - task: cargo-flight-dispatch
     public_sol_passes: 0
     expected_family: numerical-model
@@ -229,7 +226,20 @@ fresh_holdout_candidates:
     hardware_feasibility: high_cpu_only
     cheapest_public_discriminator: matched_k1_with_plan_and_validation_delta
     owning_control_layer: numerical_planning_practice_or_base_capability
-    state: ready_after_family_promotion
+    state: second_after_bun
+  - task: foodstuff-beta-activity
+    public_sol_passes: 0
+    expected_family: numerical-model
+    cpus: 2
+    agent_timeout_sec: 9000
+    official_mean_cost_usd: 1.24
+    framework_control_fit: medium
+    capability_risk: medium
+    dominant_limit_prior: mixed
+    hardware_feasibility: high_cpu_only_but_long
+    cheapest_public_discriminator: matched_k1_then_numerical_artifact_attribution
+    owning_control_layer: numerical_model_practice_or_base_capability
+    state: third_after_bun_due_to_longer_reserve_and_lower_control_fit
   - task: fix-uautomizer-soundness
     public_sol_passes: 0
     expected_family: structured-transformation
