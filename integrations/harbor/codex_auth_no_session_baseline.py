@@ -14,7 +14,19 @@ class AuthNoSessionCodex(Codex):
 
     @staticmethod
     def name() -> str:
-        return "codex-auth-no-session-baseline-v1"
+        return "codex-auth-no-session-baseline-v2"
+
+    async def _effective_agent_user(
+        self,
+        environment: BaseEnvironment,
+    ) -> str | int:
+        if environment.default_user is not None:
+            return environment.default_user
+        result = await self.exec_as_agent(environment, command="id -u")
+        user = (result.stdout or "").strip()
+        if not user.isdigit():
+            raise RuntimeError(f"could not resolve container agent uid: {user!r}")
+        return int(user)
 
     def build_cli_flags(self) -> str:
         flags = super().build_cli_flags()
@@ -29,7 +41,12 @@ class AuthNoSessionCodex(Codex):
         context: AgentContext,
     ) -> None:
         try:
-            await super().run(instruction, environment, context)
+            if environment.default_user is None:
+                effective_user = await self._effective_agent_user(environment)
+                with environment.with_default_user(effective_user):
+                    await super().run(instruction, environment, context)
+            else:
+                await super().run(instruction, environment, context)
         finally:
             try:
                 Codex.populate_context_post_run(self, context)
