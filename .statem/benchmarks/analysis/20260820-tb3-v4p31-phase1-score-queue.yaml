@@ -103,8 +103,9 @@ triage_policy:
     note: adapted samples never become final holdouts
   admission_enforcement:
     layer: benchmark_orchestration
-    status: designed_pending_active_v4p34_source_exit
-    mechanism: signed_prelaunch_receipt
+    status: implemented_pending_launch_integration_validation
+    mechanism: content_addressed_prelaunch_receipt
+    implementation: integrations/harbor/experimental/tb3_admission_gate.py
     excluded_layers:
       - statem_core
       - task_agent_context
