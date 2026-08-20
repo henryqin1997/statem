@@ -162,6 +162,37 @@ pairs:
     matched_verdict: direct_zero_statem_protocol_invalid_no_score
     score_eligible: false
 
+  - pair_id: production-planning-aws-x86-v4p34-k1-a
+    task: terminal-bench/production-planning
+    sample_count_per_agent: 1
+    model: gpt-5.6-sol
+    codex_version: 0.148.0
+    reasoning_effort: max
+    platform_class: aws_x86_64_docker
+    timeout_multiplier: 1.0
+    environment_build_timeout_multiplier: 1.0
+    retry_policy: no_retries
+    frozen_control_commit: d12df0c
+    direct:
+      job: tb3-sol-native-baseline-v1-production-planning-k1-aws-x86-a
+      agent: codex-auth-no-session-baseline-v1
+      state: predeclared
+      raw_reward: null
+      protocol_valid: null
+      cost_usd: null
+      backup_tree_sha256: null
+    statem:
+      job: tb3-sol-evidence-v4p34-production-planning-k1-aws-x86-b
+      agent: ziheng-yaxin-statem-codex-evidence-develop-v4p34-exp
+      source_manifest_sha256: c6ddf782bd8695e1c30dfee371e2a21d0237f3aff5bc785a8943c6cc3a557973
+      state: predeclared
+      raw_reward: null
+      protocol_valid: null
+      cost_usd: null
+      backup_tree_sha256: null
+    matched_verdict: pending_launch
+    score_eligible: pending
+
 aggregate:
   completed_pairs: 0
   protocol_invalid_statem_pairs: 2
