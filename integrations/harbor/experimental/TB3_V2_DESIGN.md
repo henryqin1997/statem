@@ -382,3 +382,56 @@ Focused candidate-acceptance, promotion, and recovery verification passed 68
 tests. The full repository passed 679 tests, with 3 skipped and 71 subtests.
 Ruff passed on the changed Python test and the reviewer router parsed with the
 new simulation check present.
+
+## 2026-08-19: deferred two-candidate workspace isolation
+
+The current stack can run multiple leased TeamRun workers and can validate a
+bounded stage portfolio with at most two challengers. It does not yet provide
+end-to-end isolation for two writable candidate artifacts inside one task. A
+TeamRun worker directory is scratch space, not a clone of the task artifact,
+and ordinary workers still share the task working directory. Raising
+`max_parallel` alone would therefore create write races, mixed provenance, and
+unstable candidate identities.
+
+The proposed increment is deliberately deferred. It should begin as a trusted
+Harbor companion tool, not as StateM core behavior. A candidate-workspace
+provider would allocate a writable workspace from an immutable baseline,
+issue an entry- and producer-bound receipt, seal the result as an immutable
+candidate snapshot, atomically activate only an independently selected
+snapshot, and discard or preserve unselected workspaces according to policy.
+The generic StateM layer should consume opaque resource and artifact receipts;
+it should not learn about `/app`, Git worktrees, Docker, reflinks, or a specific
+filesystem backend.
+
+Isolation must be capability-sensitive:
+
+- artifact-local code, algorithm, and file-transformation stages may use two
+  same-container workspace copies;
+- Git worktrees are an optional optimization only when the complete mutable
+  artifact is a suitable repository;
+- tasks that mutate packages, services, ports, users, databases, devices, or
+  other environment state require independent task containers rather than
+  directory isolation;
+- unknown mutation scope remains single-lead until the contract audit supports
+  a stronger isolation claim.
+
+A future minimal protocol should provide `allocate`, `seal`, `activate`, and
+`discard` operations. Each receipt must bind candidate id, producer id, StateM
+entry, baseline identity, backend, writable roots, lease, workspace identity,
+and resource budget. Workers may use an allocated workspace but may not mint
+receipts, write provider snapshots, access sibling candidates, or promote their
+own result. The launcher must use a scoped writable sandbox rooted at the
+candidate workspace; a distinct directory combined with sandbox bypass is not
+hard isolation.
+
+Portfolio scheduling should remain conditional and bounded: one high-risk,
+independently checkable stage; at most two challengers; common mandatory checks;
+an independent reviewer; and reserved untouched-final-replay time. An
+unresolved ranking should request the smallest discriminating probe or remain
+unpromoted, never choose a winner arbitrarily. Development samples used to
+adapt either branch remain ineligible as final acceptance samples.
+
+Promotion into a core abstraction should be reconsidered only after the
+provider works across multiple artifact-local task families and at least one
+environment-isolated backend. Even then, only a generic scoped-resource lease
+and receipt binding belong in core; backend mechanics remain integration-owned.
