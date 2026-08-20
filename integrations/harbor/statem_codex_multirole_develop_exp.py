@@ -855,3 +855,53 @@ Evidence-develop v4p34 controls:
   isolated and continue through quarantine, final replay, and handoff. Never
   spend the finalization reserve on a partial revision.
 """
+
+
+class EvidenceDevelopV4p35ExperimentalStatemCodex(
+    EvidenceDevelopV4p34ExperimentalStatemCodex
+):
+    """Candidate-blind semantic obligation closure before promotion."""
+
+    def __init__(
+        self,
+        *args: Any,
+        runbook_path: str | None = None,
+        **kwargs: Any,
+    ):
+        repo_root = Path(__file__).resolve().parents[2]
+        runbook = (
+            repo_root
+            / "examples"
+            / "frontier-bench-agent-evidence-develop-v4p35-exp.yaml"
+        )
+        super().__init__(
+            *args,
+            runbook_path=runbook_path or str(runbook),
+            **kwargs,
+        )
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p35-exp"
+
+    def _augment_instruction(
+        self,
+        instruction: str,
+        run_id: str,
+        current_context: str,
+    ) -> str:
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
+
+Evidence-develop v4p35 controls:
+- Every candidate-blind acceptance obligation receives exactly one independent
+  reviewer assessment whose evidence provenance matches its immutable mode.
+- Missing, mode-incompatible, non-discriminating, unresolved, or falsified
+  obligations block promotion and route to revision or deadline-aware
+  quarantine; unrelated passing checks cannot close them.
+- Multiple plausible objective orderings remain unresolved until visible
+  authority or a fixed public population actually distinguishes their outputs.
+"""

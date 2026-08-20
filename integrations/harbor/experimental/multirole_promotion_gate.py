@@ -162,9 +162,31 @@ ACCEPTANCE_EVIDENCE_MODES = {
     "paired_review",
     "analytic_review",
 }
+ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS = {
+    "requirement_id",
+    "evidence_mode",
+    "status",
+    "evidence_provenance",
+    "evidence",
+    "independence_basis",
+    "unresolved_reason",
+}
+ACCEPTANCE_OBLIGATION_STATUSES = {"satisfied", "unresolved", "falsified"}
+ACCEPTANCE_OBLIGATION_PROVENANCE = {
+    "adapter_replay_receipt",
+    "paired_artifact_evidence",
+    "independent_analytic_derivation",
+    "insufficient",
+}
+ACCEPTANCE_MODE_PROVENANCE = {
+    "adapter_replay": "adapter_replay_receipt",
+    "paired_review": "paired_artifact_evidence",
+    "analytic_review": "independent_analytic_derivation",
+}
 ACCEPTANCE_REQUIREMENT_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,47}$")
 ACCEPTANCE_PLAN_MAX_REQUIREMENTS = 8
 ACCEPTANCE_PLAN_MAX_LIST_ITEMS = 12
+ACCEPTANCE_OBLIGATION_TEXT_MAX_CHARS = 600
 CONTEXT_BUNDLE_MAX_BYTES = 240_000
 CONTEXT_BUNDLE_FILE_MAX_BYTES = 80_000
 CONTEXT_BUNDLE_MAX_ENTRIES = 256
@@ -318,6 +340,11 @@ def main(argv: list[str] | None = None) -> int:
                     if args.review_profile is not None
                     else None
                 ),
+                preflight_evidence=(
+                    _read_json(args.preflight_evidence)
+                    if args.preflight_evidence is not None
+                    else None
+                ),
             )
             receipt = _reuse_equivalent_receipt(
                 args.output,
@@ -354,6 +381,11 @@ def main(argv: list[str] | None = None) -> int:
                 review_profile=(
                     _read_json(args.review_profile)
                     if args.review_profile is not None
+                    else None
+                ),
+                preflight_evidence=(
+                    _read_json(args.preflight_evidence)
+                    if args.preflight_evidence is not None
                     else None
                 ),
             )
@@ -478,6 +510,7 @@ def _parser() -> argparse.ArgumentParser:
     decide.add_argument("--candidate-snapshot", type=Path)
     decide.add_argument("--review-practices", type=Path)
     decide.add_argument("--review-profile", type=Path)
+    decide.add_argument("--preflight-evidence", type=Path)
     decide.add_argument("--output", type=Path, default=DEFAULT_DECISION)
 
     context_view = subparsers.add_parser("context-view")
@@ -505,6 +538,7 @@ def _parser() -> argparse.ArgumentParser:
     task.add_argument("--context-view", type=Path, default=DEFAULT_CONTEXT_VIEW)
     task.add_argument("--review-practices", type=Path)
     task.add_argument("--review-profile", type=Path)
+    task.add_argument("--preflight-evidence", type=Path)
     task.add_argument("--output", type=Path, required=True)
 
     require = subparsers.add_parser("require")
@@ -900,6 +934,13 @@ def preflight_task(
                     "code/document mismatch is a conflict to resolve, not proof that either "
                     "side is authoritative. Preserve the correct public abstraction rather "
                     "than literal defective text. "
+                    "When the visible contract names multiple objectives, priorities, "
+                    "scores, constraints, or tie-breaks without uniquely fixing their "
+                    "ordering, enumerate the plausible interpretations before candidate "
+                    "work and create an acceptance obligation whose fixed public population "
+                    "contains a case that distinguishes them. If the available population "
+                    "makes all alternatives observationally identical, keep the authority "
+                    "fork unresolved rather than selecting one by convention. "
                     "Do not inspect external files, execute commands, repair artifacts, invent "
                     "candidate evidence, or authorize promotion. Return generic TeamRun fields "
                     "status, summary, claims, evidence, coverage, children, and prune_proposals, "
@@ -1232,6 +1273,107 @@ def _candidate_blind_acceptance_plan_task_schema() -> dict[str, Any]:
     }
 
 
+def _acceptance_obligation_assessment_task_schema() -> dict[str, Any]:
+    return {
+        "assessment_fields": sorted(ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS),
+        "statuses": sorted(ACCEPTANCE_OBLIGATION_STATUSES),
+        "evidence_provenance": sorted(ACCEPTANCE_OBLIGATION_PROVENANCE),
+        "required_provenance_by_mode": dict(ACCEPTANCE_MODE_PROVENANCE),
+        "cardinality": "exactly_one_per_acceptance_requirement",
+        "unresolved_provenance": "insufficient",
+    }
+
+
+def _acceptance_obligation_assessment_state(
+    value: Any,
+    preflight_evidence: dict[str, Any] | None,
+) -> tuple[bool, bool, list[dict[str, str]]]:
+    if preflight_evidence is None:
+        return True, True, []
+    _require_receipt(preflight_evidence, "preflight_evidence")
+    acceptance_plan = preflight_evidence.get("acceptance_plan")
+    if not isinstance(acceptance_plan, dict):
+        return False, False, []
+    requirements = acceptance_plan.get("requirements")
+    if not isinstance(requirements, list) or not requirements:
+        return False, False, []
+    if not isinstance(value, list) or len(value) != len(requirements):
+        return False, False, []
+
+    expected: dict[str, str] = {}
+    for requirement in requirements:
+        if not isinstance(requirement, dict):
+            return False, False, []
+        requirement_id = _text(requirement.get("requirement_id"))
+        evidence_mode = _text(requirement.get("evidence_mode"))
+        if (
+            not requirement_id
+            or evidence_mode not in ACCEPTANCE_MODE_PROVENANCE
+            or requirement_id in expected
+        ):
+            return False, False, []
+        expected[requirement_id] = evidence_mode
+
+    normalized: list[dict[str, str]] = []
+    seen: set[str] = set()
+    all_satisfied = True
+    for item in value:
+        if (
+            not isinstance(item, dict)
+            or set(item) != ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS
+        ):
+            return False, False, []
+        requirement_id = _text(item.get("requirement_id"))
+        evidence_mode = _text(item.get("evidence_mode"))
+        status = _text(item.get("status"))
+        provenance = _text(item.get("evidence_provenance"))
+        evidence = _text(item.get("evidence"))
+        independence_basis = _text(item.get("independence_basis"))
+        unresolved_reason = _text(item.get("unresolved_reason"))
+        if (
+            requirement_id not in expected
+            or requirement_id in seen
+            or evidence_mode != expected[requirement_id]
+            or status not in ACCEPTANCE_OBLIGATION_STATUSES
+            or provenance not in ACCEPTANCE_OBLIGATION_PROVENANCE
+            or not evidence
+            or len(evidence) > ACCEPTANCE_OBLIGATION_TEXT_MAX_CHARS
+            or len(independence_basis) > ACCEPTANCE_OBLIGATION_TEXT_MAX_CHARS
+            or len(unresolved_reason) > ACCEPTANCE_OBLIGATION_TEXT_MAX_CHARS
+        ):
+            return False, False, []
+        seen.add(requirement_id)
+        expected_provenance = ACCEPTANCE_MODE_PROVENANCE[evidence_mode]
+        if status == "unresolved":
+            if provenance != "insufficient" or not unresolved_reason:
+                return False, False, []
+            all_satisfied = False
+        else:
+            if (
+                provenance != expected_provenance
+                or not independence_basis
+                or unresolved_reason
+            ):
+                return False, False, []
+            if status == "falsified":
+                all_satisfied = False
+        normalized.append(
+            {
+                "requirement_id": requirement_id,
+                "evidence_mode": evidence_mode,
+                "status": status,
+                "evidence_provenance": provenance,
+                "evidence": evidence,
+                "independence_basis": independence_basis,
+                "unresolved_reason": unresolved_reason,
+            }
+        )
+    if seen != set(expected):
+        return False, False, []
+    normalized.sort(key=lambda item: item["requirement_id"])
+    return True, all_satisfied, normalized
+
+
 def _bounded_contract_text(value: Any, field: str) -> str:
     text = _text(value)
     if not text or len(text) > CONTRACT_LEDGER_TEXT_MAX_CHARS:
@@ -1494,6 +1636,7 @@ def falsifier_task(
     context_view: dict[str, Any],
     review_practices: dict[str, Any] | None = None,
     review_profile: dict[str, Any] | None = None,
+    preflight_evidence: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     _require_receipt(proposal, "candidate_proposal")
     _require_receipt(seal, "contract_seal")
@@ -1508,6 +1651,16 @@ def falsifier_task(
         _require_receipt(review_profile, "review_profile_selection")
         if review_profile.get("contract_seal_sha256") != stable_sha256(seal):
             raise ValueError("review profile is not bound to the contract seal")
+    acceptance_plan: dict[str, Any] | None = None
+    if preflight_evidence is not None:
+        _require_receipt(preflight_evidence, "preflight_evidence")
+        if proposal.get("preflight_evidence_sha256") != stable_sha256(
+            preflight_evidence
+        ):
+            raise ValueError("proposal is not bound to current preflight evidence")
+        acceptance_plan = preflight_evidence.get("acceptance_plan")
+        if not isinstance(acceptance_plan, dict):
+            raise ValueError("preflight evidence is missing its acceptance plan")
     return {
         "tasks": [
             {
@@ -1520,6 +1673,12 @@ def falsifier_task(
                 "review_protocol": review_protocol,
                 "review_profile": review_profile,
                 "review_execution_class": "code_semantic_artifact",
+                "acceptance_plan": acceptance_plan,
+                "acceptance_obligation_assessment_schema": (
+                    _acceptance_obligation_assessment_task_schema()
+                    if acceptance_plan is not None
+                    else None
+                ),
                 "assignment": (
                     "Independently try to falsify the candidate using only context_bundle, "
                     "which is a trusted read-only projection of the allowed context view. "
@@ -1598,6 +1757,24 @@ def falsifier_task(
                     "still be structurally cherry-picked. Treat an enumerable but untested public "
                     "region as an observed-public coverage gap, not sealed_unavailable uncertainty. "
                     "Presence never authorizes promotion automatically. "
+                    "When acceptance_plan is present, return exactly one "
+                    "acceptance_obligation_assessments item for every immutable "
+                    "requirement_id. Each item has exactly requirement_id, "
+                    "evidence_mode, status, evidence_provenance, evidence, "
+                    "independence_basis, and unresolved_reason. Copy requirement_id "
+                    "and evidence_mode exactly. status is satisfied, unresolved, or "
+                    "falsified. A satisfied or falsified adapter_replay requirement "
+                    "requires adapter_replay_receipt provenance; paired_review "
+                    "requires paired_artifact_evidence; analytic_review requires "
+                    "independent_analytic_derivation. Solver-recorded values, the "
+                    "candidate's own prose, or a replay of an unrelated output surface "
+                    "do not satisfy these modes. Use unresolved with "
+                    "evidence_provenance=insufficient and a non-empty "
+                    "unresolved_reason whenever the required independent evidence is "
+                    "absent or the public population does not actually distinguish the "
+                    "plausible semantic alternatives. Every unresolved or falsified "
+                    "material obligation blocks promotion and routes to revision or "
+                    "deadline-aware quarantine. "
                     "When context_bundle contains a candidate_acceptance_replay, independently "
                     "audit its adapter producer, snapshot-copy scope, proposal, snapshot, "
                     "acceptance, and plan bindings, declared argv checks, minimal environment, "
@@ -1632,7 +1809,7 @@ def falsifier_task(
                     "contract_seal_sha256, context_view_sha256, contract_preserved, "
                     "review_execution_class, "
                     "regressions, contract_violations, protection_assessments, counterevidence, "
-                    "hard_contract_gaps, review_stages, "
+                    "hard_contract_gaps, acceptance_obligation_assessments, review_stages, "
                     "practice_receipts, profile_receipts, review_protocol_sha256, and "
                     "review_profile_sha256. "
                     "Use status completed and coverage.complete=true only after reviewing the "
@@ -1954,6 +2131,7 @@ def decide_promotion(
     candidate_snapshot: dict[str, Any] | None = None,
     review_practices: dict[str, Any] | None = None,
     review_profile: dict[str, Any] | None = None,
+    preflight_evidence: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     _require_receipt(seal, "contract_seal")
     _require_receipt(proposal, "candidate_proposal")
@@ -2030,6 +2208,20 @@ def decide_promotion(
     profile_receipts_valid, profile_practices_complete = (
         _review_profile_receipt_state(raw, review_profile)
     )
+    preflight_evidence_bound = True
+    if preflight_evidence is not None:
+        _require_receipt(preflight_evidence, "preflight_evidence")
+        preflight_evidence_bound = proposal.get(
+            "preflight_evidence_sha256"
+        ) == stable_sha256(preflight_evidence)
+    (
+        acceptance_obligation_assessments_valid,
+        all_acceptance_obligations_satisfied,
+        acceptance_obligation_assessments,
+    ) = _acceptance_obligation_assessment_state(
+        raw.get("acceptance_obligation_assessments"),
+        preflight_evidence,
+    )
     counterevidence = raw.get("counterevidence") if isinstance(raw.get("counterevidence"), list) else []
     verdict = _text(raw.get("verdict"))
     coverage = falsifier.get("coverage") if isinstance(falsifier.get("coverage"), dict) else {}
@@ -2100,11 +2292,21 @@ def decide_promotion(
         "review_profile_bound": review_profile_bound,
         "profile_receipts_valid": profile_receipts_valid,
         "profile_practices_complete": profile_practices_complete,
+        "preflight_evidence_bound": preflight_evidence_bound,
+        "acceptance_obligation_assessments_valid": (
+            acceptance_obligation_assessments_valid
+        ),
+        "all_acceptance_obligations_satisfied": (
+            all_acceptance_obligations_satisfied
+        ),
     }
     failed_check_reason_codes = {
         "no_blocking_regressions": "blocking_regressions_present",
         "no_blocking_contract_violations": "blocking_contract_violations_present",
         "no_hard_contract_gaps": "hard_contract_gaps_present",
+        "all_acceptance_obligations_satisfied": (
+            "acceptance_obligations_unresolved_or_falsified"
+        ),
     }
     reason_codes = [
         failed_check_reason_codes.get(name, name)
@@ -2122,6 +2324,7 @@ def decide_promotion(
             "candidate_bound",
             "baseline_snapshot_bound",
             "candidate_snapshot_bound",
+            "preflight_evidence_bound",
             "contract_sources_unchanged",
         )
     )
@@ -2176,6 +2379,14 @@ def decide_promotion(
             raw.get("profile_receipts")
             if isinstance(raw.get("profile_receipts"), list)
             else []
+        ),
+        "acceptance_obligation_assessments": (
+            acceptance_obligation_assessments
+        ),
+        "preflight_evidence_sha256": (
+            stable_sha256(preflight_evidence)
+            if preflight_evidence is not None
+            else None
         ),
         "review_protocol_sha256": (
             review_protocol.get("binding_sha256")

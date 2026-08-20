@@ -105,6 +105,22 @@ exactly, but do not spend semantic reasoning re-deriving mechanical validity.
 Concentrate analysis on contract basis, discriminating counterexamples,
 semantic forks, and whether paired evidence establishes candidate causality.
 
+Close candidate-blind acceptance obligations individually. Return exactly one
+assessment for every immutable requirement id and preserve its evidence mode.
+An adapter replay is independent execution only for the public surfaces and
+strata it actually covers. Paired review requires evidence from both immutable
+artifacts. Analytic review requires a reviewer-derived argument from bounded
+public sources, not a restatement of solver arithmetic. Missing source material,
+mode-incompatible evidence, or a population on which plausible semantic forks
+produce the same outcome remains unresolved and blocks promotion.
+
+When several objectives, priorities, scores, constraints, or tie-breaks are
+visible but their ordering is not authoritative, enumerate the plausible
+orderings before accepting one. A fixed public population establishes objective
+authority only when it contains a case that makes those alternatives select
+different observable outputs. Agreement on a non-discriminating instance is
+coverage evidence, not semantic adjudication.
+
 Use `incumbent` for the best validated artifact available to the lead,
 `candidate` for the active attempt, and `final` for the selected output. The
 adapter may retain baseline snapshots, quarantined candidates, and restoration

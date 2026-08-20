@@ -30,6 +30,7 @@ from integrations.harbor.statem_codex_multirole_develop_exp import (
     EvidenceDevelopV4p32ExperimentalStatemCodex,
     EvidenceDevelopV4p33ExperimentalStatemCodex,
     EvidenceDevelopV4p34ExperimentalStatemCodex,
+    EvidenceDevelopV4p35ExperimentalStatemCodex,
 )
 from statem.core import validate_spec
 
@@ -39,6 +40,7 @@ RUNBOOK = REPO / "examples/frontier-bench-agent-evidence-develop-v4p31-exp.yaml"
 RUNBOOK_V4P32 = REPO / "examples/frontier-bench-agent-evidence-develop-v4p32-exp.yaml"
 RUNBOOK_V4P33 = REPO / "examples/frontier-bench-agent-evidence-develop-v4p33-exp.yaml"
 RUNBOOK_V4P34 = REPO / "examples/frontier-bench-agent-evidence-develop-v4p34-exp.yaml"
+RUNBOOK_V4P35 = REPO / "examples/frontier-bench-agent-evidence-develop-v4p35-exp.yaml"
 FAMILY_CATALOG = REPO / "examples/develop-family-router-v1.yaml"
 
 
@@ -212,6 +214,23 @@ class FailureClosureTest(unittest.TestCase):
             "ziheng-yaxin-statem-codex-evidence-develop-v4p34-exp",
         )
         self.assertEqual(agent._runbook_path, RUNBOOK_V4P34)
+
+    def test_v4p35_runbook_binds_candidate_blind_obligation_closure(self) -> None:
+        text = RUNBOOK_V4P35.read_text(encoding="utf-8")
+        validate_spec(RUNBOOK_V4P35, strict=True)
+        self.assertIn("frontier-bench-statem-evidence-develop-v4p35-experiment", text)
+        self.assertEqual(text.count("--preflight-evidence"), 6)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            agent = EvidenceDevelopV4p35ExperimentalStatemCodex(
+                logs_dir=Path(temp_dir),
+                model_name="gpt-5.6-sol",
+            )
+        self.assertEqual(
+            agent.name(),
+            "ziheng-yaxin-statem-codex-evidence-develop-v4p35-exp",
+        )
+        self.assertEqual(agent._runbook_path, RUNBOOK_V4P35)
 
     def test_review_deadline_gate_quarantines_infeasible_revision(self) -> None:
         self._open()

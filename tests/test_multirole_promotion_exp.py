@@ -19,6 +19,7 @@ from integrations.harbor.experimental.multirole_promotion_gate import (
     _context_bundle,
     canonicalize_falsifier_result,
     decide_promotion,
+    falsifier_task,
     main as promotion_gate_main,
     preflight_task,
     record_acceptance_evidence,
@@ -583,6 +584,158 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             )
         self.assertTrue(applied["verified"])
         self.assertEqual(applied["artifact_provider"], "external")
+
+    def test_candidate_blind_obligations_require_mode_compatible_closure(self) -> None:
+        seal, proposal, view = self._receipts()
+        preflight = {
+            "version": 1,
+            "kind": "preflight_evidence",
+            "run_id": self.run_id,
+            "node": "solve",
+            "entry_id": "solve-entry",
+            "producer": {"agent_id": "preflight-1", "role": "preflight-reviewer"},
+            "acceptance_plan": {
+                "requirements": [
+                    {
+                        "requirement_id": "public-boundaries",
+                        "evidence_mode": "adapter_replay",
+                    },
+                    {
+                        "requirement_id": "signature-preservation",
+                        "evidence_mode": "paired_review",
+                    },
+                    {
+                        "requirement_id": "formula-semantics",
+                        "evidence_mode": "analytic_review",
+                    },
+                ]
+            },
+        }
+        proposal["preflight_evidence_sha256"] = stable_sha256(preflight)
+        falsifier = self._falsifier(seal, proposal, view)
+        falsifier["raw"]["acceptance_obligation_assessments"] = [
+            {
+                "requirement_id": "public-boundaries",
+                "evidence_mode": "adapter_replay",
+                "status": "satisfied",
+                "evidence_provenance": "adapter_replay_receipt",
+                "evidence": "the bound adapter replay covered all declared strata",
+                "independence_basis": "adapter-owned candidate snapshot execution",
+                "unresolved_reason": "",
+            },
+            {
+                "requirement_id": "signature-preservation",
+                "evidence_mode": "paired_review",
+                "status": "satisfied",
+                "evidence_provenance": "paired_artifact_evidence",
+                "evidence": "baseline and candidate expose the same public signature",
+                "independence_basis": "reviewer inspected both immutable artifacts",
+                "unresolved_reason": "",
+            },
+            {
+                "requirement_id": "formula-semantics",
+                "evidence_mode": "analytic_review",
+                "status": "satisfied",
+                "evidence_provenance": "independent_analytic_derivation",
+                "evidence": "reviewer-derived boundary arithmetic matches the candidate",
+                "independence_basis": "derived from bounded public inputs",
+                "unresolved_reason": "",
+            },
+        ]
+        with patch.dict("os.environ", self.env, clear=False):
+            task = falsifier_task(
+                proposal=proposal,
+                seal=seal,
+                context_view=view,
+                preflight_evidence=preflight,
+            )
+            promoted = decide_promotion(
+                seal=seal,
+                proposal=proposal,
+                context_view=view,
+                falsifier=falsifier,
+                artifact_root=self.app,
+                preflight_evidence=preflight,
+            )
+
+        assignment = task["tasks"][0]
+        self.assertEqual(assignment["acceptance_plan"], preflight["acceptance_plan"])
+        self.assertEqual(
+            assignment["acceptance_obligation_assessment_schema"][
+                "required_provenance_by_mode"
+            ]["analytic_review"],
+            "independent_analytic_derivation",
+        )
+        self.assertEqual(promoted["decision"], "promote")
+        self.assertTrue(
+            promoted["checks"]["acceptance_obligation_assessments_valid"]
+        )
+        self.assertTrue(
+            promoted["checks"]["all_acceptance_obligations_satisfied"]
+        )
+
+        unresolved = json.loads(json.dumps(falsifier))
+        unresolved_item = unresolved["raw"]["acceptance_obligation_assessments"][2]
+        unresolved_item.update(
+            {
+                "status": "unresolved",
+                "evidence_provenance": "insufficient",
+                "independence_basis": "",
+                "unresolved_reason": "the public population does not distinguish variants",
+            }
+        )
+        with patch.dict("os.environ", self.env, clear=False):
+            decision = decide_promotion(
+                seal=seal,
+                proposal=proposal,
+                context_view=view,
+                falsifier=unresolved,
+                artifact_root=self.app,
+                preflight_evidence=preflight,
+            )
+        self.assertEqual(decision["decision"], "revise")
+        self.assertIn(
+            "acceptance_obligations_unresolved_or_falsified",
+            decision["reason_codes"],
+        )
+
+        wrong_provenance = json.loads(json.dumps(falsifier))
+        wrong_provenance["raw"]["acceptance_obligation_assessments"][1][
+            "evidence_provenance"
+        ] = "independent_analytic_derivation"
+        with patch.dict("os.environ", self.env, clear=False):
+            decision = decide_promotion(
+                seal=seal,
+                proposal=proposal,
+                context_view=view,
+                falsifier=wrong_provenance,
+                artifact_root=self.app,
+                preflight_evidence=preflight,
+            )
+        self.assertEqual(decision["decision"], "revise")
+        self.assertIn(
+            "acceptance_obligation_assessments_valid",
+            decision["reason_codes"],
+        )
+
+        overlong_evidence = json.loads(json.dumps(falsifier))
+        overlong_evidence["raw"]["acceptance_obligation_assessments"][0][
+            "evidence"
+        ] = "x" * 601
+        with patch.dict("os.environ", self.env, clear=False):
+            decision = decide_promotion(
+                seal=seal,
+                proposal=proposal,
+                context_view=view,
+                falsifier=overlong_evidence,
+                artifact_root=self.app,
+                preflight_evidence=preflight,
+            )
+        self.assertEqual(decision["decision"], "revise")
+        self.assertIn(
+            "acceptance_obligation_assessments_valid",
+            decision["reason_codes"],
+        )
 
     def test_same_identity_cannot_falsify_its_own_candidate(self) -> None:
         seal, proposal, view = self._receipts()

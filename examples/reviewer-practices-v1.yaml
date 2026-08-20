@@ -40,6 +40,18 @@ practices:
     procedure: Enumerate at least two plausible variants and exercise a case on which their observable results differ.
     required_evidence: Record the alternatives, discriminating case, and observed result; do not rely on the selected implementation's own documentation.
 
+  - id: objective_order_authority
+    allow_not_applicable: true
+    trigger: The visible contract names multiple objectives, priorities, scores, tie-breaks, safety constraints, or optimization components without uniquely fixing their ordering or aggregation.
+    procedure: Enumerate the plausible lexicographic, constrained, or multi-objective interpretations before candidate work. Bind a fixed public population containing at least one case on which the alternatives select different observable outputs. A supplied population on which all plausible interpretations collapse to the same output is useful coverage but does not establish objective authority. Keep the fork unresolved unless task wording, a public consumer, a normative definition, or a genuinely discriminating public case selects one interpretation.
+    required_evidence: Record each plausible ordering, its authority basis, the fixed public population identity, the distinguishing case and outcomes, or an explicit unresolved assessment when no authorized discriminator exists.
+
+  - id: candidate_blind_obligation_closure
+    allow_not_applicable: false
+    trigger: Always.
+    procedure: Assess every immutable candidate-blind acceptance requirement exactly once using evidence compatible with its declared mode. Adapter replay requires the bound adapter receipt, paired review requires independent baseline/candidate artifact evidence, and analytic review requires an independent derivation from the bounded public sources. Solver-recorded values, candidate prose, or an unrelated passing output check cannot close a semantic obligation.
+    required_evidence: Return one requirement-id-bound assessment per acceptance obligation. Mark absent, mode-incompatible, non-discriminating, or insufficiently independent evidence unresolved so promotion routes to revision or deadline-aware quarantine.
+
   - id: no_unjustified_range_or_clamp
     allow_not_applicable: true
     trigger: The candidate clips, clamps, saturates, normalizes, rounds, or otherwise restricts an output range.
