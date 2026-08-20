@@ -246,7 +246,7 @@ fresh_holdout_candidates:
     next_generic_control: entry_deadline_route_budget_admission_or_degradation
     diagnostic_job: tb3-sol-evidence-v4p34-bun-sourcemap-leak-k1-local-diag-c
     diagnostic_timeout_multiplier: 2.0
-    state: extended_adapted_diagnostic_predeclared
+    state: extended_adapted_diagnostic_active
   - task: production-planning
     public_sol_passes: 0
     expected_family: stateful-lifecycle
@@ -260,7 +260,7 @@ fresh_holdout_candidates:
     cheapest_public_discriminator: matched_k1_with_state_and_deadline_receipts
     owning_control_layer: stateful_lifecycle_contract_and_practice
     matched_pair_id: production-planning-aws-x86-v4p34-k1-a
-    state: matched_k1_predeclared
+    state: matched_k1_active
   - task: cargo-flight-dispatch
     public_sol_passes: 0
     expected_family: numerical-model

@@ -197,3 +197,9 @@ After the two remote adapted cells exit, the two x86 lanes run a concurrent
 a matched direct-control cell before its StateM cell is interpreted as gain.
 The authoritative preallocated pair identities and eligibility fields are in
 `20260820-tb3-phase1-fresh-score-ledger.yaml`.
+
+Current v4p34 lanes are one local extended-time adapted Bun diagnostic plus a
+standard-timeout AWS x86 matched direct/StateM `production-planning` k=1 pair.
+Both StateM containers loaded the canonical 35-file v4p34 manifest; the direct
+container has no StateM manifest. Source remains frozen until all three jobs
+exit and are preserved.

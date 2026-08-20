@@ -176,7 +176,7 @@ pairs:
     direct:
       job: tb3-sol-native-baseline-v1-production-planning-k1-aws-x86-a
       agent: codex-auth-no-session-baseline-v1
-      state: predeclared
+      state: active
       raw_reward: null
       protocol_valid: null
       cost_usd: null
@@ -185,12 +185,12 @@ pairs:
       job: tb3-sol-evidence-v4p34-production-planning-k1-aws-x86-b
       agent: ziheng-yaxin-statem-codex-evidence-develop-v4p34-exp
       source_manifest_sha256: c6ddf782bd8695e1c30dfee371e2a21d0237f3aff5bc785a8943c6cc3a557973
-      state: predeclared
+      state: active
       raw_reward: null
       protocol_valid: null
       cost_usd: null
       backup_tree_sha256: null
-    matched_verdict: pending_launch
+    matched_verdict: pending_both_active
     score_eligible: pending
 
 aggregate:
