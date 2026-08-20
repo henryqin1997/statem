@@ -50,23 +50,39 @@ pairs:
     retry_policy: no_retries
     frozen_control_commit: 1b3b9d8
     direct:
-      job: tb3-sol-native-baseline-v1-bun-sourcemap-leak-k1-local-a
+      job: tb3-sol-native-baseline-v1-bun-sourcemap-leak-k1-local-a2
       agent: codex-auth-no-session-baseline-v1
-      state: active
+      state: replacement_active_after_infrastructure_invalid_attempt
       raw_reward: null
       protocol_valid: null
       cost_usd: null
       backup_tree_sha256: null
+      attempts:
+        - job: tb3-sol-native-baseline-v1-bun-sourcemap-leak-k1-local-a
+          state: completed_infrastructure_invalid
+          raw_reward: null
+          protocol_valid: false
+          error_bucket: verifier_environment_build_network_timeout
+          cost_usd: 1.841766
+          input_tokens: 1129542
+          cache_tokens: 1066752
+          output_tokens: 33148
+          atif_schema: ATIF-v1.5
+          raw_session_paths: 0
+          backup_files: 22
+          backup_bytes: 407257
+          backup_tree_sha256: 5c086725c09916800cbafe2ca6c5cc4792499824cf8595bca1b93f1c8146d3aa
+          score_eligible: false
     statem:
       job: tb3-sol-evidence-v4p32-bun-sourcemap-leak-k1-local-b
       agent: ziheng-yaxin-statem-codex-evidence-develop-v4p32-exp
       source_manifest_sha256: 1a7d5f58bd3e7cee94b347928b8f5e082c0f02fed52efbc44db44387ac4921ef
-      state: pending_after_direct
+      state: held_for_valid_replacement_direct
       raw_reward: null
       protocol_valid: null
       cost_usd: null
       backup_tree_sha256: null
-    matched_verdict: pending
+    matched_verdict: pending_valid_replacement_direct
     score_eligible: pending
 
   - pair_id: bun-sourcemap-leak-aws-x86-v4p32-k1-a
