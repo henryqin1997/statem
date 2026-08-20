@@ -293,3 +293,13 @@ cell does not add a reproducible discriminator, narrower owner, public artifact
 improvement, candidate-blind validation delta, or independently replayable
 milestone, the task is parked and its lane advances. These adapted cells cannot
 serve as v4p35 holdouts or contribute to the +15-point ledger.
+
+The next fresh candidate is `data-anonymization`, predeclared as a matched AWS
+x86 direct baseline-v2 / StateM v4p35 k=1 pair. Its public reference is 0/5
+with no errors; public metadata requires one CPU, 2 GB RAM, no GPU, and a
+3,600-second agent deadline. The dominant prior is structured-transformation
+contract and validation rather than specialist capability or hardware. It is
+not used to author v4p35 and remains score-eligible. Launch its direct half only
+after a remote lane is free and a job-bound admission-v2 receipt is issued;
+preserve that half before launching StateM so resource contention cannot alter
+the matched comparison.

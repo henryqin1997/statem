@@ -467,6 +467,49 @@ fresh_holdout_candidates:
     v4p35_launchd_label: com.statem.tb3.foodstuff.v4p35.k1.c
     v4p35_initial_runner_pid: 36762
     score_eligible_as_future_holdout_for_this_control: false
+  - task: data-anonymization
+    public_sol_passes: 0
+    public_sol_attempts: 5
+    public_errors: 0
+    expected_family: structured-transformation
+    cpus: 1
+    memory_mb: 2048
+    gpus: 0
+    agent_timeout_sec: 3600
+    official_mean_cost_usd: 5.36
+    framework_control_fit: high
+    capability_risk: low_to_medium
+    dominant_limit_prior: statem_controllable_workflow
+    evidence_basis: >-
+      The public Sol row has five ordinary zero rewards and no errors. Public
+      task metadata describes a CPU-only data-processing, privacy,
+      anonymization, CSV, and database workflow. Its acceptance surface is
+      therefore plausibly owned by transformation contracts, preservation
+      strata, and independent validation rather than specialist scientific
+      capability or unavailable hardware.
+    hardware_feasibility: high_aws_x86_cpu
+    hardware_resource_risk: low
+    cheapest_public_discriminator: matched_k1_direct_then_v4p35_same_platform
+    owning_control_layer: structured_transformation_contract_and_obligation_closure
+    expected_api_cost: >-
+      Direct prior approximately 5.36 dollars; StateM cost is unknown and must
+      be bounded by the standard 3600-second task deadline.
+    expected_wall_time: standard_3600_seconds_per_cell
+    observable_progress_target: >-
+      Produce a valid public artifact and independently close privacy,
+      transformation, preservation, and output obligations across declared
+      strata with candidate-bound replay.
+    stop_or_park_condition: >-
+      Park after two hypothesis-scoped StateM cells without a narrower owner,
+      new public discriminator, artifact improvement, validation delta, or
+      independently replayable milestone.
+    matched_pair_id: data-anonymization-aws-x86-v4p35-k1-a
+    direct_job: tb3-sol-native-baseline-v2-data-anonymization-k1-aws-x86-a
+    statem_job: tb3-sol-evidence-v4p35-data-anonymization-k1-aws-x86-b
+    development_attempts_for_current_hypothesis: 0
+    hypothesis_scoped_no_progress_count: 0
+    state: next_fresh_candidate_waiting_for_remote_lane
+    score_eligible: true
   - task: fix-uautomizer-soundness
     public_sol_passes: 0
     expected_family: structured-transformation
