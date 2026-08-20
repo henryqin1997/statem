@@ -240,5 +240,24 @@ candidate-blind preflight practice: enumerate plausible lexicographic or
 multi-objective orderings whenever visible priorities do not fully determine
 the objective, bind a fixed public population, and compare the alternatives
 before candidate work. Production is now adapted for this hypothesis and cannot
-be its final holdout. Source remains frozen until the active cargo v4p34 cell
-exits.
+be its final holdout.
+
+The AWS `cargo-flight-dispatch` direct half is complete with a valid raw zero;
+its v4p34 StateM half remains active. The local ARM64
+`foodstuff-beta-activity` direct half is also a valid raw zero; its v4p34
+StateM half remains active. Each pair will decide whether the numerical family
+has a workflow-owned validation delta or should be parked as capability-led.
+No third numerical sample is admitted merely to increase sample count.
+
+The first AWS native `risk-scorer-replay` k1 sentinel is infrastructure-invalid
+and excluded from reward: the image runs the agent as a non-root user with
+`HOME=/tmp`, while the baseline harness left uploaded file authentication
+root-owned because Harbor had no explicit `default_user`. Other concurrent jobs
+remained healthy, so this is a generic native-harness compatibility gap rather
+than a provider outage. The immutable failed job is preserved. A replacement
+sentinel runs only after the baseline adapter discovers and temporarily binds
+the effective container UID, focused tests pass, and the repair is deployed.
+
+StateM source remains frozen until both active cargo and foodstuff runners,
+reviewers, probes, Harbor processes, and experiment containers exit and their
+jobs are preserved.
