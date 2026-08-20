@@ -1,0 +1,65 @@
+name: teamrun-child-worker
+initial: inspect
+
+nodes:
+  inspect:
+    prompt: |
+      Read the scoped TeamRun assignment and current worker paths. Work only on
+      the leased task. Use STATEM_TEAM_WORK_DIR for scratch artifacts,
+      STATEM_TEAM_REPORT_FILE for a stage-visible report draft, and
+      STATEM_TEAM_RESULT_FILE for the final result draft.
+    in_hook:
+      type: message
+      text: "Do not edit sibling TeamRun state or the parent final artifact unless the scoped assignment explicitly asks for it."
+    before_transfer:
+      type: checklist
+      items:
+        - Scoped assignment was read
+        - Isolated work/report/result paths were noted
+
+  explore:
+    prompt: |
+      Explore only the scoped uncertainty. Keep notes compact and write any
+      useful partial conclusion to STATEM_TEAM_REPORT_FILE before stopping.
+      Put substantive conclusions in claims; evidence only supports claims.
+    state_hooks:
+      - name: child_partial_report_before_stop
+        event: stop
+        host: any
+        template: statem_autoloop
+        scope: current_entry
+        prompt: "If the scoped task is not final, write a partial TeamRun report before stopping."
+
+  report:
+    prompt: |
+      Write or update the report draft at STATEM_TEAM_REPORT_FILE, then ask the
+      host or lead agent to append it with `statem team report <task-id>
+      $STATEM_TEAM_REPORT_FILE`. Do not close the task from this state unless a
+      final result is ready.
+    before_transfer:
+      type: checklist
+      items:
+        - Partial findings were written as claims when useful
+        - Residual uncertainty was recorded
+
+  done:
+    prompt: |
+      Write the final result draft at STATEM_TEAM_RESULT_FILE for host-side
+      `statem team submit`. Do not start new work.
+
+edges:
+  - from: inspect
+    to: explore
+    condition: "The scoped assignment and isolated paths are clear."
+  - from: explore
+    to: report
+    condition: "A useful stage-visible partial report should be appended."
+  - from: explore
+    to: done
+    condition: "The scoped task has a final result."
+  - from: report
+    to: explore
+    condition: "The report is appended and more scoped exploration is useful."
+  - from: report
+    to: done
+    condition: "The report is appended and the scoped task is complete."

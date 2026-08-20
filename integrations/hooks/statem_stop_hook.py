@@ -9,6 +9,7 @@ working when a run is active.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shlex
@@ -19,13 +20,11 @@ from typing import Any
 
 
 DEFAULT_STOP_STATES = {"handoff", "done", "complete", "completed", "finished"}
+DEFAULT_ENTRY_CONTINUATION_BUDGET = 2
 
 
 def main() -> int:
     payload = _read_payload()
-    if payload.get("stop_hook_active") is True:
-        return _allow()
-
     cwd = Path(str(payload.get("cwd") or os.getcwd())).expanduser().resolve()
     state_dir = Path(os.environ.get("STATEM_STATE_DIR", cwd / ".statem")).expanduser()
     if not state_dir.is_absolute():
@@ -35,6 +34,29 @@ def main() -> int:
         return _allow()
 
     statem_cmd = os.environ.get("STATEM_COMMAND", f"{sys.executable} -m statem")
+    host = os.environ.get("STATEM_HOST", "").strip()
+    hook_args = ["hooks", "run", "stop", "--command", statem_cmd]
+    if host:
+        hook_args.extend(["--host", host])
+    hook_payload = _run_statem_json(
+        statem_cmd,
+        cwd,
+        state_dir,
+        *hook_args,
+    )
+    if hook_payload and int(hook_payload.get("matched_hooks") or 0) > 0:
+        if hook_payload.get("decision") == "block":
+            if not _claim_entry_continuation(payload, state_dir, hook_payload):
+                return _allow()
+            return _continue(str(hook_payload.get("reason") or "Continue the active statem-managed run."))
+        return _allow()
+
+    if _require_state_hooks():
+        return _allow()
+
+    if payload.get("stop_hook_active") is True:
+        return _allow()
+
     cur = _run_statem_json(statem_cmd, cwd, state_dir, "cur")
     if cur is None:
         return _allow(
@@ -66,9 +88,82 @@ def _stop_states() -> set[str]:
     return {part.strip() for part in raw.split(",") if part.strip()}
 
 
-def _run_statem_json(statem_cmd: str, cwd: Path, state_dir: Path, command: str) -> dict[str, Any] | None:
+def _require_state_hooks() -> bool:
+    return os.environ.get("STATEM_STOP_REQUIRE_STATE_HOOKS", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _claim_entry_continuation(
+    payload: dict[str, Any],
+    state_dir: Path,
+    hook_payload: dict[str, Any],
+) -> bool:
+    """Claim one bounded Stop continuation for the current StateM entry."""
+
+    run_id = str(hook_payload.get("run_id") or "")
+    entry_id = str(hook_payload.get("current_entry_id") or "")
+    if not run_id or not entry_id:
+        return payload.get("stop_hook_active") is not True
+
+    session_id = str(payload.get("session_id") or "default")
+    session_key = hashlib.sha256(session_id.encode("utf-8")).hexdigest()[:16]
+    marker_dir = state_dir / "host-hooks"
+    marker_path = marker_dir / f"stop-{session_key}.json"
+    marker = _read_json_file(marker_path)
+    same_entry = (
+        marker.get("run_id") == run_id
+        and marker.get("current_entry_id") == entry_id
+    )
+    continuation_count = int(marker.get("continuation_count") or 0) if same_entry else 0
+    if (
+        payload.get("stop_hook_active") is True
+        and same_entry
+        and continuation_count >= _entry_continuation_budget()
+    ):
+        return False
+
     try:
-        argv = [*shlex.split(statem_cmd), command, "--state-dir", str(state_dir), "--json"]
+        marker_dir.mkdir(parents=True, exist_ok=True)
+        temp_path = marker_path.with_suffix(".tmp")
+        temp_path.write_text(
+            json.dumps(
+                {
+                    "run_id": run_id,
+                    "current_entry_id": entry_id,
+                    "continuation_count": continuation_count + 1,
+                },
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        os.replace(temp_path, marker_path)
+    except OSError:
+        return payload.get("stop_hook_active") is not True
+    return True
+
+
+def _entry_continuation_budget() -> int:
+    raw = os.environ.get("STATEM_STOP_MAX_CONTINUATIONS_PER_ENTRY", "").strip()
+    if not raw:
+        return DEFAULT_ENTRY_CONTINUATION_BUDGET
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_ENTRY_CONTINUATION_BUDGET
+    return min(10, max(1, value))
+
+
+def _read_json_file(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _run_statem_json(statem_cmd: str, cwd: Path, state_dir: Path, *args: str) -> dict[str, Any] | None:
+    try:
+        argv = [*shlex.split(statem_cmd), *args, "--state-dir", str(state_dir), "--json"]
         completed = subprocess.run(
             argv,
             cwd=cwd,

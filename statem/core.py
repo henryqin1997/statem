@@ -30,9 +30,24 @@ class TransitionBlocked(StatemError):
 
 
 DYNAMIC_PURPOSE = "dynamic_before_transfer"
+TEAM_PURPOSE = "multi_agent"
+STATE_HOOKS_KEY = "state_hooks"
+STATE_HOOK_PURPOSE = "state_hook"
 GATING_PURPOSES = {"condition", "before_transfer", DYNAMIC_PURPOSE}
 HOOK_KEYS = {"in_hook", "before_transfer", "out_hook", "condition", "hook"}
 CHECK_TYPES = {"message", "manual", "checklist", "command", "predicate", "llm_review"}
+DYNAMIC_CHECKS_SCHEMA_HINT = (
+    "Accepted dynamic checks file shape: "
+    "{'basis': {'implementation_summary': 'what changed and why these checks fit'}, "
+    "'checks': ["
+    "{'type': 'manual', 'prompt': 'Confirm ...', 'reason': '...'}, "
+    "{'type': 'checklist', 'items': ['...'], 'reason': '...'}, "
+    "{'type': 'predicate', 'path': '/app/file', 'exists': true, 'reason': '...'}, "
+    "{'type': 'command', 'run': '...', 'reason': '...'}"
+    "]}. Pass --agent-id or set STATEM_AGENT_ID; producer metadata is owned by the CLI."
+)
+STATE_HOOK_TEMPLATES = {"statem_autoloop"}
+DEFAULT_STOP_STATES = {"handoff", "done", "complete", "completed", "finished"}
 
 STRICT_ROOT_KEYS = {"name", "initial", "start", "nodes", "edges"}
 STRICT_NODE_KEYS = {
@@ -45,7 +60,9 @@ STRICT_NODE_KEYS = {
     "in_hook",
     "before_transfer",
     DYNAMIC_PURPOSE,
+    TEAM_PURPOSE,
     "out_hook",
+    STATE_HOOKS_KEY,
 }
 STRICT_EDGE_KEYS = {
     "from",
@@ -70,6 +87,37 @@ STRICT_DYNAMIC_CONFIG_KEYS = {
     "stale_policy",
     "allow_types",
 }
+STRICT_STATE_HOOK_KEYS = {
+    "name",
+    "event",
+    "trigger",
+    "on",
+    "template",
+    "type",
+    "scope",
+    "hosts",
+    "host",
+    "prompt",
+    "text",
+    "stop_states",
+    "terminal_states",
+}
+STRICT_TEAM_CONFIG_KEYS = {
+    "mode",
+    "max_parallel",
+    "required",
+    "require_all_tasks_done",
+    "reducer",
+    "task_schema",
+    "result_schema",
+}
+STRICT_TEAM_REDUCER_KEYS = {
+    "strategy",
+    "candidate_field",
+    "confidence_field",
+    "require_complete_coverage",
+}
+STRICT_TEAM_SCHEMA_KEYS = {"required", "types"}
 STRICT_CHECK_COMMON_KEYS = {"type", "blocking", "on_failure"}
 STRICT_CHECK_KEYS = {
     "message": STRICT_CHECK_COMMON_KEYS | {"text", "prompt"},
@@ -143,7 +191,9 @@ class StatemSpec:
         if strict:
             strict_errors = _strict_keyword_errors(raw)
             if strict_errors:
-                raise StatemError("Invalid spec:\n" + "\n".join(f"- {error}" for error in strict_errors))
+                raise StatemError(
+                    "Invalid spec:\n" + "\n".join(f"- {error}" for error in strict_errors)
+                )
         name = str(raw.get("name") or spec_path.stem)
         nodes = _normalize_nodes(raw.get("nodes"))
         if not nodes:
@@ -194,6 +244,10 @@ class StatemSpec:
             errors.extend(_validate_items(node.get("before_transfer"), "before_transfer", f"node {name} before_transfer"))
             errors.extend(_validate_items(node.get("out_hook"), "out_hook", f"node {name} out_hook"))
             errors.extend(_validate_dynamic_config(node.get(DYNAMIC_PURPOSE), f"node {name} {DYNAMIC_PURPOSE}"))
+            from .team import validate_team_config
+
+            errors.extend(validate_team_config(node.get(TEAM_PURPOSE), f"node {name} {TEAM_PURPOSE}"))
+            errors.extend(_validate_state_hooks(node.get(STATE_HOOKS_KEY), f"node {name} {STATE_HOOKS_KEY}"))
         return errors
 
     def node_prompt(self, name: str) -> str:
@@ -288,6 +342,8 @@ class StatemRuntime:
     def cur(self, *, run_id: str | None = None) -> dict[str, Any]:
         spec, state = self._load_runtime(run_id)
         current = state["current"]
+        from .team import team_dir, team_summary
+
         return {
             "run_id": state["run_id"],
             "spec": str(spec.path),
@@ -299,13 +355,22 @@ class StatemRuntime:
                 spec.nodes[current].get(DYNAMIC_PURPOSE),
                 self._dynamic_dir(state, current, str(state.get("current_entry_id"))),
             ),
+            "multi_agent": team_summary(
+                spec.nodes[current].get(TEAM_PURPOSE),
+                team_dir(self.state_dir, state, current, str(state.get("current_entry_id")))
+                if state.get("current_entry_id")
+                else None,
+            ),
             "prompt": spec.node_prompt(current),
             "before_transfer": _summaries(spec.nodes[current].get("before_transfer"), "before_transfer"),
+            "state_hooks": self._active_state_hooks(spec, state),
             "next": [_edge_summary(edge) for edge in spec.outgoing.get(current, [])],
         }
 
     def graph_state(self, *, run_id: str | None = None) -> dict[str, Any]:
         spec, state = self._load_runtime(run_id)
+        from .team import team_summary
+
         return {
             "run_id": state["run_id"],
             "current": state["current"],
@@ -317,7 +382,9 @@ class StatemRuntime:
                     "in_hook": _summaries(node.get("in_hook"), "in_hook"),
                     "before_transfer": _summaries(node.get("before_transfer"), "before_transfer"),
                     "dynamic_before_transfer": _dynamic_summary(node.get(DYNAMIC_PURPOSE), None),
+                    "multi_agent": team_summary(node.get(TEAM_PURPOSE), None),
                     "out_hook": _summaries(node.get("out_hook"), "out_hook"),
+                    "state_hooks": _state_hook_summaries(node.get(STATE_HOOKS_KEY)),
                 }
                 for name, node in spec.nodes.items()
             ],
@@ -329,6 +396,8 @@ class StatemRuntime:
         if node_name not in spec.nodes:
             raise StatemError(f"Unknown node: {node_name}")
         node = spec.nodes[node_name]
+        from .team import team_dir, team_summary
+
         return {
             "run_id": state["run_id"],
             "current": state["current"],
@@ -343,7 +412,18 @@ class StatemRuntime:
                 if node_name == state["current"] and state.get("current_entry_id")
                 else None,
             ),
+            "multi_agent": team_summary(
+                node.get(TEAM_PURPOSE),
+                team_dir(self.state_dir, state, node_name, str(state.get("current_entry_id")))
+                if node_name == state["current"] and state.get("current_entry_id")
+                else None,
+            ),
             "out_hook": _summaries(node.get("out_hook"), "out_hook"),
+            "state_hooks": (
+                self._active_state_hooks(spec, state)
+                if node_name == state["current"]
+                else _state_hook_summaries(node.get(STATE_HOOKS_KEY))
+            ),
             "next": [_edge_summary(edge) for edge in spec.outgoing.get(node_name, [])],
         }
 
@@ -369,15 +449,30 @@ class StatemRuntime:
         before_results = self._run_node_items(spec, state, source, "before_transfer")
         dynamic_payload = self._run_dynamic_before_transfer(spec, state, source, target)
         dynamic_results = dynamic_payload["results"]
+        from .team import run_team_before_transfer
+
+        team_payload = run_team_before_transfer(self, spec, state, source, target)
+        team_results = team_payload["results"]
         condition_results = self._run_items(spec, state, edge.get("condition"), "condition")
-        pre_results = before_results + dynamic_results + condition_results
+        pre_results = before_results + dynamic_results + team_results + condition_results
         if _has_blocking_failure(pre_results):
-            stage = DYNAMIC_PURPOSE if _has_blocking_failure(dynamic_results) else "before_transfer"
+            if _has_blocking_failure(before_results):
+                stage = "before_transfer"
+            elif _has_blocking_failure(dynamic_results):
+                stage = DYNAMIC_PURPOSE
+            elif _has_blocking_failure(team_results):
+                stage = TEAM_PURPOSE
+            elif _has_blocking_failure(condition_results):
+                stage = "condition"
+            else:
+                stage = "before_transfer"
             details = _block_details(state, source, target, stage, pre_results)
             if attempt_details:
                 details.update(attempt_details)
             if dynamic_payload:
                 details[DYNAMIC_PURPOSE] = dynamic_payload
+            if team_payload.get("configured"):
+                details[TEAM_PURPOSE] = team_payload
             _append_event(
                 state,
                 "goto_blocked",
@@ -425,6 +520,8 @@ class StatemRuntime:
         }
         if attempt_details:
             event_payload.update(attempt_details)
+        if team_payload.get("configured"):
+            event_payload[TEAM_PURPOSE] = team_payload
         _append_event(state, "goto", event_payload)
         self._write_state(state)
         in_details = _block_details(state, source, target, "in_hook", in_results)
@@ -618,6 +715,189 @@ class StatemRuntime:
             "producers": producers,
         }
 
+    def team_init(self, tasks_file: str, *, run_id: str | None = None, entry_id: str | None = None) -> dict[str, Any]:
+        from .team import TeamRunRuntime
+
+        return TeamRunRuntime(self).init(tasks_file, run_id=run_id, entry_id=entry_id)
+
+    def team_status(
+        self,
+        *,
+        run_id: str | None = None,
+        entry_id: str | None = None,
+        include_results: bool = False,
+    ) -> dict[str, Any]:
+        from .team import TeamRunRuntime
+
+        return TeamRunRuntime(self).status(run_id=run_id, entry_id=entry_id, include_results=include_results)
+
+    def team_prompt(
+        self,
+        task_id: str,
+        *,
+        run_id: str | None = None,
+        entry_id: str | None = None,
+        command: str = "statem",
+    ) -> dict[str, Any]:
+        from .team import TeamRunRuntime
+
+        return TeamRunRuntime(self).prompt(task_id, run_id=run_id, entry_id=entry_id, command=command)
+
+    def team_claim(
+        self,
+        task_id: str | None = None,
+        *,
+        run_id: str | None = None,
+        entry_id: str | None = None,
+        lease_seconds: int = 3600,
+        worker_index: int | None = None,
+        worker_count: int | None = None,
+    ) -> dict[str, Any]:
+        from .team import TeamRunRuntime
+
+        return TeamRunRuntime(self).claim(
+            task_id,
+            run_id=run_id,
+            entry_id=entry_id,
+            lease_seconds=lease_seconds,
+            worker_index=worker_index,
+            worker_count=worker_count,
+        )
+
+    def team_submit(
+        self,
+        task_id: str,
+        result_file: str,
+        *,
+        run_id: str | None = None,
+        entry_id: str | None = None,
+    ) -> dict[str, Any]:
+        from .team import TeamRunRuntime
+
+        return TeamRunRuntime(self).submit(task_id, result_file, run_id=run_id, entry_id=entry_id)
+
+    def team_report(
+        self,
+        task_id: str,
+        report_file: str,
+        *,
+        run_id: str | None = None,
+        entry_id: str | None = None,
+    ) -> dict[str, Any]:
+        from .team import TeamRunRuntime
+
+        return TeamRunRuntime(self).report(task_id, report_file, run_id=run_id, entry_id=entry_id)
+
+    def team_release(
+        self,
+        task_id: str | None = None,
+        *,
+        run_id: str | None = None,
+        entry_id: str | None = None,
+        all_leased: bool = False,
+        agent_id: str | None = None,
+        reason: str = "",
+    ) -> dict[str, Any]:
+        from .team import TeamRunRuntime
+
+        return TeamRunRuntime(self).release(
+            task_id,
+            run_id=run_id,
+            entry_id=entry_id,
+            all_leased=all_leased,
+            agent_id=agent_id,
+            reason=reason,
+        )
+
+    def team_advance(
+        self, phase: str, *, run_id: str | None = None, entry_id: str | None = None
+    ) -> dict[str, Any]:
+        from .team import TeamRunRuntime
+
+        return TeamRunRuntime(self).advance(phase, run_id=run_id, entry_id=entry_id)
+
+    def team_reduce_input(
+        self,
+        *,
+        run_id: str | None = None,
+        entry_id: str | None = None,
+        output_file: str | None = None,
+    ) -> dict[str, Any]:
+        from .team import TeamRunRuntime
+
+        return TeamRunRuntime(self).reduce_input(run_id=run_id, entry_id=entry_id, output_file=output_file)
+
+    def team_reduce(
+        self,
+        *,
+        run_id: str | None = None,
+        entry_id: str | None = None,
+        strategy: str | None = None,
+    ) -> dict[str, Any]:
+        from .team import TeamRunRuntime
+
+        return TeamRunRuntime(self).reduce(run_id=run_id, entry_id=entry_id, strategy=strategy)
+
+    def team_decide(
+        self, decision_file: str, *, run_id: str | None = None, entry_id: str | None = None
+    ) -> dict[str, Any]:
+        from .team import TeamRunRuntime
+
+        return TeamRunRuntime(self).decide(decision_file, run_id=run_id, entry_id=entry_id)
+
+    def active_state_hooks(
+        self,
+        *,
+        run_id: str | None = None,
+        event: str | None = None,
+        host: str | None = None,
+    ) -> dict[str, Any]:
+        spec, state = self._load_runtime(run_id)
+        return {
+            "run_id": state["run_id"],
+            "current": state["current"],
+            "current_entry_id": state.get("current_entry_id"),
+            "event": event or "",
+            "host": host or "",
+            "hooks": self._active_state_hooks(spec, state, event=event, host=host),
+        }
+
+    def run_state_hooks(
+        self,
+        event: str,
+        *,
+        run_id: str | None = None,
+        host: str | None = None,
+        command: str = "statem",
+    ) -> dict[str, Any]:
+        spec, state = self._load_runtime(run_id)
+        event_name = str(event).strip()
+        if not event_name:
+            raise StatemError("state hook event is required")
+
+        hooks = self._active_state_hooks(spec, state, event=event_name, host=host)
+        results = [self._run_state_hook(spec, state, hook, event_name, command) for hook in hooks]
+        decision = "block" if any(result.get("decision") == "block" for result in results) else "allow"
+        reason = "\n\n".join(str(result.get("reason") or "") for result in results if result.get("decision") == "block")
+        payload = {
+            "run_id": state["run_id"],
+            "current": state["current"],
+            "current_entry_id": state.get("current_entry_id"),
+            "event": event_name,
+            "host": host or "",
+            "matched_hooks": len(hooks),
+            "decision": decision,
+            "reason": reason,
+            "hooks": hooks,
+            "results": results,
+        }
+        if hooks:
+            history_payload = dict(payload)
+            history_payload["hook_event"] = history_payload.pop("event")
+            _append_event(state, STATE_HOOK_PURPOSE, history_payload)
+            self._write_state(state)
+        return payload
+
     def prompt(self, *, run_id: str | None = None, command: str = "statem") -> dict[str, Any]:
         spec, state = self._load_runtime(run_id)
         current = state["current"]
@@ -695,6 +975,89 @@ After compaction, immediately recover with:
     ) -> list[dict[str, Any]]:
         return self._run_items(spec, state, spec.nodes[node_name].get(key), key)
 
+    def _active_state_hooks(
+        self,
+        spec: StatemSpec,
+        state: dict[str, Any],
+        *,
+        event: str | None = None,
+        host: str | None = None,
+    ) -> list[dict[str, Any]]:
+        current = str(state["current"])
+        self._ensure_current_entry(spec, state)
+        hooks = _state_hook_summaries(spec.nodes[current].get(STATE_HOOKS_KEY))
+        filtered: list[dict[str, Any]] = []
+        for hook in hooks:
+            if event and hook["event"] != event:
+                continue
+            if host and not _state_hook_matches_host(hook, host):
+                continue
+            filtered.append(
+                {
+                    **hook,
+                    "run_id": state["run_id"],
+                    "node": current,
+                    "entry_id": state.get("current_entry_id"),
+                    "active": True,
+                }
+            )
+        return filtered
+
+    def _run_state_hook(
+        self,
+        spec: StatemSpec,
+        state: dict[str, Any],
+        hook: dict[str, Any],
+        event: str,
+        command: str,
+    ) -> dict[str, Any]:
+        template = str(hook.get("template") or "")
+        if template == "statem_autoloop":
+            return self._run_state_hook_autoloop(spec, state, hook, event, command)
+        return {
+            "name": hook.get("name"),
+            "event": event,
+            "template": template,
+            "decision": "allow",
+            "reason": f"unsupported state hook template {template!r}; allowing",
+        }
+
+    def _run_state_hook_autoloop(
+        self,
+        spec: StatemSpec,
+        state: dict[str, Any],
+        hook: dict[str, Any],
+        event: str,
+        command: str,
+    ) -> dict[str, Any]:
+        current = str(state["current"])
+        next_edges = spec.outgoing.get(current, [])
+        stop_states = set(hook.get("stop_states") or DEFAULT_STOP_STATES)
+        if event != "stop" or current in stop_states or not next_edges:
+            return {
+                "name": hook.get("name"),
+                "event": event,
+                "template": hook.get("template"),
+                "decision": "allow",
+                "reason": "",
+            }
+        reason = _state_hook_autoloop_reason(
+            hook,
+            command,
+            self.state_dir,
+            str(state["run_id"]),
+            current,
+            str(state.get("current_entry_id") or ""),
+            next_edges,
+        )
+        return {
+            "name": hook.get("name"),
+            "event": event,
+            "template": hook.get("template"),
+            "decision": "block",
+            "reason": reason,
+        }
+
     def _run_items(
         self, spec: StatemSpec, state: dict[str, Any], raw_items: Any, purpose: str
     ) -> list[dict[str, Any]]:
@@ -724,10 +1087,21 @@ After compaction, immediately recover with:
     def _run_manual(self, item: dict[str, Any], purpose: str) -> dict[str, Any]:
         prompt = str(item.get("prompt") or item.get("text") or item.get("name") or "Confirm check")
         self.options.emit(prompt)
+        confirmation = _confirmation_mode(item)
+        if confirmation == "none":
+            return _result(item, purpose, True, output="manual confirmation not required by spec")
         if self.options.yes:
             return _result(item, purpose, True, output="auto-confirmed yes")
         if not sys.stdin.isatty():
-            return _result(item, purpose, False, output="confirmation required; rerun with --yes to auto-confirm")
+            return _result(
+                item,
+                purpose,
+                False,
+                output=(
+                    "manual confirmation required for this item; rerun with --yes only after "
+                    "verifying the prompt"
+                ),
+            )
         answer = input("Confirm? [y/N] ").strip().lower()
         return _result(item, purpose, answer in {"y", "yes"}, output=f"answered {answer or 'no'}")
 
@@ -737,10 +1111,24 @@ After compaction, immediately recover with:
             return _result(item, purpose, False, output="checklist requires a non-empty items list")
         for entry in entries:
             self.options.emit(f"- {entry}")
+        confirmation = _confirmation_mode(item)
+        if confirmation == "none":
+            return _result(item, purpose, True, output="checklist confirmation not required by spec")
         if self.options.yes:
             return _result(item, purpose, True, output="auto-confirmed checklist")
         if not sys.stdin.isatty():
-            return _result(item, purpose, False, output="checklist confirmation required; rerun with --yes")
+            preview = "; ".join(str(entry) for entry in entries[:3])
+            if len(entries) > 3:
+                preview += f"; ... ({len(entries)} items)"
+            return _result(
+                item,
+                purpose,
+                False,
+                output=(
+                    "checklist confirmation required; rerun with --yes only after confirming: "
+                    + preview
+                ),
+            )
         for entry in entries:
             answer = input(f"Confirm '{entry}'? [y/N] ").strip().lower()
             if answer not in {"y", "yes"}:
@@ -756,7 +1144,14 @@ After compaction, immediately recover with:
         cwd = _resolve_cwd(spec, item)
         timeout = item.get("timeout")
         self.options.emit(f"$ {command}")
-        env = _hook_env(spec, state, self.state_dir, purpose)
+        env = _hook_env(
+            spec,
+            state,
+            self.state_dir,
+            purpose,
+            agent_id=self.options.agent_id,
+            agent_role=self.options.agent_role,
+        )
         try:
             completed = subprocess.run(
                 command,
@@ -791,7 +1186,14 @@ After compaction, immediately recover with:
         cwd = _resolve_cwd(spec, item)
         timeout = item.get("timeout")
         self.options.emit(f"$ {command}")
-        env = _hook_env(spec, state, self.state_dir, purpose)
+        env = _hook_env(
+            spec,
+            state,
+            self.state_dir,
+            purpose,
+            agent_id=self.options.agent_id,
+            agent_role=self.options.agent_role,
+        )
         try:
             completed = subprocess.run(
                 command,
@@ -1041,6 +1443,8 @@ After compaction, immediately recover with:
         manifest_path = self._entry_manifest_path(state, node_name, entry_id)
         if manifest_path.exists():
             return _read_json(manifest_path)
+        from .team import team_summary
+
         manifest = {
             "version": 1,
             "run_id": state["run_id"],
@@ -1048,6 +1452,8 @@ After compaction, immediately recover with:
             "entry_id": entry_id,
             "created_at": _now(),
             "dynamic_before_transfer": _dynamic_summary(spec.nodes[node_name].get(DYNAMIC_PURPOSE), dynamic_dir),
+            "multi_agent": team_summary(spec.nodes[node_name].get(TEAM_PURPOSE), None),
+            "state_hooks": _state_hook_summaries(spec.nodes[node_name].get(STATE_HOOKS_KEY)),
             "producers": [],
         }
         manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -1135,7 +1541,9 @@ def _validate_edge_max_attempts(edge: dict[str, Any], label: str) -> list[str]:
     if "max_attempts" not in edge:
         return []
     value = edge["max_attempts"]
-    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return [f"{label}: max_attempts must be a positive integer"]
+    if value <= 0:
         return [f"{label}: max_attempts must be a positive integer"]
     return []
 
@@ -1179,6 +1587,41 @@ def _strict_node_keyword_errors(node: dict[str, Any], label: str) -> list[str]:
     if isinstance(dynamic, dict):
         errors.extend(_unknown_keyword_errors(dynamic, STRICT_DYNAMIC_CONFIG_KEYS, f"{label} {DYNAMIC_PURPOSE}"))
 
+    team = node.get(TEAM_PURPOSE)
+    if isinstance(team, dict):
+        errors.extend(_unknown_keyword_errors(team, STRICT_TEAM_CONFIG_KEYS, f"{label} {TEAM_PURPOSE}"))
+        reducer = team.get("reducer")
+        if isinstance(reducer, dict):
+            errors.extend(
+                _unknown_keyword_errors(
+                    reducer,
+                    STRICT_TEAM_REDUCER_KEYS,
+                    f"{label} {TEAM_PURPOSE}.reducer",
+                )
+            )
+        for schema_name in ("task_schema", "result_schema"):
+            schema = team.get(schema_name)
+            if isinstance(schema, dict):
+                errors.extend(
+                    _unknown_keyword_errors(
+                        schema,
+                        STRICT_TEAM_SCHEMA_KEYS,
+                        f"{label} {TEAM_PURPOSE}.{schema_name}",
+                    )
+                )
+
+    raw_hooks = node.get(STATE_HOOKS_KEY)
+    hooks = raw_hooks if isinstance(raw_hooks, list) else [raw_hooks] if raw_hooks is not None else []
+    for index, hook in enumerate(hooks, start=1):
+        if isinstance(hook, dict):
+            errors.extend(
+                _unknown_keyword_errors(
+                    hook,
+                    STRICT_STATE_HOOK_KEYS,
+                    f"{label} {STATE_HOOKS_KEY}[{index}]",
+                )
+            )
+
     raw_next = node.get("next_states", node.get("next"))
     next_edges = raw_next if isinstance(raw_next, list) else [raw_next] if raw_next is not None else []
     for index, edge in enumerate(next_edges, start=1):
@@ -1218,7 +1661,11 @@ def _strict_item_keyword_errors(raw_items: Any, purpose: str, label: str) -> lis
     return errors
 
 
-def _unknown_keyword_errors(mapping: dict[str, Any], allowed: set[str], label: str) -> list[str]:
+def _unknown_keyword_errors(
+    mapping: dict[str, Any],
+    allowed: set[str],
+    label: str,
+) -> list[str]:
     errors: list[str] = []
     for raw_key in mapping:
         key = str(raw_key)
@@ -1384,8 +1831,115 @@ def _validate_items(raw_items: Any, purpose: str, label: str) -> list[str]:
             errors.append(f"{label}: predicate requires path")
         if item_type == "checklist" and not (item.get("items") or item.get("checks")):
             errors.append(f"{label}: checklist requires items")
+        if item_type in {"manual", "checklist"}:
+            try:
+                _confirmation_mode(item)
+            except StatemError as exc:
+                errors.append(f"{label}: {exc}")
         if item.get("on_failure") not in {"block", "continue"}:
             errors.append(f"{label}: on_failure must be 'block' or 'continue'")
+    return errors
+
+
+def _confirmation_mode(item: dict[str, Any]) -> str:
+    raw_value = item.get("confirmation", item.get("confirm", "required"))
+    if isinstance(raw_value, bool):
+        return "required" if raw_value else "none"
+    value = str(raw_value).strip().lower().replace("-", "_")
+    aliases = {
+        "": "required",
+        "required": "required",
+        "human": "required",
+        "manual": "required",
+        "true": "required",
+        "yes": "required",
+        "confirm": "required",
+        "none": "none",
+        "no": "none",
+        "false": "none",
+        "off": "none",
+        "advisory": "none",
+        "message": "none",
+    }
+    mode = aliases.get(value)
+    if not mode:
+        raise StatemError("confirmation must be 'required' or 'none'")
+    return mode
+
+
+def _normalize_state_hooks(raw_hooks: Any) -> list[dict[str, Any]]:
+    if raw_hooks is None or raw_hooks == "":
+        return []
+    if isinstance(raw_hooks, list):
+        return [_normalize_state_hook(item, index) for index, item in enumerate(raw_hooks, start=1)]
+    return [_normalize_state_hook(raw_hooks, 1)]
+
+
+def _normalize_state_hook(raw_hook: Any, index: int) -> dict[str, Any]:
+    if isinstance(raw_hook, str):
+        item: dict[str, Any] = {"name": raw_hook, "template": "statem_autoloop"}
+    elif isinstance(raw_hook, dict):
+        item = dict(raw_hook)
+    else:
+        raise StatemError(f"state hook {index} must be a mapping or string")
+
+    event = item.get("event") or item.get("trigger") or item.get("on") or "stop"
+    template = item.get("template") or item.get("type") or "statem_autoloop"
+    name = item.get("name") or template
+    scope = item.get("scope") or "current_entry"
+    hosts = _normalize_state_hook_hosts(item.get("hosts", item.get("host", "any")))
+    stop_states = item.get("stop_states", item.get("terminal_states"))
+    if stop_states is None:
+        normalized_stop_states = sorted(DEFAULT_STOP_STATES)
+    elif isinstance(stop_states, str):
+        normalized_stop_states = [part.strip() for part in stop_states.split(",") if part.strip()]
+    elif isinstance(stop_states, list):
+        normalized_stop_states = [str(part) for part in stop_states if str(part).strip()]
+    else:
+        raise StatemError(f"state hook {index} stop_states must be a list or comma-separated string")
+
+    return {
+        "name": str(name),
+        "event": str(event),
+        "template": str(template),
+        "scope": str(scope),
+        "hosts": hosts,
+        "prompt": str(item.get("prompt") or item.get("text") or ""),
+        "stop_states": normalized_stop_states,
+    }
+
+
+def _normalize_state_hook_hosts(raw_hosts: Any) -> list[str]:
+    if raw_hosts is None or raw_hosts == "":
+        return ["any"]
+    if isinstance(raw_hosts, str):
+        hosts = [part.strip() for part in raw_hosts.split(",") if part.strip()]
+    elif isinstance(raw_hosts, list):
+        hosts = [str(part).strip() for part in raw_hosts if str(part).strip()]
+    else:
+        raise StatemError("state hook host/hosts must be a string or list")
+    return hosts or ["any"]
+
+
+def _validate_state_hooks(raw_hooks: Any, label: str) -> list[str]:
+    try:
+        hooks = _normalize_state_hooks(raw_hooks)
+    except StatemError as exc:
+        return [f"{label}: {exc}"]
+    errors: list[str] = []
+    seen_names: set[str] = set()
+    for hook in hooks:
+        if not hook["name"].strip():
+            errors.append(f"{label}: hook name cannot be empty")
+        elif hook["name"] in seen_names:
+            errors.append(f"{label}: duplicate hook name '{hook['name']}'")
+        seen_names.add(hook["name"])
+        if not hook["event"].strip():
+            errors.append(f"{label}: hook event cannot be empty")
+        if hook["template"] not in STATE_HOOK_TEMPLATES:
+            errors.append(f"{label}: unsupported template '{hook['template']}'")
+        if hook["scope"] != "current_entry":
+            errors.append(f"{label}: only scope: current_entry is supported")
     return errors
 
 
@@ -1458,6 +2012,18 @@ def _dynamic_summary(raw_config: Any, path: Path | None) -> dict[str, Any] | Non
     return summary
 
 
+def _state_hook_summaries(raw_hooks: Any) -> list[dict[str, Any]]:
+    return _normalize_state_hooks(raw_hooks)
+
+
+def _state_hook_matches_host(hook: dict[str, Any], host: str) -> bool:
+    host_name = str(host).strip()
+    if not host_name:
+        return True
+    hosts = [str(item) for item in hook.get("hosts", [])]
+    return "any" in hosts or host_name in hosts
+
+
 def _load_dynamic_check_file(path: Path) -> Any:
     if not path.exists():
         raise StatemError(f"Dynamic checks file not found: {path}")
@@ -1485,13 +2051,13 @@ def _dynamic_payload_checks(payload: Any) -> list[Any]:
         return payload
     if isinstance(payload, dict) and isinstance(payload.get("checks"), list):
         return payload["checks"]
-    raise StatemError("Dynamic checks must be a list or a mapping with a checks list")
+    raise StatemError("Dynamic checks must be a list or a mapping with a checks list.\n" + DYNAMIC_CHECKS_SCHEMA_HINT)
 
 
 def _normalize_dynamic_payload(payload: Any, agent_id: str, role: str) -> dict[str, Any]:
     checks = _dynamic_payload_checks(payload)
     if not agent_id:
-        raise StatemError("Dynamic checks require an agent id")
+        raise StatemError("Dynamic checks require an agent id. Pass --agent-id or set STATEM_AGENT_ID.")
     producer = _dynamic_payload_producer(payload)
     normalized = {
         "producer": {
@@ -1502,7 +2068,7 @@ def _normalize_dynamic_payload(payload: Any, agent_id: str, role: str) -> dict[s
         "checks": checks,
     }
     if not normalized["producer"]["agent_id"]:
-        raise StatemError("Dynamic checks require a non-empty producer.agent_id")
+        raise StatemError("Dynamic checks require a non-empty producer.agent_id. Pass --agent-id or set STATEM_AGENT_ID.")
     return normalized
 
 
@@ -1523,7 +2089,36 @@ def _validate_dynamic_payload(payload: dict[str, Any], config: dict[str, Any], p
         if config.get("require_reason") and not str(raw_check.get("reason") or "").strip():
             problems.append(f"{path}: dynamic check {index} requires reason")
     if problems:
-        raise StatemError("; ".join(problems))
+        allowed_text = ", ".join(sorted(allowed))
+        raise StatemError(
+            "; ".join(problems)
+            + "\n"
+            + f"Allowed dynamic check types for this state: {allowed_text}.\n"
+            + _dynamic_checks_schema_hint(allowed)
+        )
+
+
+def _dynamic_checks_schema_hint(allowed_types: set[str] | None = None) -> str:
+    allowed = set(allowed_types or CHECK_TYPES)
+    examples = []
+    if "manual" in allowed:
+        examples.append("{'type': 'manual', 'prompt': 'Confirm ...', 'reason': '...'}")
+    if "checklist" in allowed:
+        examples.append("{'type': 'checklist', 'items': ['...'], 'reason': '...'}")
+    if "predicate" in allowed:
+        examples.append("{'type': 'predicate', 'path': '/app/file', 'exists': true, 'reason': '...'}")
+    if "command" in allowed:
+        examples.append("{'type': 'command', 'run': '...', 'reason': '...'}")
+    if "llm_review" in allowed:
+        examples.append("{'type': 'llm_review', 'prompt': 'Review ...', 'reason': '...'}")
+    if "message" in allowed:
+        examples.append("{'type': 'message', 'text': 'Prepare ...', 'reason': '...'}")
+    return (
+        "Accepted dynamic checks file shape: "
+        "{'basis': {'implementation_summary': 'what changed and why these checks fit'}, "
+        f"'checks': [{', '.join(examples)}]"
+        "}. Pass --agent-id or set STATEM_AGENT_ID; producer metadata is owned by the CLI."
+    )
 
 
 def _summaries(raw_items: Any, purpose: str) -> list[dict[str, Any]]:
@@ -1569,15 +2164,69 @@ def _edge_summary(edge: dict[str, Any]) -> dict[str, Any]:
     return summary
 
 
-def _hook_env(spec: StatemSpec, state: dict[str, Any], state_dir: Path, purpose: str) -> dict[str, str]:
-    return {
+def _hook_env(
+    spec: StatemSpec,
+    state: dict[str, Any],
+    state_dir: Path,
+    purpose: str,
+    *,
+    agent_id: str | None = None,
+    agent_role: str | None = None,
+) -> dict[str, str]:
+    env = {
         **os.environ,
         "STATEM_RUN_ID": str(state.get("run_id", "")),
         "STATEM_SPEC": str(spec.path),
         "STATEM_STATE_DIR": str(state_dir),
         "STATEM_CURRENT": str(state.get("current", "")),
+        "STATEM_ENTRY_ID": str(state.get("current_entry_id", "")),
         "STATEM_PURPOSE": purpose,
     }
+    resolved_agent_id = _clean_agent_id(
+        agent_id or os.environ.get("STATEM_AGENT_ID") or str(state.get("agent_id") or "")
+    )
+    resolved_agent_role = str(agent_role or os.environ.get("STATEM_AGENT_ROLE") or "").strip()
+    if resolved_agent_id:
+        env["STATEM_AGENT_ID"] = resolved_agent_id
+    if resolved_agent_role:
+        env["STATEM_AGENT_ROLE"] = resolved_agent_role
+    return env
+
+
+def _state_hook_autoloop_reason(
+    hook: dict[str, Any],
+    command: str,
+    state_dir: Path,
+    run_id: str,
+    current: str,
+    entry_id: str,
+    next_edges: list[dict[str, Any]],
+) -> str:
+    next_names = ", ".join(str(edge.get("to")) for edge in next_edges if isinstance(edge, dict)) or "(none)"
+    lines = [
+        "Continue the active statem-managed run instead of stopping.",
+        "",
+        f"State hook: {hook.get('name')}",
+        f"Current state: {current}",
+        f"Current entry: {entry_id}",
+        f"Allowed next states: {next_names}",
+    ]
+    if hook.get("prompt"):
+        lines.extend(["", "State hook instruction:", str(hook["prompt"])])
+    state_dir_arg = shlex.quote(str(state_dir))
+    run_id_arg = shlex.quote(run_id)
+    lines.extend(
+        [
+            "",
+            "First inspect durable state:",
+            f"{command} cur --run-id {run_id_arg} --state-dir {state_dir_arg} --json",
+            f"{command} next --run-id {run_id_arg} --state-dir {state_dir_arg} --json",
+            "",
+            "Follow the current node prompt. Move only with `statem goto <next-state>`.",
+            "If the current node requires user input or is ready for handoff, explain that and stop.",
+        ]
+    )
+    return "\n".join(lines)
 
 
 def _review_prompt(spec: StatemSpec, state: dict[str, Any], item: dict[str, Any], purpose: str) -> str:
@@ -1638,7 +2287,15 @@ def _raise_if_blocked(
 def _block_details(
     state: dict[str, Any], source: str, target: str, stage: str, results: list[dict[str, Any]]
 ) -> dict[str, Any]:
-    return {
+    blocking_results = [
+        result for result in results if not result["passed"] and result.get("on_failure") == "block"
+    ]
+    pending_confirmation = [
+        result
+        for result in blocking_results
+        if result.get("type") in {"manual", "checklist"} and "confirmation required" in str(result.get("output") or "")
+    ]
+    details = {
         "run_id": state["run_id"],
         "current": state["current"],
         "current_entry_id": state.get("current_entry_id"),
@@ -1647,6 +2304,20 @@ def _block_details(
         "stage": stage,
         "results": results,
     }
+    if pending_confirmation and len(pending_confirmation) == len(blocking_results):
+        details["summary"] = (
+            "All automatic checks passed; manual confirmation is pending. "
+            "Rerun with --yes only after verifying the listed checklist/manual items."
+        )
+        details["pending_confirmation"] = [
+            {"type": result.get("type"), "purpose": result.get("purpose"), "output": result.get("output")}
+            for result in pending_confirmation
+        ]
+    elif pending_confirmation:
+        details["summary"] = (
+            "Some checklist/manual items still need confirmation, and at least one automatic check also failed."
+        )
+    return details
 
 
 def _resolve_cwd(spec: StatemSpec, item: dict[str, Any]) -> Path:

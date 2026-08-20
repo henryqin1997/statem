@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from .core import RunOptions, StatemError, StatemRuntime, validate_spec
+from .core import DYNAMIC_CHECKS_SCHEMA_HINT, RunOptions, StatemError, StatemRuntime, validate_spec
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -35,6 +35,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(error_payload, indent=2, sort_keys=True))
         else:
             print(f"statem: {exc}", file=sys.stderr)
+            _print_error_details(exc.details)
         return getattr(exc, "exit_code", 1)
 
     if args.json:
@@ -138,7 +139,18 @@ def _build_parser() -> argparse.ArgumentParser:
     dynamic_path = dynamic_subparsers.add_parser("path", parents=[common], help="show dynamic check directory")
     dynamic_path.set_defaults(handler=_cmd_dynamic_path)
 
-    dynamic_write = dynamic_subparsers.add_parser("write", parents=[common], help="write checks for this agent")
+    dynamic_write = dynamic_subparsers.add_parser(
+        "write",
+        parents=[common],
+        help="write checks for this agent",
+        epilog=(
+            DYNAMIC_CHECKS_SCHEMA_HINT
+            + " Example JSON: "
+            + '{"basis":{"implementation_summary":"changed parser path"},'
+            + '"checks":[{"type":"predicate","path":"/app/output.json","exists":true,'
+            + '"reason":"final artifact must exist"}]}'
+        ),
+    )
     dynamic_write.add_argument("checks_file", help="JSON or mini-YAML dynamic checks file")
     dynamic_write.add_argument("--role", help="producer role metadata")
     dynamic_write.set_defaults(handler=_cmd_dynamic_write)
@@ -148,6 +160,87 @@ def _build_parser() -> argparse.ArgumentParser:
 
     dynamic_show = dynamic_subparsers.add_parser("show", parents=[common], help="alias for dynamic list")
     dynamic_show.set_defaults(handler=_cmd_dynamic_list)
+
+    team = subparsers.add_parser("team", parents=[common], help="manage current-entry multi-agent TeamRun state")
+    team_subparsers = team.add_subparsers(dest="team_command")
+
+    team_entry = argparse.ArgumentParser(add_help=False)
+    team_entry.add_argument(
+        "--entry-id",
+        default=os.environ.get("STATEM_ENTRY_ID"),
+        help="current node entry id guard for TeamRun commands",
+    )
+
+    team_init = team_subparsers.add_parser("init", parents=[common, team_entry], help="initialize a TeamRun from tasks")
+    team_init.add_argument("tasks_file", help="JSON or mini-YAML file with a tasks list")
+    team_init.set_defaults(handler=_cmd_team_init)
+
+    team_status = team_subparsers.add_parser("status", parents=[common, team_entry], help="show TeamRun status")
+    team_status.set_defaults(handler=_cmd_team_status)
+
+    team_cur = team_subparsers.add_parser("cur", parents=[common, team_entry], help="alias for TeamRun status")
+    team_cur.set_defaults(handler=_cmd_team_status)
+
+    team_prompt = team_subparsers.add_parser("prompt", parents=[common, team_entry], help="print a worker task prompt")
+    team_prompt.add_argument("task_id")
+    team_prompt.add_argument("--command", dest="statem_command", default="statem", help="statem command to embed")
+    team_prompt.set_defaults(handler=_cmd_team_prompt)
+
+    team_claim = team_subparsers.add_parser("claim", parents=[common, team_entry], help="claim an open TeamRun task")
+    team_claim.add_argument("task_id", nargs="?", help="specific task id to claim; defaults to highest-priority open task")
+    team_claim.add_argument("--lease-seconds", type=int, default=3600, help="lease duration before reclaim")
+    team_claim.add_argument("--worker-index", type=int, help="zero-based shard index for ordered task distribution")
+    team_claim.add_argument("--worker-count", type=int, help="number of worker shards for ordered task distribution")
+    team_claim.set_defaults(handler=_cmd_team_claim)
+
+    team_submit = team_subparsers.add_parser("submit", parents=[common, team_entry], help="submit a result for a leased task")
+    team_submit.add_argument("task_id")
+    team_submit.add_argument("result_file", help="JSON or mini-YAML result file")
+    team_submit.set_defaults(handler=_cmd_team_submit)
+
+    team_report = team_subparsers.add_parser("report", parents=[common, team_entry], help="append a partial report for a leased task")
+    team_report.add_argument("task_id")
+    team_report.add_argument("report_file", help="JSON or mini-YAML report file")
+    team_report.set_defaults(handler=_cmd_team_report)
+
+    team_release = team_subparsers.add_parser("release", parents=[common, team_entry], help="release leased TeamRun task(s) back to open")
+    team_release.add_argument("task_id", nargs="?", help="specific task id to release")
+    team_release.add_argument("--all-leased", action="store_true", help="release every currently leased task in this entry")
+    team_release.add_argument("--reason", default="", help="short audit reason for releasing the lease")
+    team_release.set_defaults(handler=_cmd_team_release)
+
+    team_collect = team_subparsers.add_parser("collect", parents=[common, team_entry], help="show TeamRun result digest")
+    team_collect.set_defaults(handler=_cmd_team_collect)
+
+    team_advance = team_subparsers.add_parser("advance", parents=[common, team_entry], help="advance the TeamRun phase")
+    team_advance.add_argument("phase", choices=["divided", "exploring", "reducing", "decided", "blocked"])
+    team_advance.set_defaults(handler=_cmd_team_advance)
+
+    team_reduce_input = team_subparsers.add_parser("reduce-input", parents=[common, team_entry], help="write reducer input JSON")
+    team_reduce_input.add_argument("--output", help="output file; defaults to reduce/reducer-input.json")
+    team_reduce_input.set_defaults(handler=_cmd_team_reduce_input)
+
+    team_reduce = team_subparsers.add_parser("reduce", parents=[common, team_entry], help="run the configured TeamRun reducer")
+    team_reduce.add_argument("--strategy", help="override configured reducer strategy")
+    team_reduce.set_defaults(handler=_cmd_team_reduce)
+
+    team_decide = team_subparsers.add_parser("decide", parents=[common, team_entry], help="record the final TeamRun decision")
+    team_decide.add_argument("decision_file", help="JSON or mini-YAML decision file")
+    team_decide.set_defaults(handler=_cmd_team_decide)
+
+    hooks = subparsers.add_parser("hooks", parents=[common], help="inspect or run active state hooks")
+    hooks_subparsers = hooks.add_subparsers(dest="hooks_command")
+
+    hooks_active = hooks_subparsers.add_parser("active", parents=[common], help="show active state hooks")
+    hooks_active.add_argument("--event", help="filter by hook event, such as stop")
+    hooks_active.add_argument("--host", help="filter by host, such as codex or claude")
+    hooks_active.set_defaults(handler=_cmd_hooks_active)
+
+    hooks_run = hooks_subparsers.add_parser("run", parents=[common], help="run active hooks for an event")
+    hooks_run.add_argument("event", help="hook event to run, such as stop")
+    hooks_run.add_argument("--host", help="filter by host, such as codex or claude")
+    hooks_run.add_argument("--command", dest="statem_command", default="statem", help="statem command to embed in prompts")
+    hooks_run.set_defaults(handler=_cmd_hooks_run)
 
     return parser
 
@@ -208,6 +301,87 @@ def _cmd_dynamic_list(args: argparse.Namespace, options: RunOptions) -> dict[str
     return StatemRuntime(options).dynamic_list()
 
 
+def _cmd_team_init(args: argparse.Namespace, options: RunOptions) -> dict[str, Any]:
+    return StatemRuntime(options).team_init(args.tasks_file, entry_id=args.entry_id)
+
+
+def _cmd_team_status(args: argparse.Namespace, options: RunOptions) -> dict[str, Any]:
+    return StatemRuntime(options).team_status(entry_id=args.entry_id)
+
+
+def _cmd_team_prompt(args: argparse.Namespace, options: RunOptions) -> dict[str, Any]:
+    return StatemRuntime(options).team_prompt(args.task_id, entry_id=args.entry_id, command=args.statem_command)
+
+
+def _cmd_team_claim(args: argparse.Namespace, options: RunOptions) -> dict[str, Any]:
+    return StatemRuntime(options).team_claim(
+        args.task_id,
+        entry_id=args.entry_id,
+        lease_seconds=args.lease_seconds,
+        worker_index=args.worker_index,
+        worker_count=args.worker_count,
+    )
+
+
+def _cmd_team_submit(args: argparse.Namespace, options: RunOptions) -> dict[str, Any]:
+    return StatemRuntime(options).team_submit(args.task_id, args.result_file, entry_id=args.entry_id)
+
+
+def _cmd_team_report(args: argparse.Namespace, options: RunOptions) -> dict[str, Any]:
+    return StatemRuntime(options).team_report(args.task_id, args.report_file, entry_id=args.entry_id)
+
+
+def _cmd_team_release(args: argparse.Namespace, options: RunOptions) -> dict[str, Any]:
+    return StatemRuntime(options).team_release(
+        args.task_id,
+        entry_id=args.entry_id,
+        all_leased=args.all_leased,
+        agent_id=args.agent_id,
+        reason=args.reason,
+    )
+
+
+def _cmd_team_collect(args: argparse.Namespace, options: RunOptions) -> dict[str, Any]:
+    return StatemRuntime(options).team_status(entry_id=args.entry_id, include_results=True)
+
+
+def _cmd_team_advance(args: argparse.Namespace, options: RunOptions) -> dict[str, Any]:
+    return StatemRuntime(options).team_advance(args.phase, entry_id=args.entry_id)
+
+
+def _cmd_team_reduce_input(args: argparse.Namespace, options: RunOptions) -> dict[str, Any]:
+    return StatemRuntime(options).team_reduce_input(entry_id=args.entry_id, output_file=args.output)
+
+
+def _cmd_team_reduce(args: argparse.Namespace, options: RunOptions) -> dict[str, Any]:
+    return StatemRuntime(options).team_reduce(entry_id=args.entry_id, strategy=args.strategy)
+
+
+def _cmd_team_decide(args: argparse.Namespace, options: RunOptions) -> dict[str, Any]:
+    return StatemRuntime(options).team_decide(args.decision_file, entry_id=args.entry_id)
+
+
+def _cmd_hooks_active(args: argparse.Namespace, options: RunOptions) -> dict[str, Any]:
+    return StatemRuntime(options).active_state_hooks(event=args.event, host=args.host)
+
+
+def _cmd_hooks_run(args: argparse.Namespace, options: RunOptions) -> dict[str, Any]:
+    return StatemRuntime(options).run_state_hooks(args.event, host=args.host, command=args.statem_command)
+
+
+def _print_error_details(details: dict[str, Any]) -> None:
+    if not details:
+        return
+    summary = details.get("summary")
+    if summary:
+        print(f"hint: {summary}", file=sys.stderr)
+    pending = details.get("pending_confirmation") or []
+    if pending:
+        print("pending confirmation:", file=sys.stderr)
+        for item in pending:
+            print(f"- {item.get('purpose')} {item.get('type')}: {item.get('output')}", file=sys.stderr)
+
+
 def _print_payload(command: str, payload: dict[str, Any]) -> None:
     if command in {"start", "cur"}:
         _print_cur(payload)
@@ -229,6 +403,10 @@ def _print_payload(command: str, payload: dict[str, Any]) -> None:
         _print_validate(payload)
     elif command == "dynamic":
         _print_dynamic(payload)
+    elif command == "team":
+        _print_team(payload)
+    elif command == "hooks":
+        _print_hooks(payload)
     else:
         print(json.dumps(payload, indent=2, sort_keys=True))
 
@@ -242,6 +420,11 @@ def _print_cur(payload: dict[str, Any]) -> None:
     if payload.get("dynamic_before_transfer"):
         dynamic = payload["dynamic_before_transfer"]
         print(f"Dynamic checks: {dynamic.get('resolved_path') or dynamic.get('path')}")
+    if payload.get("multi_agent"):
+        team = payload["multi_agent"]
+        print(f"TeamRun: {team.get('mode')} required={team.get('required')}")
+    if payload.get("state_hooks"):
+        print("State hooks: " + ", ".join(str(hook.get("name")) for hook in payload["state_hooks"]))
     if payload.get("prompt"):
         print("\nPrompt:")
         print(payload["prompt"])
@@ -280,6 +463,17 @@ def _print_node(payload: dict[str, Any]) -> None:
         print("\nDynamic before transfer:")
         print(f"- path: {dynamic.get('resolved_path') or dynamic.get('path')}")
         print(f"- allow_types: {', '.join(dynamic.get('allow_types', []))}")
+    if payload.get("multi_agent"):
+        team = payload["multi_agent"]
+        print("\nTeamRun:")
+        print(f"- mode: {team.get('mode')}")
+        print(f"- required: {team.get('required')}")
+        if team.get("resolved_path"):
+            print(f"- path: {team.get('resolved_path')}")
+    if payload.get("state_hooks"):
+        print("\nState hooks:")
+        for hook in payload["state_hooks"]:
+            print(f"- {hook.get('event')}:{hook.get('name')} ({hook.get('template')})")
     _print_next({"next": payload.get("next", [])})
 
 
@@ -342,6 +536,62 @@ def _print_dynamic(payload: dict[str, Any]) -> None:
         details = producer.get("producer", {})
         label = details.get("agent_id") or producer.get("path")
         print(f"- {label}: {producer.get('checks', 0)} check(s)")
+
+
+def _print_team(payload: dict[str, Any]) -> None:
+    if "prompt" in payload:
+        print(payload["prompt"], end="")
+        return
+    print(f"Run: {payload.get('run_id')}")
+    print(f"Current: {payload.get('current')}")
+    if payload.get("current_entry_id"):
+        print(f"Entry: {payload.get('current_entry_id')}")
+    if payload.get("phase"):
+        print(f"TeamRun: {payload.get('phase')} ({payload.get('path') or payload.get('decision_path') or ''})")
+    counts = payload.get("counts") or {}
+    if counts:
+        print(
+            "Counts: "
+            + ", ".join(f"{key}={value}" for key, value in counts.items() if value and key != "closed")
+        )
+    frontier = payload.get("frontier") or {}
+    recommended = frontier.get("recommended_actions") or []
+    if recommended:
+        print("Recommended: " + ", ".join(str(item) for item in recommended))
+    if payload.get("claimed_task"):
+        task = payload["claimed_task"]
+        print(f"Claimed: {task.get('task_id')} -> {task.get('assignment_path')}")
+    if payload.get("submitted_task"):
+        task = payload["submitted_task"]
+        print(f"Submitted: {task.get('task_id')} status={task.get('status')} -> {task.get('result_path')}")
+    if payload.get("reported_task"):
+        task = payload["reported_task"]
+        print(f"Reported: {task.get('task_id')} claims={task.get('claims')} -> {task.get('report_path')}")
+    if payload.get("decision"):
+        print("Decision:")
+        print(json.dumps(payload["decision"], indent=2, sort_keys=True))
+
+
+def _print_hooks(payload: dict[str, Any]) -> None:
+    print(f"Run: {payload['run_id']}")
+    print(f"Current: {payload['current']}")
+    if payload.get("current_entry_id"):
+        print(f"Entry: {payload['current_entry_id']}")
+    if payload.get("event"):
+        print(f"Event: {payload['event']}")
+    if "decision" in payload:
+        print(f"Decision: {payload['decision']}")
+        if payload.get("reason"):
+            print("\nReason:")
+            print(payload["reason"])
+    hooks = payload.get("hooks", [])
+    if not hooks:
+        print("Hooks: (none)")
+        return
+    print("Hooks:")
+    for hook in hooks:
+        hosts = ", ".join(str(host) for host in hook.get("hosts", []))
+        print(f"- {hook.get('event')}:{hook.get('name')} template={hook.get('template')} hosts={hosts}")
 
 
 def _print_results(results: list[dict[str, Any]]) -> None:

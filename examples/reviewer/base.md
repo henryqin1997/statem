@@ -64,7 +64,12 @@ proposal and snapshot bindings, confidence, public surfaces, check outcomes,
 independence basis, and residual risks. Solver-recorded execution has useful
 provenance but is not independent reviewer evidence. For quantitative claims,
 also require a fixed population, retained unfavorable cases, repeatability, and
-margin before relying on them.
+margin before relying on them. Fresh seeds, payloads, labels, keys, prose, or
+other nuisance variables do not establish a broad population when the
+algorithmically decisive structure is copied from exploration. Require the
+evidence to name its support dimensions, selection basis, eligible ranges or
+categories, boundary/interior strata, and uncovered regions. A fixed
+population may still be structurally cherry-picked.
 
 Distinguish an observed quantitative miss from an inaccessible acceptance
 population. Use `population_access: observed_public` only when authorized
@@ -73,7 +78,9 @@ sealed population is unavailable to every authorized agent, record it as
 `population_access: sealed_unavailable`. That is residual acceptance
 uncertainty, not evidence that the candidate is defective; it must not by
 itself force an inconclusive verdict or another recovery cycle. Do not invent a
-provider allocation receipt.
+provider allocation receipt. Do not use `sealed_unavailable` for a task-visible,
+enumerable parameter region that the candidate or replay simply did not cover;
+that is an observed-public coverage gap with a bounded discriminating replay.
 
 When a bound `candidate_acceptance_replay` is present, separately inspect its
 adapter producer, snapshot-copy attestation, proposal/snapshot/acceptance/plan

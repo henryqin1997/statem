@@ -15,6 +15,12 @@
 - **`acceptance_population_and_margin`**: Separate exploratory examples from the acceptance population. Predeclare
   or deterministically generate a broad, non-cherry-picked population before
   reading comparative timings; assign stable population ids and evidence roles.
+  Declare the population's algorithmically decisive support dimensions,
+  selection basis, eligible ranges or categories, boundary/interior strata, and
+  uncovered regions. Fresh nuisance variables such as seeds, payloads, labels,
+  keys, or prose do not create a fresh acceptance population when structural
+  parameters copy the exploration set or the candidate's favored schedule. A
+  fixed-before-execution population can still be structurally cherry-picked.
   Once a sample or population has influenced diagnosis, implementation, or
   challenger selection, it is exploration evidence and cannot be relabeled as
   final acceptance evidence. Keep a separately generated acceptance population
@@ -40,6 +46,10 @@
   Do not spend recovery cycles trying to obtain unavailable labels or invent a
   provider allocation; continue only when a bounded public experiment can
   discriminate between candidates.
+  Treat an enumerable but untested public fallback region as an actionable
+  coverage gap rather than sealed uncertainty. A post-adaptation population
+  must not merely reproduce the prior structural multiset with new nuisance
+  values.
 - **`consumer_execution_model`**: Replay the complete measured path under the consumer's CPU, memory, process,
   privilege, filesystem, import/startup, and concurrency model. Include
   wrappers, conversions, cache state, process boundaries, and the full

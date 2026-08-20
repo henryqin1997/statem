@@ -1,0 +1,5 @@
+Build a command-line program at /app/normalize.py that reads JSON objects, one
+per line, from standard input and writes one normalized JSON object per line to
+standard output in the same order. Keys must be sorted and output must contain
+no extra prose. If any input line is invalid JSON or is not an object, print a
+useful error to standard error and exit nonzero without using the network.
