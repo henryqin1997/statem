@@ -349,7 +349,8 @@ fresh_holdout_candidates:
     matched_pair_id: cargo-flight-dispatch-aws-x86-v4p34-k1-a
     direct_runner_pid: 248146
     direct_backup_tree_sha256: 69e82994784f745d68d2614238a0ed08f4c9ce62fac3337b7eab7006bb52ef2c
-    state: matched_k1_direct_zero_waiting_statem
+    statem_runner_pid: 259984
+    state: matched_k1_direct_zero_statem_active
   - task: foodstuff-beta-activity
     public_sol_passes: 0
     expected_family: numerical-model
