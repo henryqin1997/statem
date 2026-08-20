@@ -411,7 +411,37 @@ fresh_holdout_candidates:
     direct_runner_pid: 24632
     direct_backup_tree_sha256: 54f8bc257829dfedc4a82f981b083b9f1256fc5472057510c6cdd52936b9eb2f
     statem_runner_pid: 27879
-    state: matched_k1_direct_zero_statem_active
+    statem_raw_reward: 0.0
+    statem_protocol_valid: true
+    statem_cost_usd: 6.881537
+    statem_route:
+      - solve
+      - falsify
+      - revise
+      - falsify
+      - promote
+      - final_replay
+      - handoff
+    statem_backup_files: 106
+    statem_backup_bytes: 3770933
+    statem_backup_tree_sha256: f1ec8d8a4028903721b6215fa890738425084f062fa18ec23c54e474b9aeeb97
+    development_attempts_for_current_hypothesis: 1
+    hypothesis_scoped_no_progress_count: 0
+    development_progress: >-
+      Revised a finite-count estimator variant, produced the exact public
+      deliverable, completed candidate-bound replay and two falsifier reviews,
+      promoted, replayed, and handed off. The raw zero exposes a structured
+      acceptance-obligation closure gap rather than lifecycle or hardware.
+    final_attempt_result: matched_direct_zero_statem_zero
+    dominant_limit: semantic_acceptance_obligations_lacked_independent_closure
+    next_generic_control: >-
+      Require exactly one evidence-mode-compatible reviewer assessment for every
+      candidate-blind acceptance obligation. Material paired or analytic claims
+      cannot be closed by solver-recorded values or an unrelated output-format
+      replay; unresolved or independence-inadequate obligations route to revise
+      or quarantine.
+    state: parked_after_substantive_zero_waiting_obligation_closure_control
+    score_eligible_as_future_holdout_for_this_control: false
   - task: fix-uautomizer-soundness
     public_sol_passes: 0
     expected_family: structured-transformation
