@@ -1,0 +1,210 @@
+# Construction daily report. The commands are illustrative subcommands of a
+# thin wrapper over an existing document pipeline; see the companion
+# construction-daily-report.md for the flow, verdict files, and rationale.
+
+name: construction-daily-report
+initial: prepare
+
+nodes:
+
+  prepare:
+    prompt: |
+      Collect the inputs for the day and anchor them before any text exists.
+      Every source is hashed and recorded first, so a later quote can be
+      re-located byte for byte in bytes that were frozen before you wrote.
+      You do not write report content in this state.
+    before_transfer:
+      - type: command
+        run: "./tools/daily-report-gate.sh anchor-inputs --day $REPORT_DAY --out .statem-daily-report/current/inputs.json"
+        timeout: 300
+      - type: predicate
+        path: .statem-daily-report/current/inputs.json
+        exists: true
+        non_empty: true
+        json_path: status
+        equals: anchored
+
+  propose:
+    prompt: |
+      Propose data only. Write the day file at the single path you are allowed
+      to write and nowhere else. Every printed field is either a literal quote
+      carrying its own provenance, or an explicitly labelled gap. Do not assert
+      that anything was verified. The validator decides that, and it is not you.
+    before_transfer:
+      - type: predicate
+        path: .statem-daily-report/current/proposal.json
+        exists: true
+        non_empty: true
+      - type: command
+        run: "./tools/daily-report-gate.sh seal-check --day $REPORT_DAY"
+        timeout: 120
+      - type: command
+        run: "./tools/daily-report-gate.sh proposal-shape --day $REPORT_DAY"
+        timeout: 120
+
+  validate:
+    prompt: |
+      The deterministic validator runs when you attempt to leave this state.
+      You do not vote on the outcome, you do not edit the validator, and you do
+      not parameterise it. Read the verdict file and take the edge it allows.
+    before_transfer:
+      - type: command
+        run: "./tools/daily-report-gate.sh check-coverage --day $REPORT_DAY"
+        timeout: 120
+      # Must run even when it rejects: its verdict file is what routes to repair.
+      - type: command
+        run: "./tools/daily-report-gate.sh validate --day $REPORT_DAY --out .statem-daily-report/current/validation.json"
+        timeout: 900
+        on_failure: continue
+
+  repair:
+    prompt: |
+      You were handed the refusals verbatim. Fix only what was refused. Do not
+      delete a true field to make a refusal disappear, and do not argue with the
+      validator. The correction happens on the defendant's side, never on the
+      judge's side. Rewrite the same file, complete and valid.
+    before_transfer:
+      - type: command
+        run: "./tools/daily-report-gate.sh record-attempt --day $REPORT_DAY --cap 2 --pin-origin"
+        timeout: 120
+      - type: predicate
+        path: .statem-daily-report/current/attempts.json
+        exists: true
+        json_path: origin_hash_pinned
+        equals: true
+
+  human_review:
+    prompt: |
+      A person reads the rendered report against the refusal history and the
+      anchored sources. This is the last state where a defect is still cheap.
+      Record the decision before leaving, whatever the decision is.
+    before_transfer:
+      - type: command
+        run: "./tools/daily-report-gate.sh review-record --day $REPORT_DAY --require-decision"
+        timeout: 60
+      # The only manual in the graph, and never the load-bearing gate here.
+      - type: manual
+        prompt: "A person read the rendered report and recorded a decision."
+
+  handoff:
+    prompt: |
+      Archive the accepted day as a verified golden trajectory. Store the
+      accepted bytes, the anchored sources, and the refusal history relabelled
+      as a first-try success, then record which dataset split this day belongs
+      to. Evaluation days stay disjoint from training days.
+    # Records only: goto commits the pointer (core.py:326-329) before in_hook runs.
+    in_hook:
+      type: command
+      run: "./tools/daily-report-gate.sh archive-golden --day $REPORT_DAY --registry .statem-daily-report/golden/registry.json"
+      timeout: 300
+
+  escalate:
+    prompt: |
+      The day stops here and calls a person. Two corrections against the same
+      origin bytes did not converge, and a third try is not correcting, it is
+      groping at the judge. A refusal class that repeats across days is a
+      missing rule in the instruction set, not a model failure.
+    in_hook:
+      type: command
+      run: "./tools/daily-report-gate.sh record-escalation --day $REPORT_DAY"
+      timeout: 60
+
+edges:
+
+  - from: prepare
+    to: propose
+    condition:
+      type: predicate
+      path: .statem-daily-report/current/inputs.json
+      json_path: unanchored_count
+      equals: 0
+
+  - from: propose
+    to: validate
+    condition:
+      type: command
+      run: "./tools/daily-report-gate.sh field-inventory --day $REPORT_DAY --require-provenance-or-gap"
+      timeout: 120
+
+  - from: validate
+    to: repair
+    condition:
+      - type: predicate
+        path: .statem-daily-report/current/validation.json
+        json_path: verdict
+        equals: rejected
+      - type: command
+        run: "./tools/daily-report-gate.sh attempts-remaining --day $REPORT_DAY --cap 2"
+        timeout: 60
+
+  - from: validate
+    to: escalate
+    condition:
+      - type: predicate
+        path: .statem-daily-report/current/validation.json
+        json_path: verdict
+        equals: rejected
+      - type: command
+        run: "./tools/daily-report-gate.sh attempts-remaining --day $REPORT_DAY --cap 2 --expect-exhausted"
+        timeout: 60
+
+  - from: validate
+    to: human_review
+    condition:
+      type: predicate
+      path: .statem-daily-report/current/validation.json
+      json_path: verdict
+      equals: accepted
+
+  - from: repair
+    to: validate
+    condition:
+      type: command
+      run: "./tools/daily-report-gate.sh proposal-changed --day $REPORT_DAY"
+      timeout: 60
+
+  - from: human_review
+    to: repair
+    condition:
+      - type: command
+        run: "./tools/daily-report-gate.sh review-decision --day $REPORT_DAY --status changes-requested"
+        timeout: 60
+      - type: command
+        run: "./tools/daily-report-gate.sh attempts-remaining --day $REPORT_DAY --cap 2"
+        timeout: 60
+
+  - from: human_review
+    to: escalate
+    condition:
+      type: command
+      run: "./tools/daily-report-gate.sh review-decision --day $REPORT_DAY --status rejected"
+      timeout: 60
+
+  # The one irreversible act: the full battery re-runs here, on the final bytes.
+  - from: human_review
+    to: handoff
+    condition:
+      - type: command
+        run: "./tools/daily-report-gate.sh review-decision --day $REPORT_DAY --status approved"
+        timeout: 60
+      - type: command
+        run: "./tools/daily-report-gate.sh validate --day $REPORT_DAY --strict --recheck-all --out .statem-daily-report/current/validation.json"
+        timeout: 900
+      - type: command
+        run: "./tools/daily-report-gate.sh provenance-recompute --day $REPORT_DAY --out .statem-daily-report/current/provenance.json"
+        timeout: 600
+      - type: command
+        run: "./tools/daily-report-gate.sh derivation-seal --day $REPORT_DAY --verify-chain"
+        timeout: 300
+      - type: predicate
+        path: .statem-daily-report/current/validation.json
+        exists: true
+        non_empty: true
+        json_path: verdict
+        equals: accepted
+      - type: predicate
+        path: .statem-daily-report/current/provenance.json
+        exists: true
+        non_empty: true
+        json_path: unproven_fields
+        equals: 0
