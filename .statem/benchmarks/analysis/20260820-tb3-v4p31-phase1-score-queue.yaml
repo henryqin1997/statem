@@ -111,6 +111,7 @@ triage_policy:
       - task_agent_context
     receipt_must_bind:
       - queue_sha256
+      - job_name
       - task
       - control_version
       - experiment_mode
@@ -520,8 +521,17 @@ negative_transfer_sentinels:
         files: 27
         bytes: 80792
         tree_sha256: 422aad3aedea798ee834af926f661b286bdcef0e39548755fa3d2d8a93778c72
-      replacement_job: tb3-sol-native-baseline-v2-risk-scorer-replay-k1-aws-x86-a2
-      replacement_state: generic_nonroot_auth_fix_tested_pending_admission
+      replacement_job: tb3-sol-native-baseline-v2-risk-scorer-replay-k1-aws-x86-a3
+      replacement_state: pending_corrected_v2_alias_admission
+      identity_invalid_attempt:
+        job: tb3-sol-native-baseline-v2-risk-scorer-replay-k1-aws-x86-a2
+        raw_reward: null
+        protocol_valid: false
+        error_class: controlled_cancellation_after_cli_alias_mismatch
+        backup:
+          files: 24
+          bytes: 113000
+          tree_sha256: 3caf4fc0138dee79fb51259ae7c4890c2f4767e0aa985ae41cdd547bdcd1a180
     statem:
       job: tb3-sol-evidence-v4p34-risk-scorer-replay-k1-aws-x86-b
       state: predeclared_waiting_for_remote_lane

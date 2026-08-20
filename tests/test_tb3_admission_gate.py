@@ -16,6 +16,7 @@ class Tb3AdmissionGateTest(unittest.TestCase):
         }
         self.queue_bytes = b"queue-v1\n"
         self.request = {
+            "job_name": "tb3-cheap-cpu-task-v4p35-a",
             "task": "cheap-cpu-task",
             "control_version": "v4p35",
             "experiment_mode": "matched_k1_triage",
@@ -52,6 +53,8 @@ class Tb3AdmissionGateTest(unittest.TestCase):
         receipt = self._evaluate()
 
         self.assertTrue(receipt["valid"])
+        self.assertEqual(receipt["version"], 2)
+        self.assertEqual(receipt["job_name"], self.request["job_name"])
         self.assertEqual(receipt["admission_decision"], "admit")
         self.assertEqual(receipt["evidence_basis"], self.request["evidence_basis"])
         self.assertEqual(

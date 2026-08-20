@@ -16,6 +16,7 @@ else:
 
 
 REQUIRED_FIELDS = {
+    "job_name",
     "task",
     "control_version",
     "experiment_mode",
@@ -95,6 +96,7 @@ def evaluate_admission(
             f"admission request fields mismatch: missing={missing}, extra={extra}"
         )
     for field in (
+        "job_name",
         "task",
         "control_version",
         "experiment_mode",
@@ -182,10 +184,11 @@ def evaluate_admission(
     requested_decision = request["requested_decision"]
     valid = requested_decision == decision
     payload = {
-        "version": 1,
+        "version": 2,
         "kind": "tb3_prelaunch_admission_receipt",
         "queue_sha256": hashlib.sha256(queue_bytes).hexdigest(),
         "request_sha256": stable_sha256(request),
+        "job_name": request["job_name"],
         "task": task,
         "control_version": request["control_version"],
         "experiment_mode": request["experiment_mode"],
