@@ -217,7 +217,8 @@ pairs:
     direct:
       job: tb3-sol-native-baseline-v1-cargo-flight-dispatch-k1-aws-x86-a
       agent: codex-auth-no-session-baseline-v1
-      state: predeclared
+      state: active
+      initial_runner_pid: 248146
       raw_reward: null
       protocol_valid: null
       cost_usd: null
@@ -231,7 +232,7 @@ pairs:
       protocol_valid: null
       cost_usd: null
       backup_tree_sha256: null
-    matched_verdict: pending_not_started
+    matched_verdict: pending_direct_active_statem_predeclared
     score_eligible: pending
 
 aggregate:
