@@ -343,7 +343,7 @@ pairs:
     timeout_multiplier: 1.0
     environment_build_timeout_multiplier: 1.0
     retry_policy: no_retries
-    frozen_control_commit: pending_local_commit
+    frozen_control_commit: 4696de4
     direct:
       job: tb3-sol-native-baseline-v2-data-anonymization-k1-aws-x86-a
       agent: codex-auth-no-session-baseline-v2
