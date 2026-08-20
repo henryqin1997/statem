@@ -159,7 +159,8 @@ candidate_control:
     - reviewer_verdict
   collision_policy: reject_after_canonicalization
   focused_validation: 48_tests_passed
-  promotion_state: pending_full_suite_and_end_to_end_adapted_validation
+  full_validation: 704_tests_passed_11_skipped
+  promotion_state: ready_for_end_to_end_adapted_validation
 
 official_reference:
   tasks: 74

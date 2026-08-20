@@ -20,7 +20,7 @@ eligibility_contract:
     - agent_identity
     - job_name
   direct_agent: codex-auth-no-session-baseline-v1
-  statem_agent: ziheng-yaxin-statem-codex-evidence-develop-v4p32-exp
+  statem_agent: ziheng-yaxin-statem-codex-evidence-develop-v4p33-exp
   require:
     - standard_timeout
     - no_retry
@@ -38,7 +38,7 @@ eligibility_contract:
     - platform_crossed_comparison
 
 pairs:
-  - pair_id: bun-sourcemap-leak-local-arm64-v4p32-k1-a
+  - pair_id: bun-sourcemap-leak-local-arm64-v4p33-k1-a
     task: terminal-bench/bun-sourcemap-leak
     sample_count_per_agent: 1
     model: gpt-5.6-sol
@@ -48,15 +48,19 @@ pairs:
     timeout_multiplier: 1.0
     environment_build_timeout_multiplier: 1.0
     retry_policy: no_retries
-    frozen_control_commit: 1b3b9d8
+    frozen_control_commit: ce651e0
     direct:
       job: tb3-sol-native-baseline-v1-bun-sourcemap-leak-k1-local-a2
       agent: codex-auth-no-session-baseline-v1
-      state: replacement_active_after_infrastructure_invalid_attempt
-      raw_reward: null
-      protocol_valid: null
-      cost_usd: null
-      backup_tree_sha256: null
+      state: completed_valid
+      raw_reward: 0.0
+      protocol_valid: true
+      cost_usd: 1.157422
+      atif_schema: ATIF-v1.5
+      raw_session_paths: 0
+      backup_files: 24
+      backup_bytes: 274386
+      backup_tree_sha256: 42e0c45a1fdb94b2eac6c54e5a96a7d0dfd54d94f780bb816fb9a386053248c2
       attempts:
         - job: tb3-sol-native-baseline-v1-bun-sourcemap-leak-k1-local-a
           state: completed_infrastructure_invalid
@@ -74,18 +78,18 @@ pairs:
           backup_tree_sha256: 5c086725c09916800cbafe2ca6c5cc4792499824cf8595bca1b93f1c8146d3aa
           score_eligible: false
     statem:
-      job: tb3-sol-evidence-v4p32-bun-sourcemap-leak-k1-local-b
-      agent: ziheng-yaxin-statem-codex-evidence-develop-v4p32-exp
-      source_manifest_sha256: 1a7d5f58bd3e7cee94b347928b8f5e082c0f02fed52efbc44db44387ac4921ef
-      state: held_for_valid_replacement_direct
+      job: tb3-sol-evidence-v4p33-bun-sourcemap-leak-k1-local-b
+      agent: ziheng-yaxin-statem-codex-evidence-develop-v4p33-exp
+      source_manifest_sha256: e7aa59496560ade7804be5e18326ddb2273ee2c8d042fa95ca2208e25b530402
+      state: active
       raw_reward: null
       protocol_valid: null
       cost_usd: null
       backup_tree_sha256: null
-    matched_verdict: pending_valid_replacement_direct
+    matched_verdict: pending_statem
     score_eligible: pending
 
-  - pair_id: bun-sourcemap-leak-aws-x86-v4p32-k1-a
+  - pair_id: bun-sourcemap-leak-aws-x86-v4p33-k1-a
     task: terminal-bench/bun-sourcemap-leak
     sample_count_per_agent: 1
     model: gpt-5.6-sol
@@ -95,25 +99,37 @@ pairs:
     timeout_multiplier: 1.0
     environment_build_timeout_multiplier: 1.0
     retry_policy: no_retries
-    frozen_control_commit: 1b3b9d8
+    frozen_control_commit: ce651e0
     direct:
-      job: tb3-sol-native-baseline-v1-bun-sourcemap-leak-k1-aws-x86-a
+      job: tb3-sol-native-baseline-v1-bun-sourcemap-leak-k1-aws-x86-a2
       agent: codex-auth-no-session-baseline-v1
-      state: pending_after_adapted_jobs
+      state: active_after_startup_invalid_attempt
       raw_reward: null
       protocol_valid: null
       cost_usd: null
       backup_tree_sha256: null
+      attempts:
+        - job: tb3-sol-native-baseline-v1-bun-sourcemap-leak-k1-aws-x86-a
+          state: completed_startup_invalid
+          raw_reward: null
+          protocol_valid: false
+          error_bucket: baseline_harness_module_missing_on_remote
+          cost_usd: 0.0
+          raw_session_paths: 0
+          backup_files: 5
+          backup_bytes: 6844
+          backup_tree_sha256: 69b1098634b17c5c1f250951755b79df40bf66f87e82f433b0660ba635105cac
+          score_eligible: false
     statem:
-      job: tb3-sol-evidence-v4p32-bun-sourcemap-leak-k1-aws-x86-b
-      agent: ziheng-yaxin-statem-codex-evidence-develop-v4p32-exp
-      source_manifest_sha256: 1a7d5f58bd3e7cee94b347928b8f5e082c0f02fed52efbc44db44387ac4921ef
-      state: pending_after_adapted_jobs
+      job: tb3-sol-evidence-v4p33-bun-sourcemap-leak-k1-aws-x86-b
+      agent: ziheng-yaxin-statem-codex-evidence-develop-v4p33-exp
+      source_manifest_sha256: e7aa59496560ade7804be5e18326ddb2273ee2c8d042fa95ca2208e25b530402
+      state: active
       raw_reward: null
       protocol_valid: null
       cost_usd: null
       backup_tree_sha256: null
-    matched_verdict: pending
+    matched_verdict: pending_both_active
     score_eligible: pending
 
 aggregate:
