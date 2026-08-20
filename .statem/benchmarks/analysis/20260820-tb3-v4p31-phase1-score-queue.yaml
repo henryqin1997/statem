@@ -210,23 +210,35 @@ initial_lanes:
 
 current_control:
   branch: codex/tb3-v4p31-failure-loop-20260820
-  source_commit: 4696de4
-  adapter: ziheng-yaxin-statem-codex-evidence-develop-v4p37-exp
+  source_commit: c9f5f61
+  adapter: ziheng-yaxin-statem-codex-evidence-develop-v4p38-exp
   canonical_manifest_file_count: 35
-  canonical_manifest_sha256: d86bd75ed48702ff8313d1fdde2aba583e9970556fdcbb4360a93f6279190897
+  canonical_manifest_sha256: 105d1db1dc405b2643d989407a72777d82ce11fc869290f0a5b96689784bf46e
   native_baseline_harness_commit: ca2415f
-  repair: canonical_plan_preflight_evidence_across_review_consumers
+  repair: semantic_blocker_bounded_resume_and_stale_delta_receipt_invalidation
   semantic_fields_unchanged:
     - task_contract
     - candidate_artifact
     - reviewer_verdict
     - promotion_authorization
     - rollback_policy
-  focused_validation: 94_tests_passed
+  focused_validation: 62_tests_passed
   full_validation: >-
-    720 tests run and 11 skipped; one known unrelated git-webserver-family
+    725 tests run and 11 skipped; one known unrelated git-webserver-family
     subprocess import failure remained.
-  promotion_state: awaiting_protocol_valid_risk_k1
+  promotion_state: pending_v4p38_risk_sentinel
+  v4p37_risk_result: >-
+    Canonical preflight evidence reached candidate construction, two independent
+    falsifier reviews, quarantine, final replay, and one information-gain and
+    deadline-authorized recovery cycle. The final candidate was blocked because
+    its candidate-blind plan did not append the exact prior validation delta.
+    Ten identical solve-to-falsify blockers were misclassified as progress
+    across eight host resumes, so the run ended in solve without verifier reward.
+  v4p38_control:
+    - semantic_blocker_fingerprint_dominates_same_entry_progress
+    - identical_blocker_budget_persists_across_session_resumes
+    - failed_validation_delta_receipt_is_atomically_invalidated
+  next_gate: protocol_valid_raw_one_risk_sentinel
 
 previous_control:
   version: v4p34
@@ -535,12 +547,12 @@ fresh_holdout_candidates:
       Park after two hypothesis-scoped StateM cells without a narrower owner,
       new public discriminator, artifact improvement, validation delta, or
       independently replayable milestone.
-    matched_pair_id: data-anonymization-aws-x86-v4p37-k1-a
+    matched_pair_id: data-anonymization-aws-x86-v4p38-k1-a
     direct_job: tb3-sol-native-baseline-v2-data-anonymization-k1-aws-x86-a
-    statem_job: tb3-sol-evidence-v4p37-data-anonymization-k1-aws-x86-b
+    statem_job: tb3-sol-evidence-v4p38-data-anonymization-k1-aws-x86-b
     development_attempts_for_current_hypothesis: 0
     hypothesis_scoped_no_progress_count: 0
-    state: direct_valid_zero_backed_up_stateM_waiting_for_v4p37_risk_gate
+    state: direct_valid_zero_backed_up_stateM_blocked_pending_v4p38_risk_gate
     score_eligible: true
   - task: fix-uautomizer-soundness
     public_sol_passes: 0
@@ -650,15 +662,33 @@ negative_transfer_sentinels:
         tree_sha256: 959b967443c312abc2190f0fbf8c55bc25f520b4b80b0d578284479bfbe1bdc4
     next_statem:
       job: tb3-sol-evidence-v4p37-risk-scorer-replay-k1-aws-x86-c
-      state: waiting_for_v4p37_deployment_and_admission
+      state: completed_protocol_invalid_repeated_validation_delta_blocker
       source_manifest_sha256: d86bd75ed48702ff8313d1fdde2aba583e9970556fdcbb4360a93f6279190897
-    matched_verdict: direct_valid_v4p36_protocol_invalid_v4p37_required
+      raw_reward: null
+      protocol_valid: false
+      cost_usd: 0.369542
+      input_tokens: 620044
+      cache_tokens: 615424
+      output_tokens: 1291
+      atif_schema: ATIF-v1.5
+      atif_steps: 430
+      final_statem_state: solve
+      session_resume_attempts: 8
+      repeated_blocked_transitions: 10
+      backup:
+        files: 208
+        bytes: 9181113
+        tree_sha256: b98db05a5e4f45ddb2cc5734547c9e0535753268a9554f6d23dfee64b48f7868
+    matched_verdict: direct_valid_v4p37_protocol_invalid_no_promotion
     note: >-
       The first direct attempt is excluded for non-root authentication
       ownership and a2 is excluded for experiment-identity mismatch. The exact
       baseline-v2 a3 replacement is valid raw one. The v4p36 StateM half was
       protocol-invalid because downstream consumers rejected the canonical
-      preflight receipt kind. Run the minimal v4p37 repair on
-      the same platform before fresh score cells. This repeated k1 pair remains
-      an early regression discriminator only; a promotion claim still requires
-      the predeclared matched k5 sentinel.
+      preflight receipt kind. The v4p37 repair proved that canonical receipt
+      consumption and TeamRun initialization now work, but its final recovery
+      entry repeated the same validation-delta blocker until the host resume
+      budget ended. Fresh score cells remain blocked pending a generic
+      blocker-fingerprint lifecycle repair and a protocol-valid risk rerun.
+      This repeated k1 pair remains an early regression discriminator only; a
+      promotion claim still requires the predeclared matched k5 sentinel.
