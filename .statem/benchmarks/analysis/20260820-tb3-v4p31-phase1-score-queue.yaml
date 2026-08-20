@@ -210,23 +210,23 @@ initial_lanes:
 
 current_control:
   branch: codex/tb3-v4p31-failure-loop-20260820
-  source_commit: c9f5f61
-  adapter: ziheng-yaxin-statem-codex-evidence-develop-v4p38-exp
+  source_commit: fb7f9c3
+  adapter: ziheng-yaxin-statem-codex-evidence-develop-v4p39-exp
   canonical_manifest_file_count: 35
-  canonical_manifest_sha256: 105d1db1dc405b2643d989407a72777d82ce11fc869290f0a5b96689784bf46e
+  canonical_manifest_sha256: 94e67ccb1ac85a73fc2acccaa327c07608a2c17c62f41d1ced478348a8dcc92e
   native_baseline_harness_commit: ca2415f
-  repair: semantic_blocker_bounded_resume_and_stale_delta_receipt_invalidation
+  repair: codex_version_pin_over_v4p38_semantic_blocker_lifecycle
   semantic_fields_unchanged:
     - task_contract
     - candidate_artifact
     - reviewer_verdict
     - promotion_authorization
     - rollback_policy
-  focused_validation: 62_tests_passed
+  focused_validation: 63_tests_passed
   full_validation: >-
-    725 tests run and 11 skipped; one known unrelated git-webserver-family
+    727 tests run and 11 skipped; one known unrelated git-webserver-family
     subprocess import failure remained.
-  promotion_state: pending_v4p38_risk_sentinel
+  promotion_state: pending_v4p39_risk_sentinel
   v4p37_risk_result: >-
     Canonical preflight evidence reached candidate construction, two independent
     falsifier reviews, quarantine, final replay, and one information-gain and
@@ -238,6 +238,15 @@ current_control:
     - semantic_blocker_fingerprint_dominates_same_entry_progress
     - identical_blocker_budget_persists_across_session_resumes
     - failed_validation_delta_receipt_is_atomically_invalidated
+  v4p38_risk_result: >-
+    Reward-valid raw one with a complete no-resume handoff through revise,
+    second falsification, quarantine, and final replay. Protocol-invalid because
+    ATIF recorded Codex 0.149.0 while the matched direct baseline and admission
+    contract require 0.148.0. The complete job is checksum-verified locally.
+  v4p39_control:
+    - adapter_boundary_requires_codex_0_148_0
+    - conflicting_caller_version_is_rejected
+    - v4p38_runbook_and_semantic_controls_are_unchanged
   next_gate: protocol_valid_raw_one_risk_sentinel
 
 previous_control:
@@ -533,7 +542,7 @@ fresh_holdout_candidates:
       capability or unavailable hardware.
     hardware_feasibility: high_aws_x86_cpu
     hardware_resource_risk: low
-    cheapest_public_discriminator: matched_k1_direct_then_v4p35_same_platform
+    cheapest_public_discriminator: matched_k1_direct_then_v4p39_same_platform
     owning_control_layer: structured_transformation_contract_and_obligation_closure
     expected_api_cost: >-
       Direct prior approximately 5.36 dollars; StateM cost is unknown and must
@@ -547,12 +556,12 @@ fresh_holdout_candidates:
       Park after two hypothesis-scoped StateM cells without a narrower owner,
       new public discriminator, artifact improvement, validation delta, or
       independently replayable milestone.
-    matched_pair_id: data-anonymization-aws-x86-v4p38-k1-a
+    matched_pair_id: data-anonymization-aws-x86-v4p39-k1-a
     direct_job: tb3-sol-native-baseline-v2-data-anonymization-k1-aws-x86-a
-    statem_job: tb3-sol-evidence-v4p38-data-anonymization-k1-aws-x86-b
+    statem_job: tb3-sol-evidence-v4p39-data-anonymization-k1-aws-x86-b
     development_attempts_for_current_hypothesis: 0
     hypothesis_scoped_no_progress_count: 0
-    state: direct_valid_zero_backed_up_stateM_blocked_pending_v4p38_risk_gate
+    state: direct_valid_zero_backed_up_stateM_blocked_pending_v4p39_risk_gate
     score_eligible: true
   - task: fix-uautomizer-soundness
     public_sol_passes: 0
@@ -660,7 +669,7 @@ negative_transfer_sentinels:
         files: 107
         bytes: 2851059
         tree_sha256: 959b967443c312abc2190f0fbf8c55bc25f520b4b80b0d578284479bfbe1bdc4
-    next_statem:
+    v4p37_statem:
       job: tb3-sol-evidence-v4p37-risk-scorer-replay-k1-aws-x86-c
       state: completed_protocol_invalid_repeated_validation_delta_blocker
       source_manifest_sha256: d86bd75ed48702ff8313d1fdde2aba583e9970556fdcbb4360a93f6279190897
@@ -679,7 +688,34 @@ negative_transfer_sentinels:
         files: 208
         bytes: 9181113
         tree_sha256: b98db05a5e4f45ddb2cc5734547c9e0535753268a9554f6d23dfee64b48f7868
-    matched_verdict: direct_valid_v4p37_protocol_invalid_no_promotion
+    v4p38_statem:
+      job: tb3-sol-evidence-v4p38-risk-scorer-replay-k1-aws-x86-d
+      state: completed_reward_valid_protocol_invalid_codex_version_drift
+      source_manifest_sha256: 105d1db1dc405b2643d989407a72777d82ce11fc869290f0a5b96689784bf46e
+      raw_reward: 1.0
+      reward_valid: true
+      protocol_valid: false
+      protocol_error: codex_0_149_0_does_not_match_required_0_148_0
+      cost_usd: 24.481477
+      input_tokens: 32609849
+      cache_tokens: 32039424
+      output_tokens: 186988
+      atif_schema: ATIF-v1.5
+      atif_steps: 298
+      final_statem_state: handoff
+      session_resume_attempts: 0
+      backup:
+        files: 157
+        bytes: 6768049
+        tree_sha256: 1a9ae68cce89fe249afbc6cd4a37c7a17ed7e669b3800fd4b90664792f6a36cd
+    next_statem:
+      job: tb3-sol-evidence-v4p39-risk-scorer-replay-k1-aws-x86-e
+      state: pending_exact_codex_0_148_0_rerun
+      agent: ziheng-yaxin-statem-codex-evidence-develop-v4p39-exp
+      source_manifest_sha256: 94e67ccb1ac85a73fc2acccaa327c07608a2c17c62f41d1ced478348a8dcc92e
+      protocol_valid: null
+      raw_reward: null
+    matched_verdict: direct_valid_v4p38_reward_valid_version_invalid_no_promotion
     note: >-
       The first direct attempt is excluded for non-root authentication
       ownership and a2 is excluded for experiment-identity mismatch. The exact
@@ -688,7 +724,10 @@ negative_transfer_sentinels:
       preflight receipt kind. The v4p37 repair proved that canonical receipt
       consumption and TeamRun initialization now work, but its final recovery
       entry repeated the same validation-delta blocker until the host resume
-      budget ended. Fresh score cells remain blocked pending a generic
-      blocker-fingerprint lifecycle repair and a protocol-valid risk rerun.
+      budget ended. v4p38 then reached handoff and raw one without a host
+      resume, but the unpinned Harbor adapter installed Codex 0.149.0 instead
+      of the matched 0.148.0 release. v4p39 pins 0.148.0 at the adapter
+      boundary; fresh score cells remain blocked until its repeated sentinel
+      is protocol valid.
       This repeated k1 pair remains an early regression discriminator only; a
       promotion claim still requires the predeclared matched k5 sentinel.

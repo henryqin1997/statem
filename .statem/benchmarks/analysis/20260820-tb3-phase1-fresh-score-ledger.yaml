@@ -30,6 +30,7 @@ eligibility_contract:
     - ziheng-yaxin-statem-codex-evidence-develop-v4p36-exp
     - ziheng-yaxin-statem-codex-evidence-develop-v4p37-exp
     - ziheng-yaxin-statem-codex-evidence-develop-v4p38-exp
+    - ziheng-yaxin-statem-codex-evidence-develop-v4p39-exp
   require:
     - standard_timeout
     - no_retry
@@ -334,7 +335,7 @@ pairs:
     score_eligible: true
     use: k1_triage_only_not_pass_rate_estimate
 
-  - pair_id: data-anonymization-aws-x86-v4p38-k1-a
+  - pair_id: data-anonymization-aws-x86-v4p39-k1-a
     task: terminal-bench/data-anonymization
     sample_count_per_agent: 1
     model: gpt-5.6-sol
@@ -344,7 +345,7 @@ pairs:
     timeout_multiplier: 1.0
     environment_build_timeout_multiplier: 1.0
     retry_policy: no_retries
-    frozen_control_commit: c9f5f61
+    frozen_control_commit: fb7f9c3
     direct:
       job: tb3-sol-native-baseline-v2-data-anonymization-k1-aws-x86-a
       agent: codex-auth-no-session-baseline-v2
@@ -363,23 +364,23 @@ pairs:
       backup_bytes: 466985
       backup_tree_sha256: 5aad7b1a116b435514c7163926cf2d1b05c80bfe0a9518d959d2528db1f1b096
     statem:
-      job: tb3-sol-evidence-v4p38-data-anonymization-k1-aws-x86-b
-      agent: ziheng-yaxin-statem-codex-evidence-develop-v4p38-exp
-      source_manifest_sha256: 105d1db1dc405b2643d989407a72777d82ce11fc869290f0a5b96689784bf46e
-      state: unsigned_pending_v4p38_risk_sentinel
+      job: tb3-sol-evidence-v4p39-data-anonymization-k1-aws-x86-b
+      agent: ziheng-yaxin-statem-codex-evidence-develop-v4p39-exp
+      source_manifest_sha256: 94e67ccb1ac85a73fc2acccaa327c07608a2c17c62f41d1ced478348a8dcc92e
+      state: unsigned_pending_v4p39_risk_sentinel
       raw_reward: null
       protocol_valid: null
       cost_usd: null
       backup_tree_sha256: null
-    matched_verdict: direct_valid_zero_stateM_pending_v4p38_risk_gate
+    matched_verdict: direct_valid_zero_stateM_pending_v4p39_risk_gate
     score_eligible: pending
     use: fresh_k1_triage_then_matched_k5_if_promoted
     gate_note: >-
-      The v4p37 risk sentinel ended protocol-invalid in solve after ten
-      identical validation-delta blockers and eight host resumes. v4p38 binds
-      same-entry progress to the semantic blocker and invalidates stale failed
-      delta receipts. Do not sign or launch this StateM half until v4p38
-      completes a protocol-valid raw-one risk sentinel.
+      v4p38 reached handoff and raw one without any host resume, but ATIF
+      recorded Codex 0.149.0 instead of the matched 0.148.0 release. v4p39 pins
+      0.148.0 at the adapter boundary without changing runbook semantics. Do
+      not sign or launch this StateM half until v4p39 completes a
+      protocol-valid raw-one risk sentinel.
 
 aggregate:
   completed_pairs: 3
