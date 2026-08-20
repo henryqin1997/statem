@@ -1,0 +1,109 @@
+version: 1
+objective:
+  metric: terminal_bench_3_raw_percentage_points
+  target_delta: 15
+  official_task_count: 74
+  trials_per_task: 5
+  target_additional_reward_over_370: 55.5
+
+eligibility_contract:
+  required_equal_within_pair:
+    - task_sample
+    - model
+    - codex_version
+    - reasoning_effort
+    - platform_class
+    - timeout_multiplier
+    - environment_build_timeout_multiplier
+    - retry_policy
+  required_distinct_within_pair:
+    - agent_identity
+    - job_name
+  direct_agent: codex-auth-no-session-baseline-v1
+  statem_agent: ziheng-yaxin-statem-codex-evidence-develop-v4p32-exp
+  require:
+    - standard_timeout
+    - no_retry
+    - no_upload
+    - atif_v1_5
+    - raw_session_absence
+    - checksum_verified_backup
+    - fresh_for_frozen_control
+  exclude:
+    - adapted_development
+    - extended_timeout
+    - diagnostic_replay
+    - repeated_sentinel
+    - protocol_invalid
+    - platform_crossed_comparison
+
+pairs:
+  - pair_id: bun-sourcemap-leak-local-arm64-v4p32-k1-a
+    task: terminal-bench/bun-sourcemap-leak
+    sample_count_per_agent: 1
+    model: gpt-5.6-sol
+    codex_version: 0.148.0
+    reasoning_effort: max
+    platform_class: local_arm64_docker
+    timeout_multiplier: 1.0
+    environment_build_timeout_multiplier: 1.0
+    retry_policy: no_retries
+    frozen_control_commit: 1b3b9d8
+    direct:
+      job: tb3-sol-native-baseline-v1-bun-sourcemap-leak-k1-local-a
+      agent: codex-auth-no-session-baseline-v1
+      state: active
+      raw_reward: null
+      protocol_valid: null
+      cost_usd: null
+      backup_tree_sha256: null
+    statem:
+      job: tb3-sol-evidence-v4p32-bun-sourcemap-leak-k1-local-b
+      agent: ziheng-yaxin-statem-codex-evidence-develop-v4p32-exp
+      source_manifest_sha256: 1a7d5f58bd3e7cee94b347928b8f5e082c0f02fed52efbc44db44387ac4921ef
+      state: pending_after_direct
+      raw_reward: null
+      protocol_valid: null
+      cost_usd: null
+      backup_tree_sha256: null
+    matched_verdict: pending
+    score_eligible: pending
+
+  - pair_id: bun-sourcemap-leak-aws-x86-v4p32-k1-a
+    task: terminal-bench/bun-sourcemap-leak
+    sample_count_per_agent: 1
+    model: gpt-5.6-sol
+    codex_version: 0.148.0
+    reasoning_effort: max
+    platform_class: aws_x86_64_docker
+    timeout_multiplier: 1.0
+    environment_build_timeout_multiplier: 1.0
+    retry_policy: no_retries
+    frozen_control_commit: 1b3b9d8
+    direct:
+      job: tb3-sol-native-baseline-v1-bun-sourcemap-leak-k1-aws-x86-a
+      agent: codex-auth-no-session-baseline-v1
+      state: pending_after_adapted_jobs
+      raw_reward: null
+      protocol_valid: null
+      cost_usd: null
+      backup_tree_sha256: null
+    statem:
+      job: tb3-sol-evidence-v4p32-bun-sourcemap-leak-k1-aws-x86-b
+      agent: ziheng-yaxin-statem-codex-evidence-develop-v4p32-exp
+      source_manifest_sha256: 1a7d5f58bd3e7cee94b347928b8f5e082c0f02fed52efbc44db44387ac4921ef
+      state: pending_after_adapted_jobs
+      raw_reward: null
+      protocol_valid: null
+      cost_usd: null
+      backup_tree_sha256: null
+    matched_verdict: pending
+    score_eligible: pending
+
+aggregate:
+  completed_pairs: 0
+  eligible_direct_reward: 0
+  eligible_statem_reward: 0
+  observed_reward_delta: 0
+  estimated_percentage_point_delta: null
+  note: k1 triage cannot estimate a pass rate or establish the phase-1 target
