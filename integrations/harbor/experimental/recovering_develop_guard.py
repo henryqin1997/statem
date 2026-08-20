@@ -117,6 +117,13 @@ def main(argv: list[str] | None = None) -> int:
             receipt = route_review(
                 ledger_path=args.ledger,
                 promotion_decision=_read_json(args.promotion_decision),
+                require_deadline_budget=args.require_deadline_budget,
+                deadline_path=args.deadline,
+                family_selection=(
+                    _read_json(args.family_selection)
+                    if args.require_deadline_budget
+                    else None
+                ),
             )
             _write_json(args.output, receipt)
         elif args.action == "close":
@@ -178,6 +185,15 @@ def _parser() -> argparse.ArgumentParser:
     review_route.add_argument("--ledger", type=Path, default=DEFAULT_LEDGER)
     review_route.add_argument(
         "--promotion-decision", type=Path, default=DEFAULT_PROMOTION_DECISION
+    )
+    review_route.add_argument(
+        "--require-deadline-budget",
+        action="store_true",
+        help="quarantine instead of revising when a complete revision cannot finish",
+    )
+    review_route.add_argument("--deadline", type=Path, default=DEFAULT_DEADLINE)
+    review_route.add_argument(
+        "--family-selection", type=Path, default=DEFAULT_FAMILY_SELECTION
     )
     review_route.add_argument("--output", type=Path, default=DEFAULT_REVIEW_ROUTE)
 
@@ -325,6 +341,9 @@ def route_review(
     *,
     ledger_path: Path,
     promotion_decision: dict[str, Any],
+    require_deadline_budget: bool = False,
+    deadline_path: Path = DEFAULT_DEADLINE,
+    family_selection: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     ledger = _read_json(ledger_path)
     _validate_ledger(ledger)
@@ -368,10 +387,43 @@ def route_review(
     if route == "revise" and len(reviews) >= ledger["max_reviews"]:
         route = "quarantine"
         budget_exhausted = True
+
+    revision_reserve_seconds = 0
+    deadline_remaining_seconds: int | None = None
+    revision_deadline_feasible = True
+    revision_deadline_reason = "not_required"
+    deadline_budget_degraded = False
+    if route == "revise" and require_deadline_budget:
+        family = _normalize_family_selection(family_selection)
+        revision_reserve_seconds = family["revision_reserve_seconds"]
+        deadline = get_deadline_status(deadline_path)
+        if deadline.get("configured"):
+            raw_remaining = deadline.get("remaining_seconds")
+            deadline_remaining_seconds = (
+                int(raw_remaining) if isinstance(raw_remaining, int) else 0
+            )
+            revision_deadline_feasible = (
+                deadline_remaining_seconds >= revision_reserve_seconds
+            )
+            revision_deadline_reason = (
+                "complete_revision_reserve_available"
+                if revision_deadline_feasible
+                else "insufficient_complete_revision_reserve"
+            )
+        else:
+            revision_deadline_reason = "unbounded_deadline"
+        if not revision_deadline_feasible:
+            route = "quarantine"
+            deadline_budget_degraded = True
     review["status"] = route
     review["promotion_decision_sha256"] = decision_sha256
     review["repairable_rejection"] = repairable_rejection
     review["budget_exhausted"] = budget_exhausted
+    review["revision_reserve_seconds"] = revision_reserve_seconds
+    review["deadline_remaining_seconds"] = deadline_remaining_seconds
+    review["revision_deadline_feasible"] = revision_deadline_feasible
+    review["revision_deadline_reason"] = revision_deadline_reason
+    review["deadline_budget_degraded"] = deadline_budget_degraded
     review["requires_recovery_cycle"] = bool(hard_contract_gaps)
     review["hard_contract_gaps"] = hard_contract_gaps
     review["artifact_disposition"] = {
@@ -418,6 +470,17 @@ def _review_route_receipt(
         "route": review["status"],
         "repairable_rejection": bool(review.get("repairable_rejection")),
         "review_budget_exhausted": bool(review.get("budget_exhausted")),
+        "revision_reserve_seconds": review.get("revision_reserve_seconds", 0),
+        "deadline_remaining_seconds": review.get("deadline_remaining_seconds"),
+        "revision_deadline_feasible": review.get(
+            "revision_deadline_feasible", True
+        ),
+        "revision_deadline_reason": review.get(
+            "revision_deadline_reason", "not_required"
+        ),
+        "deadline_budget_degraded": bool(
+            review.get("deadline_budget_degraded")
+        ),
         "artifact_disposition": review.get("artifact_disposition"),
         "evaluation_target": review.get("evaluation_target"),
         "requires_recovery_cycle": bool(review.get("requires_recovery_cycle")),
@@ -980,7 +1043,18 @@ def _normalize_family_selection(value: Any) -> dict[str, Any]:
     reserve = value.get("retry_reserve_seconds")
     if not family_id or not isinstance(reserve, int) or reserve < 300:
         raise ValueError("develop family selection has an invalid retry reserve")
-    return {"family_id": family_id, "retry_reserve_seconds": reserve}
+    revision_reserve = value.get("revision_reserve_seconds", reserve)
+    if (
+        not isinstance(revision_reserve, int)
+        or revision_reserve < 300
+        or revision_reserve > reserve
+    ):
+        raise ValueError("develop family selection has an invalid revision reserve")
+    return {
+        "family_id": family_id,
+        "retry_reserve_seconds": reserve,
+        "revision_reserve_seconds": revision_reserve,
+    }
 
 
 def _validate_failure_delta_pair(

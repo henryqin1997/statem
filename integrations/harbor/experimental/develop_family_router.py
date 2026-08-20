@@ -84,6 +84,15 @@ def select_family(
     reserve = family.get("retry_reserve_seconds")
     if not isinstance(reserve, int) or reserve < 300:
         raise ValueError("family retry_reserve_seconds must be an integer of at least 300")
+    revision_reserve = family.get("revision_reserve_seconds")
+    if (
+        not isinstance(revision_reserve, int)
+        or revision_reserve < 300
+        or revision_reserve > reserve
+    ):
+        raise ValueError(
+            "family revision_reserve_seconds must be between 300 and the retry reserve"
+        )
     contract_scope = _bounded_text(family.get("contract_scope"), "contract_scope")
     practice_scope = _bounded_text(family.get("practice_scope"), "practice_scope")
     run_id = _text(review_profile.get("run_id") or os.environ.get("STATEM_RUN_ID"))
@@ -102,6 +111,7 @@ def select_family(
         "primary_profile": primary,
         "secondary_profiles": list(secondary),
         "retry_reserve_seconds": reserve,
+        "revision_reserve_seconds": revision_reserve,
         "contract_scope": contract_scope,
         "practice_scope": practice_scope,
         "selection_basis": "bound_primary_reviewer_profile",

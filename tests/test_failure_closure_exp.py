@@ -19,6 +19,8 @@ from integrations.harbor.experimental.failure_feedback_gate import (
 from integrations.harbor.experimental.recovering_develop_guard import (
     close_cycle,
     open_cycle,
+    open_review,
+    route_review,
 )
 from integrations.harbor.experimental.artifact_identity import (
     artifact_progress_identity,
@@ -27,6 +29,7 @@ from integrations.harbor.statem_codex_multirole_develop_exp import (
     EvidenceDevelopV4p31ExperimentalStatemCodex,
     EvidenceDevelopV4p32ExperimentalStatemCodex,
     EvidenceDevelopV4p33ExperimentalStatemCodex,
+    EvidenceDevelopV4p34ExperimentalStatemCodex,
 )
 from statem.core import validate_spec
 
@@ -35,6 +38,7 @@ REPO = Path(__file__).resolve().parents[1]
 RUNBOOK = REPO / "examples/frontier-bench-agent-evidence-develop-v4p31-exp.yaml"
 RUNBOOK_V4P32 = REPO / "examples/frontier-bench-agent-evidence-develop-v4p32-exp.yaml"
 RUNBOOK_V4P33 = REPO / "examples/frontier-bench-agent-evidence-develop-v4p33-exp.yaml"
+RUNBOOK_V4P34 = REPO / "examples/frontier-bench-agent-evidence-develop-v4p34-exp.yaml"
 FAMILY_CATALOG = REPO / "examples/develop-family-router-v1.yaml"
 
 
@@ -92,12 +96,17 @@ class FailureClosureTest(unittest.TestCase):
             "verified": True,
         }
 
-    def _family(self, reserve: int = 2100) -> dict[str, object]:
+    def _family(
+        self,
+        reserve: int = 2100,
+        revision_reserve: int = 1500,
+    ) -> dict[str, object]:
         return {
             "version": 1,
             "kind": "develop_family_selection",
             "family_id": "structured-transformation",
             "retry_reserve_seconds": reserve,
+            "revision_reserve_seconds": revision_reserve,
         }
 
     def _replay(self, *, owner: str = "lead_solver") -> dict[str, object]:
@@ -148,6 +157,7 @@ class FailureClosureTest(unittest.TestCase):
         selected = select_family(catalog=catalog, review_profile=profile)
         self.assertEqual(selected["family_id"], "structured-transformation")
         self.assertEqual(selected["retry_reserve_seconds"], 2100)
+        self.assertEqual(selected["revision_reserve_seconds"], 1500)
 
     def test_v4p32_runbook_requires_stratum_complete_replay(self) -> None:
         text = RUNBOOK_V4P32.read_text(encoding="utf-8")
@@ -184,6 +194,88 @@ class FailureClosureTest(unittest.TestCase):
             "ziheng-yaxin-statem-codex-evidence-develop-v4p33-exp",
         )
         self.assertEqual(agent._runbook_path, RUNBOOK_V4P33)
+
+    def test_v4p34_runbook_gates_revision_on_remaining_deadline(self) -> None:
+        text = RUNBOOK_V4P34.read_text(encoding="utf-8")
+        validate_spec(RUNBOOK_V4P34, strict=True)
+        self.assertIn("frontier-bench-statem-evidence-develop-v4p34-experiment", text)
+        self.assertIn("--require-deadline-budget", text)
+        self.assertIn("revision reserve", text)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            agent = EvidenceDevelopV4p34ExperimentalStatemCodex(
+                logs_dir=Path(temp_dir),
+                model_name="gpt-5.6-sol",
+            )
+        self.assertEqual(
+            agent.name(),
+            "ziheng-yaxin-statem-codex-evidence-develop-v4p34-exp",
+        )
+        self.assertEqual(agent._runbook_path, RUNBOOK_V4P34)
+
+    def test_review_deadline_gate_quarantines_infeasible_revision(self) -> None:
+        self._open()
+        self._state("falsify", "falsify-1")
+        decision = {
+            "version": 1,
+            "kind": "promotion_authorization",
+            "run_id": self.run_id,
+            "node": "falsify",
+            "entry_id": "falsify-1",
+            "decision": "revise",
+        }
+        self.deadline.write_text(
+            json.dumps({"deadline_at_epoch": time.time() + 300}),
+            encoding="utf-8",
+        )
+        with patch.dict("os.environ", self.env, clear=False):
+            open_review(ledger_path=self.ledger)
+            route = route_review(
+                ledger_path=self.ledger,
+                promotion_decision=decision,
+                require_deadline_budget=True,
+                deadline_path=self.deadline,
+                family_selection=self._family(revision_reserve=1500),
+            )
+        self.assertEqual(route["route"], "quarantine")
+        self.assertFalse(route["revision_deadline_feasible"])
+        self.assertTrue(route["deadline_budget_degraded"])
+        self.assertEqual(
+            route["revision_deadline_reason"],
+            "insufficient_complete_revision_reserve",
+        )
+
+    def test_review_deadline_gate_allows_complete_revision(self) -> None:
+        self._open()
+        self._state("falsify", "falsify-1")
+        decision = {
+            "version": 1,
+            "kind": "promotion_authorization",
+            "run_id": self.run_id,
+            "node": "falsify",
+            "entry_id": "falsify-1",
+            "decision": "revise",
+        }
+        self.deadline.write_text(
+            json.dumps({"deadline_at_epoch": time.time() + 1800}),
+            encoding="utf-8",
+        )
+        with patch.dict("os.environ", self.env, clear=False):
+            open_review(ledger_path=self.ledger)
+            route = route_review(
+                ledger_path=self.ledger,
+                promotion_decision=decision,
+                require_deadline_budget=True,
+                deadline_path=self.deadline,
+                family_selection=self._family(revision_reserve=1500),
+            )
+        self.assertEqual(route["route"], "revise")
+        self.assertTrue(route["revision_deadline_feasible"])
+        self.assertFalse(route["deadline_budget_degraded"])
+        self.assertEqual(
+            route["revision_deadline_reason"],
+            "complete_revision_reserve_available",
+        )
 
     def test_deadline_gate_requires_a_complete_family_cycle_reserve(self) -> None:
         self._open()

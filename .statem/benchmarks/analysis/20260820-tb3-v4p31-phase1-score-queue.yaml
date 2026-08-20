@@ -174,28 +174,29 @@ initial_lanes:
     backup_tree_sha256: 8fe2213eb7dffd93c5921e7d52b3468cf147b7f24f7c803b1646da037115c82f
 
 current_control:
-  branch: codex/tb3-v4p32-controls-20260820
-  commit: 1dbd17f
-  adapter: ziheng-yaxin-statem-codex-evidence-develop-v4p32-exp
-  canonical_manifest_file_count: 35
-  canonical_manifest_sha256: 1a7d5f58bd3e7cee94b347928b8f5e082c0f02fed52efbc44db44387ac4921ef
-  native_baseline_harness_commit: ca2415f
-
-candidate_control:
-  version: v4p33
+  branch: codex/tb3-v4p31-failure-loop-20260820
+  commit: ce651e0
   adapter: ziheng-yaxin-statem-codex-evidence-develop-v4p33-exp
   canonical_manifest_file_count: 35
   canonical_manifest_sha256: e7aa59496560ade7804be5e18326ddb2273ee2c8d042fa95ca2208e25b530402
-  repair: canonicalize_mechanical_acceptance_requirement_ids_before_validation
+  native_baseline_harness_commit: ca2415f
+
+candidate_control:
+  version: v4p34
+  adapter: ziheng-yaxin-statem-codex-evidence-develop-v4p34-exp
+  canonical_manifest_file_count: 35
+  canonical_manifest_sha256: c6ddf782bd8695e1c30dfee371e2a21d0237f3aff5bc785a8943c6cc3a557973
+  repair: deadline_gate_revision_before_opening_another_review
   semantic_fields_unchanged:
-    - claim
-    - evidence_mode
-    - required_strata
+    - task_contract
+    - candidate_artifact
     - reviewer_verdict
-  collision_policy: reject_after_canonicalization
-  focused_validation: 48_tests_passed
-  full_validation: 704_tests_passed_11_skipped
-  promotion_state: ready_for_end_to_end_adapted_validation
+    - promotion_authorization
+    - rollback_policy
+  deadline_policy: quarantine_for_final_replay_when_revision_reserve_does_not_fit
+  focused_validation: 54_tests_passed
+  full_validation: 707_tests_passed_3_skipped
+  promotion_state: ready_for_adapted_extended_diagnostic
 
 official_reference:
   tasks: 74

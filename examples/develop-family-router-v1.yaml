@@ -6,6 +6,7 @@ families:
       - parsing-transformation
       - security-protocols
     retry_reserve_seconds: 2100
+    revision_reserve_seconds: 1500
     contract_scope: Preserve task-visible transformation and security semantics across malformed, nested, encoded, and benign inputs.
     practice_scope: Apply only the selected parsing/security/stateful reviewer profiles; do not import task-specific transformations.
   stateful-lifecycle:
@@ -13,6 +14,7 @@ families:
       - stateful-systems
       - data-database
     retry_reserve_seconds: 2100
+    revision_reserve_seconds: 1500
     contract_scope: Preserve lifecycle, ownership, replay, visibility, consistency, and external commit semantics.
     practice_scope: Apply only the selected stateful/data reviewer profiles; keep storage and service details task-visible.
   numerical-model:
@@ -20,6 +22,7 @@ families:
       - numerical-statistical
       - ml-model-artifacts
     retry_reserve_seconds: 2100
+    revision_reserve_seconds: 1500
     contract_scope: Preserve estimator, tensor, metric, population, artifact, and public-consumer semantics.
     practice_scope: Apply only the selected numerical/ML reviewer profiles; distinguish adaptive evidence from independent acceptance.
   algorithm-performance:
@@ -27,11 +30,13 @@ families:
       - graph-algorithms
       - performance-resources
     retry_reserve_seconds: 2400
+    revision_reserve_seconds: 1800
     contract_scope: Preserve exact public behavior while validating scaling on a fixed, representative consumer population.
     practice_scope: Apply only the selected algorithm/performance reviewer profiles; include cold, warm, bulk, incremental, and tail behavior when applicable.
   simulation-artifact:
     primary_profiles:
       - simulation-control
     retry_reserve_seconds: 2100
+    revision_reserve_seconds: 1500
     contract_scope: Preserve frames, units, geometry, dynamics, projection, stability, and artifact-consumer semantics.
     practice_scope: Apply only the selected simulation reviewer profile and bounded evidence projectors available to the adapter.

@@ -55,6 +55,23 @@ The native direct baseline uses `AuthNoSessionCodex`. It delegates the task
 instruction unchanged to Harbor Codex, converts the session to ATIF, and then
 requires raw-session removal. It is an evidence harness, not a StateM route.
 
+### v4p34 deadline-aware review routing
+
+Two independent v4p33 Bun cells completed `solve -> falsify -> revise` and then
+ended protocol-invalid before handoff. Their direct controls both produced
+valid raw zeroes, while the StateM cells never reached the verifier. This was
+not a false semantic block: the independent falsifier identified a real
+candidate generalization gap. The lifecycle defect was that review routing
+opened another revision without checking whether its second review, replay,
+and handoff could fit the remaining official deadline.
+
+v4p34 separates the family full-cycle retry reserve from a smaller in-cycle
+revision reserve. The host checks that reserve before routing a falsified
+candidate to `revise`. If it does not fit, the candidate is quarantined for
+final replay and handoff. The gate does not rewrite the reviewer verdict,
+promote the candidate, or roll back the artifact. Historical runbooks that do
+not request deadline-aware review routing retain their prior behavior.
+
 ## Family Queue
 
 Priority is expected raw gain multiplied by attribution quality, family reuse,
