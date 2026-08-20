@@ -1,4 +1,4 @@
-version: 1
+version: 2
 objective:
   metric: terminal_bench_3_raw_percentage_points
   target_delta: 15
@@ -19,8 +19,14 @@ eligibility_contract:
   required_distinct_within_pair:
     - agent_identity
     - job_name
-  direct_agent: codex-auth-no-session-baseline-v1
-  statem_agent: ziheng-yaxin-statem-codex-evidence-develop-v4p33-exp
+  agent_identity_source: per_pair
+  allowed_direct_agents:
+    - codex-auth-no-session-baseline-v1
+    - codex-auth-no-session-baseline-v2
+  allowed_statem_agents:
+    - ziheng-yaxin-statem-codex-evidence-develop-v4p33-exp
+    - ziheng-yaxin-statem-codex-evidence-develop-v4p34-exp
+    - ziheng-yaxin-statem-codex-evidence-develop-v4p35-exp
   require:
     - standard_timeout
     - no_retry
@@ -251,14 +257,25 @@ pairs:
       job: tb3-sol-evidence-v4p34-cargo-flight-dispatch-k1-aws-x86-b
       agent: ziheng-yaxin-statem-codex-evidence-develop-v4p34-exp
       source_manifest_sha256: c6ddf782bd8695e1c30dfee371e2a21d0237f3aff5bc785a8943c6cc3a557973
-      state: active
+      state: completed_valid
       initial_runner_pid: 259984
-      raw_reward: null
-      protocol_valid: null
-      cost_usd: null
-      backup_tree_sha256: null
-    matched_verdict: pending_statem_active_direct_zero
-    score_eligible: pending
+      raw_reward: 0.0
+      protocol_valid: true
+      cost_usd: 10.170479
+      input_tokens: 13481965
+      cache_tokens: 13163008
+      output_tokens: 66473
+      atif_schema: ATIF-v1.5
+      atif_steps: 147
+      final_statem_state: handoff
+      family_id: simulation-artifact
+      raw_session_paths: 0
+      backup_files: 128
+      backup_bytes: 5018153
+      backup_tree_sha256: 1876a2f2b64f1c2bdced55eca3649983310df63ebb2e7ba7913707beacd7526f
+    matched_verdict: valid_zero_to_zero_no_gain_contract_authority_delta
+    score_eligible: true
+    use: k1_triage_only_not_pass_rate_estimate
 
   - pair_id: foodstuff-beta-activity-local-arm64-v4p34-k1-a
     task: terminal-bench/foodstuff-beta-activity
@@ -294,17 +311,60 @@ pairs:
       job: tb3-sol-evidence-v4p34-foodstuff-beta-activity-k1-local-b
       agent: ziheng-yaxin-statem-codex-evidence-develop-v4p34-exp
       source_manifest_sha256: c6ddf782bd8695e1c30dfee371e2a21d0237f3aff5bc785a8943c6cc3a557973
-      state: active
+      state: completed_valid
       initial_runner_pid: 27879
+      raw_reward: 0.0
+      protocol_valid: true
+      cost_usd: 6.881537
+      input_tokens: 9073753
+      cache_tokens: 8843264
+      output_tokens: 43582
+      atif_schema: ATIF-v1.5
+      atif_steps: 123
+      final_statem_state: handoff
+      family_id: numerical-model
+      raw_session_paths: 0
+      backup_files: 106
+      backup_bytes: 3770933
+      backup_tree_sha256: f1ec8d8a4028903721b6215fa890738425084f062fa18ec23c54e474b9aeeb97
+    matched_verdict: valid_zero_to_zero_no_gain_obligation_closure_delta
+    score_eligible: true
+    use: k1_triage_only_not_pass_rate_estimate
+
+  - pair_id: data-anonymization-aws-x86-v4p35-k1-a
+    task: terminal-bench/data-anonymization
+    sample_count_per_agent: 1
+    model: gpt-5.6-sol
+    codex_version: 0.148.0
+    reasoning_effort: max
+    platform_class: aws_x86_64_docker
+    timeout_multiplier: 1.0
+    environment_build_timeout_multiplier: 1.0
+    retry_policy: no_retries
+    frozen_control_commit: 81d15e0
+    direct:
+      job: tb3-sol-native-baseline-v2-data-anonymization-k1-aws-x86-a
+      agent: codex-auth-no-session-baseline-v2
+      state: predeclared_waiting_for_remote_lane_and_admission
       raw_reward: null
       protocol_valid: null
       cost_usd: null
       backup_tree_sha256: null
-    matched_verdict: pending_statem_active_direct_zero
+    statem:
+      job: tb3-sol-evidence-v4p35-data-anonymization-k1-aws-x86-b
+      agent: ziheng-yaxin-statem-codex-evidence-develop-v4p35-exp
+      source_manifest_sha256: 008248e50f9bd3e262376b154e95c5ffd25651e1c38d5e8521088dfa51188bdc
+      state: predeclared_waiting_for_direct_preservation
+      raw_reward: null
+      protocol_valid: null
+      cost_usd: null
+      backup_tree_sha256: null
+    matched_verdict: pending
     score_eligible: pending
+    use: fresh_k1_triage_then_matched_k5_if_promoted
 
 aggregate:
-  completed_pairs: 1
+  completed_pairs: 3
   protocol_invalid_statem_pairs: 2
   eligible_direct_reward: 0
   eligible_statem_reward: 0
