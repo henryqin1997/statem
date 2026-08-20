@@ -445,3 +445,17 @@ negative_transfer_sentinels:
       - protocol_validity
       - api_cost
       - wall_time
+    triage_pair_id: risk-scorer-replay-aws-x86-v4p34-k1-a
+    triage_only: true
+    score_eligible: false
+    direct:
+      job: tb3-sol-native-baseline-v1-risk-scorer-replay-k1-aws-x86-a
+      state: predeclared
+    statem:
+      job: tb3-sol-evidence-v4p34-risk-scorer-replay-k1-aws-x86-b
+      state: predeclared_waiting_for_remote_lane
+      source_manifest_sha256: c6ddf782bd8695e1c30dfee371e2a21d0237f3aff5bc785a8943c6cc3a557973
+    matched_verdict: pending_not_started
+    note: >-
+      This repeated k1 pair is an early regression discriminator only. A
+      promotion claim still requires the predeclared matched k5 sentinel.
