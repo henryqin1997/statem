@@ -215,3 +215,14 @@ standard-timeout AWS x86 matched direct/StateM `production-planning` k=1 pair.
 Both StateM containers loaded the canonical 35-file v4p34 manifest; the direct
 container has no StateM manifest. Source remains frozen until all three jobs
 exit and are preserved.
+
+The local extended Bun diagnostic is now complete and preserved. It reached a
+protocol-valid `handoff` after two falsifications, one revision, quarantine, and
+final replay, but raw reward remained 0. The final reviewer found a new
+implementation-level validation delta and the full-cycle deadline gate correctly
+declined another cycle. The v4p34 in-cycle revision-reserve branch was not
+exercised because the review budget had already been exhausted. Bun is therefore
+parked: lifecycle closure is demonstrated, but another same-task sample would
+mostly spend on bounded lead-solver implementation capability rather than a new
+generic control. It may reopen only after another task supplies candidate
+sampling/ranking machinery, a cheaper discriminator, or a narrower owner.

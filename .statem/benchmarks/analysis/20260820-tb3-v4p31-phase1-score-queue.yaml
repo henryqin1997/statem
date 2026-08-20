@@ -228,7 +228,14 @@ candidate_control:
   deadline_policy: quarantine_for_final_replay_when_revision_reserve_does_not_fit
   focused_validation: 54_tests_passed
   full_validation: 707_tests_passed_3_skipped
-  promotion_state: ready_for_adapted_extended_diagnostic
+  promotion_state: diagnostic_complete_revision_gate_not_exercised
+  diagnostic_observation: >-
+    The extended Bun cell reached a protocol-valid handoff after a second
+    falsification, quarantine, and final replay. The in-cycle revision-reserve
+    branch was not required because the review budget was exhausted; the
+    existing full-cycle deadline gate handed off when 1,459 seconds remained
+    against a 2,100-second retry reserve. This is lifecycle closure evidence,
+    not causal validation of the new revision-reserve branch.
 
 official_reference:
   tasks: 74
@@ -272,13 +279,22 @@ fresh_holdout_candidates:
       Park after one bounded extended diagnostic if revise does not close a
       public validation delta or if no new independently replayable milestone
       appears.
-    development_attempts_for_current_hypothesis: 1
+    development_attempts_for_current_hypothesis: 2
     platform_replications: 2
-    development_progress: solve_falsify_revise_with_real_repair_obligation
-    next_generic_control: entry_deadline_route_budget_admission_or_degradation
+    development_progress: >-
+      second_candidate_falsified_then_quarantined_with_terminal_handoff_and_new_validation_delta
+    final_attempt_result: protocol_valid_raw_zero_with_narrow_lead_solver_owner
+    dominant_limit: base_model_implementation_capability_under_bounded_cycles
+    next_generic_control: stage_candidate_sampling_or_ranking_from_another_task
     diagnostic_job: tb3-sol-evidence-v4p34-bun-sourcemap-leak-k1-local-diag-c
     diagnostic_timeout_multiplier: 2.0
-    state: extended_adapted_diagnostic_active
+    backup_files: 146
+    backup_bytes: 4393774
+    backup_tree_sha256: ee5cf8b0ad0fb94d496e75b7d9c2d65b42e565690b0313cce4c1b162a3e8ba2d
+    state: parked_after_protocol_valid_zero_extended_diagnostic
+    reopen_only_with: >-
+      A new generic candidate-sampling/ranking control, a cheaper discriminator,
+      or a materially narrower implementation owner learned from another task.
   - task: production-planning
     public_sol_passes: 0
     expected_family: stateful-lifecycle
