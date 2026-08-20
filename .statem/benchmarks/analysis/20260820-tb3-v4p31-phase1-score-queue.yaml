@@ -55,10 +55,12 @@ families:
       - task: session-window-debug
         public_sol_passes: 0
         public_sol_attempts: 5
-        state: v4p32_final_adapted_attempt_active
+        state: parked_after_two_attempts
         development_attempts_for_current_hypothesis: 2
         development_progress: generic_required_strata_coverage_gap_identified
-        park_unless: every_immutable_required_stratum_is_bound_to_executed_replay
+        final_attempt_result: no_candidate_or_preflight_and_no_new_progress_signal
+        dominant_limit: unresolved_task_execution_or_orchestration_burden_before_candidate
+        reopen_only_with: new_generic_hypothesis_from_another_task
   structured-transformation:
     development:
       - task: html-js-filter
@@ -103,8 +105,9 @@ initial_lanes:
     control_version: v4p32
   remote_b:
     task: session-window-debug
-    mode: final_adapted_development
+    mode: completed_and_parked
     control_version: v4p32
+    backup_tree_sha256: 8fe2213eb7dffd93c5921e7d52b3468cf147b7f24f7c803b1646da037115c82f
 
 current_control:
   branch: codex/tb3-v4p32-controls-20260820
