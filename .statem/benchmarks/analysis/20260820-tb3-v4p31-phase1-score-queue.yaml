@@ -11,6 +11,36 @@ objective:
     - diagnostic_replay
     - extended_timeout
     - repeated_sentinel
+  causal_requirement:
+    - same_model
+    - same_codex_version
+    - same_platform_class
+    - same_timeout
+    - same_retry_policy
+    - matched_direct_baseline
+
+triage_policy:
+  priority_factors:
+    - framework_control_fit
+    - hardware_feasibility
+    - expected_api_and_wall_cost
+    - observable_development_progress
+  deprioritize:
+    - likely_model_capability_ceiling
+    - unavailable_or_expensive_hardware
+    - ambiguous_public_acceptance_surface
+    - repeated_development_without_validation_delta
+  development_progress_requires_any:
+    - new_reproducible_discriminator
+    - narrower_failure_owner
+    - candidate_blind_plan_delta_bound_before_retry
+    - public_check_or_artifact_improvement
+  no_progress_limit: 2
+  no_progress_action: park_and_advance_queue
+  sampling:
+    triage: matched_k1_direct_and_statem
+    estimate: matched_k5_after_control_promotion
+    note: adapted samples never become final holdouts
 
 families:
   stateful-lifecycle:
@@ -18,17 +48,26 @@ families:
       - task: mvcc-lsm-compaction
         public_sol_passes: 0
         public_sol_attempts: 5
-        state: ready
+        state: v4p32_final_adapted_attempt_active
+        development_attempts_for_current_hypothesis: 2
+        development_progress: generic_lifecycle_gap_identified
+        park_unless: same_state_progress_witness_enables_additional_public_artifact_or_milestone_progress
       - task: session-window-debug
         public_sol_passes: 0
         public_sol_attempts: 5
-        state: sentinel
+        state: v4p32_final_adapted_attempt_active
+        development_attempts_for_current_hypothesis: 2
+        development_progress: generic_required_strata_coverage_gap_identified
+        park_unless: every_immutable_required_stratum_is_bound_to_executed_replay
   structured-transformation:
     development:
       - task: html-js-filter
         public_sol_passes: 1
         public_sol_attempts: 5
-        state: extended_diagnostic
+        state: adapted_v4p31_protocol_invalid_after_second_cycle_open
+        development_progress: implementation_owner_and_append_only_validation_delta_identified
+        next_eligible_control: v4p32_or_newer
+        score_eligible: false
       - task: interleaved-vigenere
         public_sol_passes: 1
         public_sol_attempts: 5
@@ -55,10 +94,124 @@ families:
 initial_lanes:
   local:
     task: html-js-filter
-    mode: extended_diagnostic
+    mode: completed_extended_diagnostic
+    control_version: v4p31
+    backup_tree_sha256: d661ad65b60f983b771c9c299d5a2ad33899b0c956eae86b1c15299acc7c37b6
   remote_a:
     task: mvcc-lsm-compaction
-    mode: adapted_development
+    mode: final_adapted_development
+    control_version: v4p32
   remote_b:
     task: session-window-debug
-    mode: repeated_sentinel
+    mode: final_adapted_development
+    control_version: v4p32
+
+current_control:
+  branch: codex/tb3-v4p32-controls-20260820
+  commit: 1dbd17f
+  adapter: ziheng-yaxin-statem-codex-evidence-develop-v4p32-exp
+  canonical_manifest_file_count: 35
+  canonical_manifest_sha256: 1a7d5f58bd3e7cee94b347928b8f5e082c0f02fed52efbc44db44387ac4921ef
+  native_baseline_harness_commit: ca2415f
+
+official_reference:
+  tasks: 74
+  trials_per_task: 5
+  total_trials: 370
+  raw_mean: 0.34305405405405404
+  target_additional_reward: 55.5
+  exact_pass_distribution:
+    0: 32
+    1: 13
+    2: 5
+    3: 7
+    4: 6
+    5: 11
+  source: https://hub.harborframework.com/datasets/terminal-bench/terminal-bench/latest/leaderboards/3-0-0/rows/b8d9ccae-23a2-485e-b9f1-a7654c79c560?tab=results&page=1&job=dac7c92c-5def-522d-a865-59ba1a3a51bd
+
+fresh_holdout_candidates:
+  - task: bun-sourcemap-leak
+    public_sol_passes: 0
+    expected_family: structured-transformation
+    cpus: 1
+    agent_timeout_sec: 1800
+    official_mean_cost_usd: 1.09
+    framework_control_fit: high
+    capability_risk: low_to_medium
+    state: ready_after_family_promotion
+  - task: foodstuff-beta-activity
+    public_sol_passes: 0
+    expected_family: numerical-model
+    cpus: 2
+    agent_timeout_sec: 9000
+    official_mean_cost_usd: 1.24
+    framework_control_fit: medium
+    capability_risk: medium
+    state: triage_after_low_cost_structured_cell
+  - task: production-planning
+    public_sol_passes: 0
+    expected_family: stateful-lifecycle
+    cpus: 2
+    agent_timeout_sec: 3600
+    official_mean_cost_usd: 2.05
+    framework_control_fit: high
+    capability_risk: medium
+    state: ready_after_family_promotion
+  - task: cargo-flight-dispatch
+    public_sol_passes: 0
+    expected_family: numerical-model
+    cpus: 2
+    agent_timeout_sec: 3600
+    official_mean_cost_usd: 1.67
+    framework_control_fit: medium_to_high
+    capability_risk: medium
+    state: ready_after_family_promotion
+  - task: fix-uautomizer-soundness
+    public_sol_passes: 0
+    expected_family: structured-transformation
+    cpus: 2
+    agent_timeout_sec: 7200
+    official_mean_cost_usd: 2.41
+    framework_control_fit: medium
+    capability_risk: high
+    state: defer_until_low_cost_cells
+  - task: roy-polymorph-cn
+    public_sol_passes: 0
+    expected_family: numerical-model
+    cpus: 2
+    agent_timeout_sec: 9000
+    official_mean_cost_usd: 0.70
+    framework_control_fit: medium
+    capability_risk: medium_to_high
+    state: triage_after_numerical_family_attribution
+  - task: gsea-proteomics
+    public_sol_passes: 0
+    expected_family: numerical-model
+    cpus: 2
+    agent_timeout_sec: 9000
+    official_mean_cost_usd: 1.74
+    framework_control_fit: medium
+    capability_risk: medium_to_high
+    state: triage_after_numerical_family_attribution
+  - task: nextjs-performance
+    public_sol_passes: 1
+    expected_family: algorithm-performance
+    cpus: 2
+    state: sentinel_after_family_promotion
+  - task: sound-change-cascade
+    public_sol_passes: 1
+    expected_family: structured-transformation
+    cpus: 2
+    state: sentinel_after_family_promotion
+
+negative_transfer_sentinels:
+  - task: risk-scorer-replay
+    public_sol_passes: 5
+    public_sol_attempts: 5
+    requirement: zero_unexplained_regression
+    compare:
+      - raw_reward
+      - route
+      - protocol_validity
+      - api_cost
+      - wall_time
