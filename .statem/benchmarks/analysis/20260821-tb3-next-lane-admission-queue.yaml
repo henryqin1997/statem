@@ -234,7 +234,7 @@ candidates:
       candidate-blind stateful-lifecycle discriminator. Park after two
       hypothesis-scoped no-progress cells and do not encode task-specific
       warranty decisions.
-    state: completed_direct_raw_zero_admit_one_artifact_transaction_develop_cell
+    state: v4p42_protocol_invalid_pending_bounded_transition_failure_closure
     direct_result:
       raw_reward: 0.0
       reward_valid: true
@@ -269,12 +269,14 @@ candidates:
       the public artifact transaction, before warranty-domain correctness can
       be evaluated.
     next_use: >-
-      Admit one matched StateM development cell in the stateful-lifecycle
-      family. Bind only generic producer-context artifact existence/non-empty
-      checks and structural decision-to-event reconciliation; do not encode
-      task-specific warranty decisions. Count progress only if the public
-      bundle becomes complete or a narrower independently replayable failure
-      owner is established.
+      The v4p42 matched cell selected the intended stateful-lifecycle route and
+      public-artifact practice, but produced no raw reward because an exact
+      validation-delta gate stranded the second solve entry. First validate a
+      bounded, owner-specific transition-failure closure that lets the test
+      planner repair the candidate-blind plan once and terminates an unchanged
+      blocker. Then repeat one adapted matched cell. Count progress only if the
+      public bundle becomes complete or a narrower independently replayable
+      failure owner is established.
   - task: medical-claims-processing
     public_sol_passes: 0
     public_sol_attempts: 5

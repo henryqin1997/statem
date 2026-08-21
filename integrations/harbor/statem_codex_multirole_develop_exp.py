@@ -1113,11 +1113,10 @@ class EvidenceDevelopV4p40ExperimentalStatemCodex(
         return "ziheng-yaxin-statem-codex-evidence-develop-v4p40-exp"
 
 
-class EvidenceDevelopV4p41ExperimentalStatemCodex(
-    EvidenceDevelopV4p40ExperimentalStatemCodex
-):
+class _TransitionFailureFeedbackMixin:
     """Carry bounded transition failures into same-session recovery prompts."""
 
+    _TRANSITION_BLOCKER_DOMINATES_PROGRESS = False
     _LOCAL_TRANSITION_FAILURE_FEEDBACK = (
         Path(__file__).resolve().parent
         / "experimental"
@@ -1127,18 +1126,13 @@ class EvidenceDevelopV4p41ExperimentalStatemCodex(
         "/tmp/statem-verification-checks/recovering-develop/"
         "transition-failure-feedback.json"
     )
-    _PROGRESS_RECEIPTS = (
-        *EvidenceDevelopV4p40ExperimentalStatemCodex._PROGRESS_RECEIPTS,
-        "recovering-develop/transition-failure-feedback.json",
-    )
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         self._latest_transition_failure_summary = ""
+        self._latest_transition_failure_owner = ""
+        self._latest_transition_failure_action = ""
+        self._latest_transition_failure_fingerprint = ""
         super().__init__(*args, **kwargs)
-
-    @staticmethod
-    def name() -> str:
-        return "ziheng-yaxin-statem-codex-evidence-develop-v4p41-exp"
 
     def _verification_check_paths(self) -> list[Path]:
         return [
@@ -1160,6 +1154,9 @@ class EvidenceDevelopV4p41ExperimentalStatemCodex(
             f"--output {shlex.quote(self._TRANSITION_FAILURE_FEEDBACK)}"
         )
         self._latest_transition_failure_summary = ""
+        self._latest_transition_failure_owner = ""
+        self._latest_transition_failure_action = ""
+        self._latest_transition_failure_fingerprint = ""
         try:
             result = await self.exec_as_agent(
                 environment,
@@ -1175,24 +1172,70 @@ class EvidenceDevelopV4p41ExperimentalStatemCodex(
                     if isinstance(item, dict) and str(item.get("summary") or "").strip()
                 ]
                 self._latest_transition_failure_summary = "; ".join(summaries)[:1000]
+                first = next(
+                    (item for item in failed if isinstance(item, dict)),
+                    {},
+                )
+                self._latest_transition_failure_owner = str(
+                    first.get("repair_owner") or ""
+                ).strip()
+                self._latest_transition_failure_action = str(
+                    first.get("repair_action") or ""
+                ).strip()
+                self._latest_transition_failure_fingerprint = str(
+                    payload.get("blocker_fingerprint") or ""
+                ).strip()
         except Exception:
             self._latest_transition_failure_summary = ""
-        return await super()._session_progress_identity(environment, run_id, current)
+            self._latest_transition_failure_owner = ""
+            self._latest_transition_failure_action = ""
+            self._latest_transition_failure_fingerprint = ""
+        base = await super()._session_progress_identity(environment, run_id, current)
+        if (
+            self._TRANSITION_BLOCKER_DOMINATES_PROGRESS
+            and self._latest_transition_failure_fingerprint
+        ):
+            return (
+                str(current.get("current") or ""),
+                str(current.get("current_entry_id") or ""),
+                "blocked:" + self._latest_transition_failure_fingerprint,
+            )
+        return base
 
     def _session_resume_prompt(self, current: dict[str, Any]) -> str:
         base = super()._session_resume_prompt(current)
         summary = getattr(self, "_latest_transition_failure_summary", "").strip()
         if not summary:
             return base
+        owner = getattr(self, "_latest_transition_failure_owner", "").strip()
+        action = getattr(self, "_latest_transition_failure_action", "").strip()
         return (
             base
             + " The host recorded the latest bounded transition failure in "
             + self._TRANSITION_FAILURE_FEEDBACK
-            + f": {summary}. Repair that exact failed gate before retrying the "
+            + f": {summary}. Immediate repair owner: {owner or 'transition_check_owner'}. "
+            + (f"Required repair: {action} " if action else "")
+            + "Repair that exact failed gate before retrying the "
             "transition. Preserve already passing obligations, update the owning "
             "artifact or validation plan, rerun the failed public gate, and do not "
             "repeat an unchanged transition attempt."
         )
+
+
+class EvidenceDevelopV4p41ExperimentalStatemCodex(
+    _TransitionFailureFeedbackMixin,
+    EvidenceDevelopV4p40ExperimentalStatemCodex,
+):
+    """Carry bounded transition failures into same-session recovery prompts."""
+
+    _PROGRESS_RECEIPTS = (
+        *EvidenceDevelopV4p40ExperimentalStatemCodex._PROGRESS_RECEIPTS,
+        "recovering-develop/transition-failure-feedback.json",
+    )
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p41-exp"
 
 
 class EvidenceDevelopV4p42ExperimentalStatemCodex(
@@ -1203,3 +1246,56 @@ class EvidenceDevelopV4p42ExperimentalStatemCodex(
     @staticmethod
     def name() -> str:
         return "ziheng-yaxin-statem-codex-evidence-develop-v4p42-exp"
+
+
+class EvidenceDevelopV4p43ExperimentalStatemCodex(
+    _TransitionFailureFeedbackMixin,
+    EvidenceDevelopV4p42ExperimentalStatemCodex,
+):
+    """Bound exact transition-gate repair for the artifact practice."""
+
+    _TRANSITION_BLOCKER_DOMINATES_PROGRESS = True
+    _PROGRESS_RECEIPTS = (
+        *EvidenceDevelopV4p42ExperimentalStatemCodex._PROGRESS_RECEIPTS,
+        "recovering-develop/transition-failure-feedback.json",
+    )
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p43-exp"
+
+    def _session_no_progress_limit(self) -> int:
+        # One same-context repair session is enough to distinguish closure from
+        # an unchanged gate loop. A changed blocker or state still resets it.
+        return 1
+
+    def _codex_stop_hook_payload(self) -> dict[str, Any]:
+        payload = super()._codex_stop_hook_payload()
+        hook = payload["hooks"]["Stop"][0]["hooks"][0]
+        hook["command"] = (
+            "STATEM_STOP_MAX_CONTINUATIONS_PER_ENTRY=1 " + hook["command"]
+        )
+        return payload
+
+    def _augment_instruction(
+        self,
+        instruction: str,
+        run_id: str,
+        current_context: str,
+    ) -> str:
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
+
+Evidence-develop v4p43 controls:
+- A blocked transition is a repairable lifecycle event with an immediate
+  owner. When the validation-delta gate fails, the test planner repairs the
+  candidate-blind plan from the immutable retry brief; the lead does not
+  create another candidate or weaken the gate.
+- The latest blocker fingerprint dominates unrelated draft churn. One bounded
+  same-context repair session may rerun the failed public gate. If the same
+  blocker remains, stop fail-closed as protocol-invalid instead of consuming
+  additional review or candidate cycles.
+"""

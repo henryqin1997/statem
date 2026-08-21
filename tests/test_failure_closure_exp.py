@@ -578,6 +578,43 @@ class FailureClosureTest(unittest.TestCase):
         self.assertIn("<sha256>", receipt["failed_checks"][0]["summary"])
         self.assertIn("<uuid>", receipt["failed_checks"][0]["summary"])
 
+    def test_transition_feedback_assigns_plan_owner_and_counts_repeats(self) -> None:
+        blocked = {
+            "event": "goto_blocked",
+            "from": "solve",
+            "to": "falsify",
+            "stage": "before_transfer",
+            "current_entry_id": "entry-1",
+            "results": [
+                {
+                    "type": "command",
+                    "purpose": "before_transfer",
+                    "passed": False,
+                    "blocking": True,
+                    "exit_code": 1,
+                    "on_failure": "block",
+                    "output": (
+                        "failure feedback gate: candidate-blind acceptance plan "
+                        "did not append the exact prior validation delta"
+                    ),
+                }
+            ],
+        }
+        receipt = latest_transition_feedback(
+            {
+                "current": "solve",
+                "current_entry_id": "entry-1",
+                "history": [blocked, blocked, blocked],
+            }
+        )
+        assert receipt is not None
+        failed = receipt["failed_checks"][0]
+        self.assertEqual(failed["failure_class"], "acceptance_plan_gap")
+        self.assertEqual(failed["repair_owner"], "test_planner")
+        self.assertIn("retry-brief.json", failed["repair_action"])
+        self.assertEqual(receipt["repeat_count"], 3)
+        self.assertTrue(receipt["repair_budget_exhausted"])
+
     def test_no_blocker_removes_stale_transition_feedback(self) -> None:
         state_path = self.root / "state.json"
         output_path = self.root / "transition-feedback.json"

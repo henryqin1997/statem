@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import tempfile
 import unittest
@@ -40,6 +41,7 @@ from integrations.harbor.statem_codex_multirole_develop_exp import (
     EvidenceDevelopV4p40ExperimentalStatemCodex,
     EvidenceDevelopV4p41ExperimentalStatemCodex,
     EvidenceDevelopV4p42ExperimentalStatemCodex,
+    EvidenceDevelopV4p43ExperimentalStatemCodex,
     RecoveringMultiRoleDevelopExperimentalStatemCodex,
 )
 from integrations.harbor.statem_codex import TeamRunStatemCodex
@@ -1254,6 +1256,77 @@ class RecoveringDevelopRunbookTest(unittest.TestCase):
             item for item in catalog["profiles"] if item["id"] == "stateful-systems"
         )
         self.assertIn("public_artifact_transaction", profile["checks"])
+
+    def test_v4p43_combines_artifact_practice_with_bounded_failure_closure(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            agent = EvidenceDevelopV4p43ExperimentalStatemCodex(
+                logs_dir=Path(temp_dir),
+                model_name="gpt-5.6-sol",
+            )
+        names = [path.name for path in agent._verification_check_paths()]
+        self.assertEqual(agent._version, "0.148.0")
+        self.assertEqual(
+            agent.name(),
+            "ziheng-yaxin-statem-codex-evidence-develop-v4p43-exp",
+        )
+        self.assertEqual(
+            Path(agent._runbook_path).name,
+            "frontier-bench-agent-evidence-develop-v4p35-exp.yaml",
+        )
+        self.assertIn("transition_failure_feedback.py", names)
+        self.assertEqual(agent._session_no_progress_limit(), 1)
+        stop_command = agent._codex_stop_hook_payload()["hooks"]["Stop"][0][
+            "hooks"
+        ][0]["command"]
+        self.assertIn("STATEM_STOP_MAX_CONTINUATIONS_PER_ENTRY=1", stop_command)
+
+    def test_v4p43_resume_prompt_assigns_exact_delta_to_test_planner(self) -> None:
+        agent = object.__new__(EvidenceDevelopV4p43ExperimentalStatemCodex)
+        agent._final_state = "handoff"
+        agent._latest_transition_failure_summary = (
+            "failure feedback gate: candidate-blind acceptance plan did not "
+            "append the exact prior validation delta"
+        )
+        agent._latest_transition_failure_owner = "test_planner"
+        agent._latest_transition_failure_action = (
+            "Read retry-brief.json and append the exact discriminator."
+        )
+        prompt = agent._session_resume_prompt(
+            {"current": "solve", "current_entry_id": "entry-1"}
+        )
+        self.assertIn("Immediate repair owner: test_planner", prompt)
+        self.assertIn("retry-brief.json", prompt)
+        self.assertIn("do not repeat an unchanged transition attempt", prompt)
+
+    def test_v4p43_unchanged_blocker_dominates_draft_progress(self) -> None:
+        agent = object.__new__(EvidenceDevelopV4p43ExperimentalStatemCodex)
+        payload = {
+            "failed_checks": [
+                {
+                    "summary": "candidate-blind plan missed the validation delta",
+                    "repair_owner": "test_planner",
+                    "repair_action": "repair the plan",
+                }
+            ],
+            "blocker_fingerprint": "a" * 64,
+        }
+        agent.exec_as_agent = AsyncMock(
+            return_value=SimpleNamespace(stdout=json.dumps(payload))
+        )
+        agent._statem_env = lambda run_id: {}
+        with patch.object(
+            EvidenceDevelopV4p42ExperimentalStatemCodex,
+            "_session_progress_identity",
+            new=AsyncMock(return_value=("solve", "entry-1", "changed-draft")),
+        ):
+            identity = asyncio.run(
+                agent._session_progress_identity(
+                    SimpleNamespace(),
+                    "run-1",
+                    {"current": "solve", "current_entry_id": "entry-1"},
+                )
+            )
+        self.assertEqual(identity, ("solve", "entry-1", "blocked:" + "a" * 64))
 
     def test_v4_adapter_enforces_terminal_state_and_installs_runtime_hook(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
