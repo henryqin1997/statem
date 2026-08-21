@@ -1,0 +1,35 @@
+{
+  "estimated_direct_reward": 0,
+  "estimated_pair_count": 0,
+  "estimated_reward_delta": 0,
+  "estimated_score_delta_pp": null,
+  "estimated_statem_reward": 0,
+  "estimated_task_count": 0,
+  "estimated_trial_count_per_agent": 0,
+  "excluded_pair_count": 3,
+  "excluded_pairs": [
+    {
+      "pair_id": "bun-sourcemap-leak-local-arm64-v4p33-k1-a",
+      "reason": "score_eligible_false"
+    },
+    {
+      "pair_id": "bun-sourcemap-leak-aws-x86-v4p33-k1-a",
+      "reason": "score_eligible_false"
+    },
+    {
+      "pair_id": "data-anonymization-aws-x86-v4p39-k1-a",
+      "reason": "score_eligible_false"
+    }
+  ],
+  "kind": "tb3_fresh_score_gate",
+  "observed_triage_direct_reward": 0.0,
+  "observed_triage_reward_delta": 0.0,
+  "observed_triage_statem_reward": 0.0,
+  "required_additional_reward": 55.5,
+  "target_delta_pp": 15.0,
+  "target_supported": false,
+  "triage_pair_count": 3,
+  "triage_sample_count_per_agent": 3,
+  "valid": true,
+  "version": 1
+}

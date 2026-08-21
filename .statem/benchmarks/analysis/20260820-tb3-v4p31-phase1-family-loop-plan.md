@@ -322,3 +322,14 @@ hardware are not the dominant owner. The remaining semantic/implementation
 fork is not yet separated by a reusable public discriminator. Ontology is
 therefore parked after direct calibration rather than receiving unconstrained
 StateM search.
+
+## Fresh score evidence gate
+
+The three completed score-eligible matched k=1 pairs currently have observed
+reward `0 -> 0`. They are causal triage observations, not a pass-rate estimate.
+The host-side fresh-score gate now reports the two dimensions separately. The
+current `estimated_score_delta_pp` is `null`, not `0.0`, because no final
+matched k=5 estimate cells exist yet. The phase target remains unsupported
+until the ledger contains protocol-valid, standard-timeout, no-retry,
+no-upload, fresh matched evidence over 74 tasks and five trials per task with at
+least 55.5 additional StateM rewards.

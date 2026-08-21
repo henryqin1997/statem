@@ -184,11 +184,14 @@ pairs:
     environment_build_timeout_multiplier: 1.0
     retry_policy: no_retries
     frozen_control_commit: d12df0c
+    no_upload: true
+    fresh_for_frozen_control: true
     direct:
       job: tb3-sol-native-baseline-v1-production-planning-k1-aws-x86-a
       agent: codex-auth-no-session-baseline-v1
       state: completed_valid
       raw_reward: 0.0
+      reward_valid: true
       protocol_valid: true
       cost_usd: 2.459983
       input_tokens: 1508477
@@ -208,6 +211,7 @@ pairs:
       source_manifest_sha256: c6ddf782bd8695e1c30dfee371e2a21d0237f3aff5bc785a8943c6cc3a557973
       state: completed_valid
       raw_reward: 0.0
+      reward_valid: true
       protocol_valid: true
       cost_usd: 13.842118
       input_tokens: 16520168
@@ -239,12 +243,15 @@ pairs:
     environment_build_timeout_multiplier: 1.0
     retry_policy: no_retries
     frozen_control_commit: d12df0c
+    no_upload: true
+    fresh_for_frozen_control: true
     direct:
       job: tb3-sol-native-baseline-v1-cargo-flight-dispatch-k1-aws-x86-a
       agent: codex-auth-no-session-baseline-v1
       state: completed_valid
       initial_runner_pid: 248146
       raw_reward: 0.0
+      reward_valid: true
       protocol_valid: true
       cost_usd: 1.858784
       input_tokens: 894964
@@ -265,6 +272,7 @@ pairs:
       state: completed_valid
       initial_runner_pid: 259984
       raw_reward: 0.0
+      reward_valid: true
       protocol_valid: true
       cost_usd: 10.170479
       input_tokens: 13481965
@@ -293,12 +301,15 @@ pairs:
     environment_build_timeout_multiplier: 1.0
     retry_policy: no_retries
     frozen_control_commit: d12df0c
+    no_upload: true
+    fresh_for_frozen_control: true
     direct:
       job: tb3-sol-native-baseline-v1-foodstuff-beta-activity-k1-local-a
       agent: codex-auth-no-session-baseline-v1
       state: completed_valid
       initial_runner_pid: 24632
       raw_reward: 0.0
+      reward_valid: true
       protocol_valid: true
       cost_usd: 0.701212
       input_tokens: 398762
@@ -319,6 +330,7 @@ pairs:
       state: completed_valid
       initial_runner_pid: 27879
       raw_reward: 0.0
+      reward_valid: true
       protocol_valid: true
       cost_usd: 6.881537
       input_tokens: 9073753
