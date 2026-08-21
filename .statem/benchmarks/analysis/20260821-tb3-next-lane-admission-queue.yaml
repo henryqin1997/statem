@@ -234,7 +234,7 @@ candidates:
       candidate-blind stateful-lifecycle discriminator. Park after two
       hypothesis-scoped no-progress cells and do not encode task-specific
       warranty decisions.
-    state: v4p42_protocol_invalid_pending_bounded_transition_failure_closure
+    state: v4p43_protocol_invalid_pending_phase_aware_stop_budget
     direct_result:
       raw_reward: 0.0
       reward_valid: true
@@ -269,14 +269,16 @@ candidates:
       the public artifact transaction, before warranty-domain correctness can
       be evaluated.
     next_use: >-
-      The v4p42 matched cell selected the intended stateful-lifecycle route and
-      public-artifact practice, but produced no raw reward because an exact
-      validation-delta gate stranded the second solve entry. First validate a
-      bounded, owner-specific transition-failure closure that lets the test
-      planner repair the candidate-blind plan once and terminates an unchanged
-      blocker. Then repeat one adapted matched cell. Count progress only if the
-      public bundle becomes complete or a narrower independently replayable
-      failure owner is established.
+      v4p43 selected the intended route, produced a machine-consistent
+      owner-specific test-planner repair, and bounded the prior unchanged
+      blocker loop, but ended in solve without a second transition attempt.
+      The static one-continuation budget was already consumed by preflight work
+      before goto_blocked. Validate one generic phase-aware extension: retain
+      the base continuation and grant exactly one additional same-context
+      continuation only after the current entry records goto_blocked. Keep the
+      blocker-fingerprint bound and fail closed after an unchanged retry. Do
+      not admit fresh StateM arms until that mechanism advances or terminates
+      with a complete retry receipt.
   - task: medical-claims-processing
     public_sol_passes: 0
     public_sol_attempts: 5
