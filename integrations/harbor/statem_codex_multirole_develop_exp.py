@@ -1100,3 +1100,13 @@ class EvidenceDevelopV4p39ExperimentalStatemCodex(
     @staticmethod
     def name() -> str:
         return "ziheng-yaxin-statem-codex-evidence-develop-v4p39-exp"
+
+
+class EvidenceDevelopV4p40ExperimentalStatemCodex(
+    EvidenceDevelopV4p39ExperimentalStatemCodex
+):
+    """Bind deadline-degraded quarantine to the downstream promotion gate."""
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p40-exp"

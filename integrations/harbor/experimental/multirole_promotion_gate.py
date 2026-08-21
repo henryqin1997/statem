@@ -2522,10 +2522,47 @@ def _require_effective_review_route(
         raise ValueError("effective review route does not preserve the promotion decision")
     if route.get("promotion_decision_sha256") != stable_sha256(decision):
         raise ValueError("effective review route is not bound to the promotion decision")
-    if route.get("route") != decision.get("decision") and not route.get(
-        "review_budget_exhausted"
-    ):
-        raise ValueError("effective review route changed without an exhausted review budget")
+    if route.get("route") != decision.get("decision"):
+        budget_exhausted = route.get("review_budget_exhausted") is True
+        deadline_degraded = _deadline_degraded_quarantine(route, decision)
+        if not budget_exhausted and not deadline_degraded:
+            raise ValueError(
+                "effective review route changed without an exhausted review "
+                "budget or a bound deadline-degraded quarantine"
+            )
+
+
+def _deadline_degraded_quarantine(
+    route: dict[str, Any],
+    decision: dict[str, Any],
+) -> bool:
+    """Accept an early quarantine only when a complete revision no longer fits."""
+
+    if route.get("route") != "quarantine":
+        return False
+    decision_kind = decision.get("decision")
+    if decision_kind == "rollback":
+        if route.get("repairable_rejection") is not True:
+            return False
+    elif decision_kind != "revise":
+        return False
+    remaining = route.get("deadline_remaining_seconds")
+    reserve = route.get("revision_reserve_seconds")
+    return (
+        route.get("deadline_budget_degraded") is True
+        and route.get("revision_deadline_feasible") is False
+        and route.get("revision_deadline_reason")
+        == "insufficient_complete_revision_reserve"
+        and isinstance(remaining, int)
+        and not isinstance(remaining, bool)
+        and remaining >= 0
+        and isinstance(reserve, int)
+        and not isinstance(reserve, bool)
+        and reserve > 0
+        and remaining < reserve
+        and route.get("artifact_disposition") == "candidate_quarantined"
+        and route.get("evaluation_target") == "candidate"
+    )
 
 
 def _load_current_falsifier_result() -> dict[str, Any]:

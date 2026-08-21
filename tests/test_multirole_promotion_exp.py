@@ -585,6 +585,105 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         self.assertTrue(applied["verified"])
         self.assertEqual(applied["artifact_provider"], "external")
 
+    def test_deadline_degraded_quarantine_is_effective_authorization(self) -> None:
+        self._state("quarantine", "quarantine-entry")
+        candidate_identity = artifact_identity(self.app)
+        seal = {
+            "version": 1,
+            "kind": "contract_seal",
+            "baseline_artifact_identity": candidate_identity,
+        }
+        decision = {
+            "version": 1,
+            "kind": "promotion_authorization",
+            "run_id": self.run_id,
+            "node": "falsify",
+            "entry_id": "falsify-1",
+            "decision": "revise",
+            "candidate_artifact_identity": candidate_identity,
+        }
+        route = {
+            "version": 1,
+            "kind": "recovering_develop_review_route",
+            "run_id": self.run_id,
+            "node": "falsify",
+            "entry_id": "falsify-1",
+            "route": "quarantine",
+            "promotion_decision": "revise",
+            "promotion_decision_sha256": stable_sha256(decision),
+            "review_budget_exhausted": False,
+            "repairable_rejection": False,
+            "revision_reserve_seconds": 1500,
+            "deadline_remaining_seconds": 681,
+            "revision_deadline_feasible": False,
+            "revision_deadline_reason": "insufficient_complete_revision_reserve",
+            "deadline_budget_degraded": True,
+            "artifact_disposition": "candidate_quarantined",
+            "evaluation_target": "candidate",
+        }
+        with patch.dict("os.environ", self.env, clear=False):
+            applied = verify_application(
+                decision=decision,
+                seal=seal,
+                artifact_root=self.app,
+                mode="quarantine",
+                review_route=route,
+            )
+        self.assertTrue(applied["verified"])
+        self.assertEqual(
+            applied["effective_authorization_kind"],
+            "recovering_develop_review_route",
+        )
+
+    def test_deadline_degraded_quarantine_requires_a_real_reserve_shortfall(self) -> None:
+        self._state("quarantine", "quarantine-entry")
+        candidate_identity = artifact_identity(self.app)
+        seal = {
+            "version": 1,
+            "kind": "contract_seal",
+            "baseline_artifact_identity": candidate_identity,
+        }
+        decision = {
+            "version": 1,
+            "kind": "promotion_authorization",
+            "run_id": self.run_id,
+            "node": "falsify",
+            "entry_id": "falsify-1",
+            "decision": "revise",
+            "candidate_artifact_identity": candidate_identity,
+        }
+        route = {
+            "version": 1,
+            "kind": "recovering_develop_review_route",
+            "run_id": self.run_id,
+            "node": "falsify",
+            "entry_id": "falsify-1",
+            "route": "quarantine",
+            "promotion_decision": "revise",
+            "promotion_decision_sha256": stable_sha256(decision),
+            "review_budget_exhausted": False,
+            "repairable_rejection": False,
+            "revision_reserve_seconds": 1500,
+            "deadline_remaining_seconds": 1500,
+            "revision_deadline_feasible": False,
+            "revision_deadline_reason": "insufficient_complete_revision_reserve",
+            "deadline_budget_degraded": True,
+            "artifact_disposition": "candidate_quarantined",
+            "evaluation_target": "candidate",
+        }
+        with patch.dict("os.environ", self.env, clear=False):
+            with self.assertRaisesRegex(
+                ValueError,
+                "bound deadline-degraded quarantine",
+            ):
+                verify_application(
+                    decision=decision,
+                    seal=seal,
+                    artifact_root=self.app,
+                    mode="quarantine",
+                    review_route=route,
+                )
+
     def test_candidate_blind_obligations_require_mode_compatible_closure(self) -> None:
         seal, proposal, view = self._receipts()
         preflight = {

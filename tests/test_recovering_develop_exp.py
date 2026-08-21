@@ -37,6 +37,7 @@ from integrations.harbor.statem_codex_multirole_develop_exp import (
     EvidenceDevelopV4p37ExperimentalStatemCodex,
     EvidenceDevelopV4p38ExperimentalStatemCodex,
     EvidenceDevelopV4p39ExperimentalStatemCodex,
+    EvidenceDevelopV4p40ExperimentalStatemCodex,
     RecoveringMultiRoleDevelopExperimentalStatemCodex,
 )
 from integrations.harbor.statem_codex import TeamRunStatemCodex
@@ -1156,6 +1157,18 @@ class RecoveringDevelopRunbookTest(unittest.TestCase):
         self.assertEqual(
             agent.name(),
             "ziheng-yaxin-statem-codex-evidence-develop-v4p39-exp",
+        )
+
+    def test_v4p40_adapter_preserves_the_matched_codex_version(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            agent = EvidenceDevelopV4p40ExperimentalStatemCodex(
+                logs_dir=Path(temp_dir),
+                model_name="gpt-5.6-sol",
+            )
+        self.assertEqual(agent._version, "0.148.0")
+        self.assertEqual(
+            agent.name(),
+            "ziheng-yaxin-statem-codex-evidence-develop-v4p40-exp",
         )
 
     def test_v4_adapter_enforces_terminal_state_and_installs_runtime_hook(self) -> None:
