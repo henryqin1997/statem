@@ -458,9 +458,54 @@ pairs:
       Submitted semantic artifacts remain uninspected, and this direct
       trajectory cannot author or revise the frozen StateM control.
 
+  - pair_id: sound-change-cascade-local-arm-v4p44-k1-a
+    task: terminal-bench/sound-change-cascade
+    sample_count_per_agent: 1
+    model: gpt-5.6-sol
+    codex_version: 0.148.0
+    reasoning_effort: max
+    platform_class: local_arm64_docker
+    timeout_multiplier: 1.0
+    environment_build_timeout_multiplier: 1.0
+    retry_policy: no_retries
+    frozen_control_commit: pending_v4p44_promotion
+    no_upload: true
+    fresh_for_frozen_control: true
+    direct:
+      job: tb3-sol-native-baseline-v2-sound-change-cascade-k1-local-arm-a
+      agent: codex-auth-no-session-baseline-v2
+      state: completed_valid_backed_up
+      raw_reward: 0.0
+      reward_valid: true
+      protocol_valid: true
+      cost_usd: 4.596928
+      input_tokens: 3700490
+      cache_tokens: 3525376
+      output_tokens: 65289
+      wall_seconds: 1828
+      agent_seconds: 1790
+      atif_schema: ATIF-v1.5
+      atif_steps: 56
+      raw_session_paths: 0
+      backup_files: 15
+      backup_bytes: 453397
+      backup_tree_sha256: >-
+        eaf373adf803f331db5b252917f21e084f8b210f4a629df3b70aa12c43b32231
+    statem:
+      state: pending_v4p44_promotion
+      agent: ziheng-yaxin-statem-codex-evidence-develop-v4p44-exp
+      source_manifest_sha256: pending
+    matched_verdict: direct_valid_zero_statem_pending_no_score
+    score_eligible: false
+    use: pending_frozen_k1_triage_pair
+    freshness_note: >-
+      Submitted semantic artifacts remain uninspected, and this direct
+      trajectory cannot author or revise the independently developed v4p44
+      StateM control.
+
 aggregate:
   completed_pairs: 3
-  pending_matched_pairs: 1
+  pending_matched_pairs: 2
   protocol_invalid_statem_pairs: 3
   eligible_direct_reward: 0
   eligible_statem_reward: 0

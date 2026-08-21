@@ -49,13 +49,18 @@ closed.
 - Codex remains pinned to `0.148.0`.
 - Adapter identity:
   `ziheng-yaxin-statem-codex-evidence-develop-v4p44-exp`.
-- Source manifest: 36 files,
-  `ff46a23530c712f6642fdeea14d83ea85cadec9f6beb94a684bd8a0ec46b1622`.
+- Canonical deployment source manifest: 36 files,
+  `a3cc723ed13a0fabb7de09ce573562b441dce9ca9f7a002b11be529c57b1f230`.
+  The isolated worktree has the same 36 file-content digests but a different
+  aggregate hash because the public manifest also binds its worktree basename
+  as `source_root`.
 
-The isolated worktree lacks several unrelated untracked example fixtures that
-exist in the primary worktree, so six broad CLI tests fail before reaching the
-changed code. Full repository validation remains required after the change is
-applied to the primary worktree and the active local direct job exits.
+The isolated worktree lacked several unrelated untracked example fixtures that
+exist in the primary worktree, so six broad CLI tests failed before reaching
+the changed code. After the active local direct job exited and the change was
+applied to the primary worktree, full validation passed: 750 tests passed, 3
+skipped, and 78 subtests passed. Strict validation of the unchanged runbook
+also passed in the canonical deployment tree.
 
 ## Promotion rule
 

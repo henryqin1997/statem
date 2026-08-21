@@ -416,8 +416,24 @@ candidates:
       after a direct one. After a direct zero, run at most one frozen matched
       StateM arm following v4p43 promotion and park if it produces no raw gain
       or independently narrower family-level owner.
-    state: admitted_fresh_direct_pending_launch
+    state: direct_valid_zero_backed_up_statem_pending_v4p44_promotion
+    direct_result:
+      job: tb3-sol-native-baseline-v2-sound-change-cascade-k1-local-arm-a
+      raw_reward: 0.0
+      reward_valid: true
+      protocol_valid: true
+      cost_usd: 4.596928
+      wall_seconds: 1828
+      agent_seconds: 1790
+      atif_schema: ATIF-v1.5
+      atif_steps: 56
+      raw_session_paths: 0
+      backup_files: 15
+      backup_bytes: 453397
+      backup_tree_sha256: >-
+        eaf373adf803f331db5b252917f21e084f8b210f4a629df3b70aa12c43b32231
     next_use: >-
-      Launch the frozen direct half locally while the x86 development and
-      direct lanes remain isolated. Keep any later StateM half independent of
-      this direct trajectory and do not derive controls from its artifacts.
+      Keep the submitted semantic artifacts uninspected. Run at most one
+      frozen matched StateM arm only after v4p44 is independently promoted by
+      adapted mechanism evidence and a negative-transfer sentinel. Do not
+      derive controls from this direct trajectory.
