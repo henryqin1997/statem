@@ -234,4 +234,44 @@ candidates:
       candidate-blind stateful-lifecycle discriminator. Park after two
       hypothesis-scoped no-progress cells and do not encode task-specific
       warranty decisions.
-    state: admitted_direct_calibration_only_pending_launch
+    state: completed_direct_raw_zero_admit_one_artifact_transaction_develop_cell
+    direct_result:
+      raw_reward: 0.0
+      reward_valid: true
+      protocol_valid: true
+      error: null
+      cost_usd: 4.358931
+      input_tokens: 5113569
+      cached_input_tokens: 4945152
+      output_tokens: 34809
+      wall_seconds: 938
+      agent_seconds: 848
+      model: gpt-5.6-sol
+      codex_version: 0.149.0
+      atif: ATIF-v1.5
+      atif_steps: 63
+      raw_sessions: 0
+      public_artifact_gate_complete: false
+      public_artifact_gate_receipt_sha256: >-
+        99c6f2aad9114e996407db9af66ad0d3b06d32056a54aa95eaeb409d14d43c7a
+      backup_files: 15
+      backup_bytes: 13023738
+      backup_tree_sha256: >-
+        7b6fed30c46b781c50b8df08810d81295b93498bd4162fd8295ebf72a2cf9efb
+    observed_owner: public_artifact_production_or_transaction_before_semantic_evaluation
+    attribution: >-
+      The standard-timeout direct cell completed normally with no exception,
+      so infrastructure and timeout are not the dominant owner. Raw reward was
+      zero, and the immutable artifact manifest marked both declared public
+      outputs, decisions.json and decision_events.jsonl, as failed harvests.
+      The generic public-artifact gate therefore had no semantic files to
+      inspect. This narrows the first repair owner to producing and handing off
+      the public artifact transaction, before warranty-domain correctness can
+      be evaluated.
+    next_use: >-
+      Admit one matched StateM development cell in the stateful-lifecycle
+      family. Bind only generic producer-context artifact existence/non-empty
+      checks and structural decision-to-event reconciliation; do not encode
+      task-specific warranty decisions. Count progress only if the public
+      bundle becomes complete or a narrower independently replayable failure
+      owner is established.

@@ -32,8 +32,28 @@ extra retry. The existing machine gate remains authoritative.
 - Strict validation of the unchanged v4p35 runbook: passed.
 - Codex remains pinned to 0.148.0.
 - Adapter identity: `ziheng-yaxin-statem-codex-evidence-develop-v4p41-exp`.
-- Candidate source manifest: 36 files,
+- The prelaunch analysis originally recorded source manifest
   `0d204b2414ff0633fe2cd41547638423a714d8660f6becbf24755a07f62ace6f`.
+  That value was stale tracking metadata. The manifest embedded at launch and
+  an independent rebuild from the idle remote source both contain 36 files
+  and SHA-256
+  `4b1ee166534ae7a7f87345790568c541e8eb2d73c87c00d3a3385dfcefa1b54f`.
 
-v4p41 is a candidate only. v4p39 remains the last validated adapter until a
-fresh risk-scorer sentinel demonstrates raw and protocol non-regression.
+## Sentinel outcome
+
+The repeated risk-scorer sentinel completed with raw reward `1.0`, no
+exception, ATIF-v1.5, exact agent/model/version identity, stable 36-file source
+manifest, bound candidate replay, verified quarantine application, and final
+StateM state `handoff`. It therefore supplies raw and protocol non-regression
+evidence.
+
+It does not validate the new mechanism itself. The run recorded zero host
+session resumes and exported no `transition-failure-feedback.json` receipt, so
+the v4p41 feedback path was never exercised. Wall time was 5,714 seconds and
+cost was $29.464298, versus 3,042 seconds and $12.762398 in the prior v4p39
+sentinel. One stochastic pair cannot causally assign that increase to v4p41,
+but it also cannot justify activation.
+
+v4p41 is therefore not promoted. v4p39 remains the validated adapter, and the
+transition-feedback change stays available for a future matched cell that
+actually produces the bounded receipt.

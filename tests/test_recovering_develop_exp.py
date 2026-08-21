@@ -39,6 +39,7 @@ from integrations.harbor.statem_codex_multirole_develop_exp import (
     EvidenceDevelopV4p39ExperimentalStatemCodex,
     EvidenceDevelopV4p40ExperimentalStatemCodex,
     EvidenceDevelopV4p41ExperimentalStatemCodex,
+    EvidenceDevelopV4p42ExperimentalStatemCodex,
     RecoveringMultiRoleDevelopExperimentalStatemCodex,
 )
 from integrations.harbor.statem_codex import TeamRunStatemCodex
@@ -669,6 +670,24 @@ class RecoveringDevelopGuardTest(unittest.TestCase):
         self.assertIn("multiple pending transitions", content)
         self.assertIn("partial advancement", content)
 
+    def test_stateful_profile_requires_public_artifact_transaction(self) -> None:
+        catalog = yaml.safe_load(
+            (REPO / "examples/reviewer-practice-router-v1.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+        profile = next(
+            item for item in catalog["profiles"] if item["id"] == "stateful-systems"
+        )
+        self.assertIn("public_artifact_transaction", profile["checks"])
+        content = (REPO / "examples/reviewer/stateful-systems.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("producer context", content)
+        self.assertIn("harvest or\n  export boundary", content)
+        self.assertIn("without inventing expected domain\n  decisions", content)
+        self.assertIn("separate failure owners", content)
+
     def test_performance_profile_requires_population_margin_and_consumer_replay(self) -> None:
         catalog = yaml.safe_load(
             (REPO / "examples/reviewer-practice-router-v1.yaml").read_text(
@@ -1208,6 +1227,33 @@ class RecoveringDevelopRunbookTest(unittest.TestCase):
         self.assertIn("exact prior validation delta", prompt)
         self.assertIn("Preserve already passing obligations", prompt)
         self.assertIn("do not repeat an unchanged transition attempt", prompt)
+
+    def test_v4p42_versions_only_the_stateful_artifact_practice(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            agent = EvidenceDevelopV4p42ExperimentalStatemCodex(
+                logs_dir=Path(temp_dir),
+                model_name="gpt-5.6-sol",
+            )
+        names = [path.name for path in agent._verification_check_paths()]
+        self.assertEqual(agent._version, "0.148.0")
+        self.assertEqual(
+            agent.name(),
+            "ziheng-yaxin-statem-codex-evidence-develop-v4p42-exp",
+        )
+        self.assertEqual(
+            Path(agent._runbook_path).name,
+            "frontier-bench-agent-evidence-develop-v4p35-exp.yaml",
+        )
+        self.assertNotIn("transition_failure_feedback.py", names)
+        catalog = yaml.safe_load(
+            (REPO / "examples/reviewer-practice-router-v1.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+        profile = next(
+            item for item in catalog["profiles"] if item["id"] == "stateful-systems"
+        )
+        self.assertIn("public_artifact_transaction", profile["checks"])
 
     def test_v4_adapter_enforces_terminal_state_and_installs_runtime_hook(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -33,6 +33,7 @@ profiles:
       - safety_and_liveness
       - external_commit_boundary
       - monotone_frontier_reachability
+      - public_artifact_transaction
   - id: parsing-transformation
     file: parsing-transformation.md
     description: Parsers, compilers, filters, serializers, text or binary transforms, and format-preserving edits.

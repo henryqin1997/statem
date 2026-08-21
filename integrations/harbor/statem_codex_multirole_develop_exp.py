@@ -1193,3 +1193,13 @@ class EvidenceDevelopV4p41ExperimentalStatemCodex(
             "artifact or validation plan, rerun the failed public gate, and do not "
             "repeat an unchanged transition attempt."
         )
+
+
+class EvidenceDevelopV4p42ExperimentalStatemCodex(
+    EvidenceDevelopV4p39ExperimentalStatemCodex
+):
+    """Version the family-scoped public artifact transaction practice."""
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p42-exp"
