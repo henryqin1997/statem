@@ -67,3 +67,29 @@ candidates:
       Preserve as direct calibration. Do not launch a StateM score half until
       another structured-transformation task supplies a reusable public
       discriminator or a bounded artifact check narrows the owner.
+  - task: intrastat-meldung
+    public_sol_passes: 0
+    public_sol_attempts: 5
+    public_errors: 0
+    expected_family: service-readiness
+    dominant_limit_prior: statem_controllable_workflow
+    owning_control_layer: >-
+      multi_service_readiness_lineage_compliance_and_output_contract
+    hardware_feasibility: high_aws_x86_cpu
+    required_cpus: 2
+    required_memory_mb: 8192
+    required_gpus: 0
+    agent_timeout_sec: 10800
+    official_mean_cost_usd: 5.14
+    cheapest_public_discriminator: >-
+      one standard-timeout direct k1 cell on the future StateM platform
+    observable_progress_target: >-
+      Obtain a valid direct reward and public reconciliation/runtime artifacts
+      while separating service readiness, API/ERP lineage, compliance logic,
+      submission contract, environment, and validation ownership.
+    stop_or_park_condition: >-
+      Do not launch StateM if the direct cell is infrastructure-invalid or if
+      post-result public artifacts cannot define a reusable service-readiness
+      or compliance discriminator. Park after two hypothesis-scoped
+      no-progress cells.
+    state: admitted_direct_calibration_only
