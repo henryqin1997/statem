@@ -132,3 +132,38 @@ candidates:
       declared artifact harvest completeness, runtime-state identity, and
       service lifecycle. Do not use hidden verifier feedback or task-specific
       compliance values.
+  - task: gsea-proteomics
+    public_sol_passes: 0
+    public_sol_attempts: 5
+    public_errors: 0
+    expected_family: numerical-model
+    dominant_limit_prior: mixed
+    owning_control_layer: >-
+      numerical_variant_population_artifact_consistency_and_stage_validation
+    hardware_feasibility: high_aws_x86_cpu
+    required_cpus: 2
+    required_memory_mb: 4096
+    required_gpus: 0
+    agent_timeout_sec: 9000
+    official_mean_cost_usd: 1.74
+    public_metadata_basis: >-
+      Public task metadata classifies the task as Science/Biology with
+      proteomics, GSEA, mass-spectrometry, differential-expression, and TMT
+      tags. It declares three output artifacts: output.csv, gsea_stats.tsv,
+      and leading_edge_intersection.txt. No task instruction or verifier
+      internals were used for admission.
+    cheapest_public_discriminator: >-
+      one standard-timeout direct k1 cell on the future StateM platform,
+      followed only by structural and cross-artifact inspection of the three
+      submitted public outputs
+    observable_progress_target: >-
+      Obtain a valid direct reward and complete public output bundle while
+      separating missing or malformed artifacts, cross-artifact inconsistency,
+      numerical or population semantics, environment, and base scientific
+      capability.
+    stop_or_park_condition: >-
+      Do not launch StateM if the direct cell is infrastructure-invalid or if
+      post-result public outputs cannot define a reusable candidate-blind
+      numerical-model discriminator. Park after two hypothesis-scoped
+      no-progress cells and do not encode task-specific biological answers.
+    state: admitted_direct_calibration_only_pending_launch
