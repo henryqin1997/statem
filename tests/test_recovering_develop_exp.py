@@ -42,6 +42,7 @@ from integrations.harbor.statem_codex_multirole_develop_exp import (
     EvidenceDevelopV4p41ExperimentalStatemCodex,
     EvidenceDevelopV4p42ExperimentalStatemCodex,
     EvidenceDevelopV4p43ExperimentalStatemCodex,
+    EvidenceDevelopV4p44ExperimentalStatemCodex,
     RecoveringMultiRoleDevelopExperimentalStatemCodex,
 )
 from integrations.harbor.statem_codex import TeamRunStatemCodex
@@ -1297,6 +1298,30 @@ class RecoveringDevelopRunbookTest(unittest.TestCase):
         self.assertIn("Immediate repair owner: test_planner", prompt)
         self.assertIn("retry-brief.json", prompt)
         self.assertIn("do not repeat an unchanged transition attempt", prompt)
+
+    def test_v4p44_reserves_blocked_transition_slot_without_runbook_change(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            agent = EvidenceDevelopV4p44ExperimentalStatemCodex(
+                logs_dir=Path(temp_dir),
+                model_name="gpt-5.6-sol",
+            )
+        self.assertEqual(agent._version, "0.148.0")
+        self.assertEqual(
+            agent.name(),
+            "ziheng-yaxin-statem-codex-evidence-develop-v4p44-exp",
+        )
+        self.assertEqual(
+            Path(agent._runbook_path).name,
+            "frontier-bench-agent-evidence-develop-v4p35-exp.yaml",
+        )
+        stop_command = agent._codex_stop_hook_payload()["hooks"]["Stop"][0][
+            "hooks"
+        ][0]["command"]
+        self.assertIn("STATEM_STOP_MAX_CONTINUATIONS_PER_ENTRY=1", stop_command)
+        self.assertIn(
+            "STATEM_STOP_EXTRA_CONTINUATIONS_AFTER_GOTO_BLOCKED=1",
+            stop_command,
+        )
 
     def test_v4p43_unchanged_blocker_dominates_draft_progress(self) -> None:
         agent = object.__new__(EvidenceDevelopV4p43ExperimentalStatemCodex)

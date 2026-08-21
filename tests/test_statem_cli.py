@@ -1675,6 +1675,156 @@ edges:
             )
             self.assertEqual(exhausted.stdout, "")
 
+    def test_stop_hook_reserves_one_extra_slot_after_current_entry_block(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            spec = root / "blocked-transition-autoloop.yaml"
+            state_dir = root / ".statem"
+            spec.write_text(
+                """
+name: blocked-transition-autoloop
+initial: execute
+nodes:
+  execute:
+    prompt: Execute.
+    state_hooks:
+      - name: continue_execute
+        event: stop
+        host: codex
+        template: statem_autoloop
+        scope: current_entry
+  handoff:
+    prompt: Handoff.
+edges:
+  - from: execute
+    to: handoff
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            self.run_statem(
+                "start",
+                str(spec),
+                "--run-id",
+                "blocked-budget-run",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+            )
+            env = {
+                "STATEM_STOP_REQUIRE_STATE_HOOKS": "true",
+                "STATEM_STOP_MAX_CONTINUATIONS_PER_ENTRY": "1",
+                "STATEM_STOP_EXTRA_CONTINUATIONS_AFTER_GOTO_BLOCKED": "1",
+            }
+            host_payload = {
+                "cwd": str(root),
+                "session_id": "blocked-budget-test",
+                "stop_hook_active": False,
+            }
+            first = self.run_stop_hook(host_payload, env=env)
+            self.assertEqual(json.loads(first.stdout)["decision"], "block")
+
+            state_path = (
+                state_dir / "runs" / "blocked-budget-run" / "state.json"
+            )
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            state["history"].append(
+                {
+                    "event": "goto_blocked",
+                    "current_entry_id": state["current_entry_id"],
+                    "from": "execute",
+                    "to": "handoff",
+                }
+            )
+            state_path.write_text(
+                json.dumps(state, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            repair_slot = self.run_stop_hook(
+                {**host_payload, "stop_hook_active": True}, env=env
+            )
+            repair_payload = json.loads(repair_slot.stdout)
+            self.assertEqual(repair_payload["decision"], "block")
+            self.assertIn(
+                "Blocked transition repair continuation",
+                repair_payload["reason"],
+            )
+
+            exhausted = self.run_stop_hook(
+                {**host_payload, "stop_hook_active": True}, env=env
+            )
+            self.assertEqual(exhausted.stdout, "")
+
+    def test_stop_hook_does_not_apply_blocked_slot_to_another_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            spec = root / "other-entry-autoloop.yaml"
+            state_dir = root / ".statem"
+            spec.write_text(
+                """
+name: other-entry-autoloop
+initial: execute
+nodes:
+  execute:
+    prompt: Execute.
+    state_hooks:
+      - name: continue_execute
+        event: stop
+        host: codex
+        template: statem_autoloop
+        scope: current_entry
+  handoff:
+    prompt: Handoff.
+edges:
+  - from: execute
+    to: handoff
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            self.run_statem(
+                "start",
+                str(spec),
+                "--run-id",
+                "other-entry-run",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+            )
+            env = {
+                "STATEM_STOP_REQUIRE_STATE_HOOKS": "true",
+                "STATEM_STOP_MAX_CONTINUATIONS_PER_ENTRY": "1",
+                "STATEM_STOP_EXTRA_CONTINUATIONS_AFTER_GOTO_BLOCKED": "1",
+            }
+            host_payload = {
+                "cwd": str(root),
+                "session_id": "other-entry-test",
+                "stop_hook_active": False,
+            }
+            first = self.run_stop_hook(host_payload, env=env)
+            self.assertEqual(json.loads(first.stdout)["decision"], "block")
+
+            state_path = state_dir / "runs" / "other-entry-run" / "state.json"
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            state["history"].append(
+                {
+                    "event": "goto_blocked",
+                    "current_entry_id": "another-entry",
+                    "from": "execute",
+                    "to": "handoff",
+                }
+            )
+            state_path.write_text(
+                json.dumps(state, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            exhausted = self.run_stop_hook(
+                {**host_payload, "stop_hook_active": True}, env=env
+            )
+            self.assertEqual(exhausted.stdout, "")
+
     def test_stop_hook_blocks_unfinished_active_run(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

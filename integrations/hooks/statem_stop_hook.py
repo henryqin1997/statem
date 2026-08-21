@@ -48,7 +48,21 @@ def main() -> int:
         if hook_payload.get("decision") == "block":
             if not _claim_entry_continuation(payload, state_dir, hook_payload):
                 return _allow()
-            return _continue(str(hook_payload.get("reason") or "Continue the active statem-managed run."))
+            reason = str(
+                hook_payload.get("reason")
+                or "Continue the active statem-managed run."
+            )
+            run_id = str(hook_payload.get("run_id") or "")
+            entry_id = str(hook_payload.get("current_entry_id") or "")
+            if _current_entry_has_goto_blocked(state_dir, run_id, entry_id):
+                reason += (
+                    "\n\nBlocked transition repair continuation:\n"
+                    "The current entry recorded a blocked transition. Preserve "
+                    "already passing evidence, repair the exact failed gate, and "
+                    "rerun that transition before stopping. Do not create a new "
+                    "candidate or weaken the gate."
+                )
+            return _continue(reason)
         return _allow()
 
     if _require_state_hooks():
@@ -117,7 +131,8 @@ def _claim_entry_continuation(
     if (
         payload.get("stop_hook_active") is True
         and same_entry
-        and continuation_count >= _entry_continuation_budget()
+        and continuation_count
+        >= _entry_continuation_budget(state_dir, run_id, entry_id)
     ):
         return False
 
@@ -142,15 +157,57 @@ def _claim_entry_continuation(
     return True
 
 
-def _entry_continuation_budget() -> int:
+def _entry_continuation_budget(
+    state_dir: Path,
+    run_id: str,
+    entry_id: str,
+) -> int:
     raw = os.environ.get("STATEM_STOP_MAX_CONTINUATIONS_PER_ENTRY", "").strip()
     if not raw:
-        return DEFAULT_ENTRY_CONTINUATION_BUDGET
+        base = DEFAULT_ENTRY_CONTINUATION_BUDGET
+    else:
+        try:
+            base = int(raw)
+        except ValueError:
+            base = DEFAULT_ENTRY_CONTINUATION_BUDGET
+    base = min(10, max(1, base))
+    extra = _blocked_transition_extra_budget()
+    if extra and _current_entry_has_goto_blocked(state_dir, run_id, entry_id):
+        return min(10, base + extra)
+    return base
+
+
+def _blocked_transition_extra_budget() -> int:
+    raw = os.environ.get(
+        "STATEM_STOP_EXTRA_CONTINUATIONS_AFTER_GOTO_BLOCKED",
+        "",
+    ).strip()
+    if not raw:
+        return 0
     try:
         value = int(raw)
     except ValueError:
-        return DEFAULT_ENTRY_CONTINUATION_BUDGET
-    return min(10, max(1, value))
+        return 0
+    return min(3, max(0, value))
+
+
+def _current_entry_has_goto_blocked(
+    state_dir: Path,
+    run_id: str,
+    entry_id: str,
+) -> bool:
+    if not run_id or not entry_id:
+        return False
+    state = _read_json_file(state_dir / "runs" / run_id / "state.json")
+    history = state.get("history")
+    if not isinstance(history, list):
+        return False
+    return any(
+        isinstance(event, dict)
+        and event.get("event") == "goto_blocked"
+        and event.get("current_entry_id") == entry_id
+        for event in history
+    )
 
 
 def _read_json_file(path: Path) -> dict[str, Any]:

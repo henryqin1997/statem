@@ -1299,3 +1299,43 @@ Evidence-develop v4p43 controls:
   blocker remains, stop fail-closed as protocol-invalid instead of consuming
   additional review or candidate cycles.
 """
+
+
+class EvidenceDevelopV4p44ExperimentalStatemCodex(
+    EvidenceDevelopV4p43ExperimentalStatemCodex
+):
+    """Reserve one same-context continuation for a newly blocked transition."""
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p44-exp"
+
+    def _codex_stop_hook_payload(self) -> dict[str, Any]:
+        payload = super()._codex_stop_hook_payload()
+        hook = payload["hooks"]["Stop"][0]["hooks"][0]
+        hook["command"] = (
+            "STATEM_STOP_EXTRA_CONTINUATIONS_AFTER_GOTO_BLOCKED=1 "
+            + hook["command"]
+        )
+        return payload
+
+    def _augment_instruction(
+        self,
+        instruction: str,
+        run_id: str,
+        current_context: str,
+    ) -> str:
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
+
+Evidence-develop v4p44 lifecycle control:
+- The base entry continuation remains unchanged. If this exact entry records a
+  blocked transition, the Stop hook grants one additional same-context
+  continuation so the immediate owner can repair and rerun that gate.
+- The extra slot is unavailable before a blocked transition and does not reset
+  candidate, review, or blocker-fingerprint budgets. A repeated unchanged
+  block still fails closed.
+"""
