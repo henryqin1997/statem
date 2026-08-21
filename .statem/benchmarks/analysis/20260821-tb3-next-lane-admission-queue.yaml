@@ -199,3 +199,39 @@ candidates:
       numerical-model task supplies a reusable public discriminator that can
       be applied without task-specific biological answers or hidden verifier
       evidence.
+  - task: heat-pump-warranty
+    public_sol_passes: 0
+    public_sol_attempts: 5
+    public_errors: 0
+    expected_family: stateful-lifecycle
+    dominant_limit_prior: mixed
+    owning_control_layer: >-
+      service_artifact_transaction_asset_lineage_event_reconciliation_and_final_state
+    hardware_feasibility: high_aws_x86_cpu
+    required_cpus: 2
+    required_memory_mb: 4096
+    required_gpus: 0
+    agent_timeout_sec: 7200
+    official_mean_cost_usd: 4.76
+    public_metadata_basis: >-
+      Public task metadata classifies the task as Operations/Claims with
+      warranty, asset-lineage, OCR, manufacturing, compliance, and
+      domain-reasoning tags. It declares decisions.json and
+      decision_events.jsonl from the same warranty-portal service. No task
+      instruction or verifier internals were used for admission.
+    cheapest_public_discriminator: >-
+      one standard-timeout direct k1 cell on the future StateM platform,
+      followed only by artifact-harvest validation and structural
+      event-to-decision reconciliation of the two submitted public files
+    observable_progress_target: >-
+      Obtain a valid direct reward and complete public decision/event bundle
+      while separating service lifecycle and export, event ordering and
+      terminal-state reconciliation, asset lineage, OCR or domain capability,
+      environment, and validation ownership.
+    stop_or_park_condition: >-
+      Do not launch StateM if the direct cell is infrastructure-invalid or if
+      public decision and event artifacts cannot define a reusable
+      candidate-blind stateful-lifecycle discriminator. Park after two
+      hypothesis-scoped no-progress cells and do not encode task-specific
+      warranty decisions.
+    state: admitted_direct_calibration_only_pending_launch
