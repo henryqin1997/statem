@@ -645,9 +645,38 @@ fresh_holdout_candidates:
     state: triage_after_numerical_family_attribution
   - task: nextjs-performance
     public_sol_passes: 1
+    public_sol_attempts: 5
+    public_errors: 0
     expected_family: algorithm-performance
     cpus: 2
-    state: sentinel_after_family_promotion
+    state: completed_fresh_direct_raw_zero_pending_v4p43_promotion
+    direct_result:
+      job: tb3-sol-native-baseline-v2-nextjs-performance-k1-aws-x86-a
+      agent: codex-auth-no-session-baseline-v2
+      raw_reward: 0.0
+      reward_valid: true
+      protocol_valid: true
+      error: null
+      cost_usd: 4.990149
+      input_tokens: 5947239
+      cache_tokens: 5792768
+      output_tokens: 44047
+      wall_seconds: 1452
+      agent_seconds: 1192
+      model: gpt-5.6-sol
+      codex_version: 0.148.0
+      atif: ATIF-v1.5
+      atif_steps: 111
+      raw_sessions: 0
+      backup_files: 42
+      backup_bytes: 650710
+      backup_tree_sha256: >-
+        9e11f0625e40255c99a8addfde889691ac9b14c822bcf1ac2f1617a5f0a05ed3
+    freshness_boundary: >-
+      Semantic submitted artifacts remain uninspected. The direct trajectory
+      cannot author or revise controls. Reserve one frozen matched StateM arm
+      only after independent v4p43 promotion.
+    next_use: frozen_matched_statem_after_v4p43_promotion
   - task: sound-change-cascade
     public_sol_passes: 1
     expected_family: structured-transformation

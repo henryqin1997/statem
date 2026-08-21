@@ -6,7 +6,7 @@
   "estimated_statem_reward": 0,
   "estimated_task_count": 0,
   "estimated_trial_count_per_agent": 0,
-  "excluded_pair_count": 3,
+  "excluded_pair_count": 4,
   "excluded_pairs": [
     {
       "pair_id": "bun-sourcemap-leak-local-arm64-v4p33-k1-a",
@@ -18,6 +18,10 @@
     },
     {
       "pair_id": "data-anonymization-aws-x86-v4p39-k1-a",
+      "reason": "score_eligible_false"
+    },
+    {
+      "pair_id": "nextjs-performance-aws-x86-v4p43-k1-a",
       "reason": "score_eligible_false"
     }
   ],
