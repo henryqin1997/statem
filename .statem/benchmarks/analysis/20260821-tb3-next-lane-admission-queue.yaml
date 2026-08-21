@@ -377,3 +377,45 @@ candidates:
       Preserve and park. Reopen only after a reusable candidate-blind
       constraint/population discriminator or independent public schedule
       consumer exists; do not infer a StateM route from raw zero alone.
+  - task: sound-change-cascade
+    public_sol_passes: 1
+    public_sol_attempts: 5
+    public_errors: 0
+    expected_family: structured-transformation
+    dominant_limit_prior: mixed
+    owning_control_layer: >-
+      structured_transformation_authority_ordering_and_generalization_validation
+    hardware_feasibility: high_local_arm64_cpu
+    required_cpus: 2
+    required_memory_mb: 4096
+    required_gpus: 0
+    agent_timeout_sec: 18000
+    official_mean_cost_usd: 3.70
+    public_metadata_basis: >-
+      Public task metadata classifies the task as Science/Linguistics with
+      phonology, inverse-problem, rule-induction, string-rewriting, and
+      historical-linguistics tags. It declares rules.json and ordering.txt,
+      uses a multi-architecture Python base image, requires two CPUs and no
+      GPU, and has a public Sol Max prior of 1/5 with no ordinary errors. No
+      task instruction, semantic artifact, or verifier evidence was used for
+      admission.
+    cheapest_public_discriminator: >-
+      one standard-timeout direct k1 cell on local ARM64, followed only by its
+      raw reward and protocol metadata
+    observable_progress_target: >-
+      Obtain one reward-valid and protocol-valid direct observation while
+      preserving the task as a frozen structured-transformation matched arm.
+      A direct one closes this k1 conversion opportunity; a direct zero
+      reserves one StateM arm only after the generic v4p43 lifecycle control is
+      promoted without task-derived changes.
+    stop_or_park_condition: >-
+      Allow at most one infrastructure replacement if the direct arm is
+      reward-invalid. Do not inspect semantic artifacts. Skip the StateM arm
+      after a direct one. After a direct zero, run at most one frozen matched
+      StateM arm following v4p43 promotion and park if it produces no raw gain
+      or independently narrower family-level owner.
+    state: admitted_fresh_direct_pending_launch
+    next_use: >-
+      Launch the frozen direct half locally while the x86 development and
+      direct lanes remain isolated. Keep any later StateM half independent of
+      this direct trajectory and do not derive controls from its artifacts.
