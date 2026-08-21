@@ -71,7 +71,8 @@ candidates:
     public_sol_passes: 0
     public_sol_attempts: 5
     public_errors: 0
-    expected_family: service-readiness
+    expected_family: stateful-lifecycle
+    original_admission_family_label: service-readiness
     dominant_limit_prior: statem_controllable_workflow
     owning_control_layer: >-
       multi_service_readiness_lineage_compliance_and_output_contract
@@ -92,4 +93,42 @@ candidates:
       post-result public artifacts cannot define a reusable service-readiness
       or compliance discriminator. Park after two hypothesis-scoped
       no-progress cells.
-    state: admitted_direct_calibration_only
+    state: completed_direct_raw_zero_pending_v4p41_promotion_gate
+    direct_result:
+      raw_reward: 0.0
+      reward_valid: true
+      protocol_valid: true
+      error: null
+      cost_usd: 3.91756
+      input_tokens: 4063640
+      cached_input_tokens: 3925760
+      output_tokens: 42176
+      wall_seconds: 1014
+      agent_seconds: 896
+      atif: ATIF-v1.5
+      atif_steps: 68
+      raw_sessions: 0
+      backup_files: 18
+      backup_bytes: 1039104
+      backup_tree_sha256: 438796f7364676c683b735c27cb46dcb369fc9695985c330b7029dc757752411
+    observed_owner: artifact_transaction_and_stateful_lifecycle_candidate
+    attribution: >-
+      The standard-timeout direct cell completed normally and all observed
+      service containers were healthy, so startup, timeout, and systematic
+      infrastructure are not the dominant owner. The public reconciliation
+      artifact was present and passed its supplied JSON schema, but the public
+      artifact manifest recorded the declared runtime-state export as failed.
+      This supplies a cheap candidate-blind artifact-completeness discriminator
+      without attributing the raw zero to one hidden compliance rule.
+    executable_family_calibration: >-
+      Route any admitted StateM half through the existing stateful-lifecycle
+      family, with stateful-systems primary and data-database secondary. Treat
+      service readiness and artifact-transaction completeness as precise
+      practices, not as a new broad shared family.
+    next_use: >-
+      Preserve as direct calibration. Only after the v4p41 negative-transfer
+      sentinel is protocol-valid raw one, admit one standard-timeout matched
+      StateM k1 cell whose candidate-blind plan checks reconciliation schema,
+      declared artifact harvest completeness, runtime-state identity, and
+      service lifecycle. Do not use hidden verifier feedback or task-specific
+      compliance values.
