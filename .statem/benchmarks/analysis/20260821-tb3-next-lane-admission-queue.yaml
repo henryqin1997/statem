@@ -166,4 +166,36 @@ candidates:
       post-result public outputs cannot define a reusable candidate-blind
       numerical-model discriminator. Park after two hypothesis-scoped
       no-progress cells and do not encode task-specific biological answers.
-    state: admitted_direct_calibration_only_pending_launch
+    state: completed_direct_raw_zero_parked_no_public_semantic_discriminator
+    direct_result:
+      raw_reward: 0.0
+      reward_valid: true
+      protocol_valid: true
+      error: null
+      cost_usd: 1.643907
+      input_tokens: 1129071
+      cached_input_tokens: 1035264
+      output_tokens: 21908
+      wall_seconds: 681
+      agent_seconds: 578
+      atif: ATIF-v1.5
+      atif_steps: 43
+      raw_sessions: 0
+      public_artifact_gate_complete: true
+      backup_files: 18
+      backup_bytes: 340615
+      backup_tree_sha256: 9e76e05654190723fdc5b19f9f4ecfc6aab165f7cf08178d0e7319f93695ab3d
+    observed_owner: mixed_scientific_semantic_or_base_capability
+    attribution: >-
+      The standard-timeout direct cell completed normally and all three
+      declared public output artifacts were present, non-empty, and bound by
+      the generic public-artifact gate. The small public outputs are
+      structurally and internally plausible, but they expose no independent
+      expected scientific result or candidate-blind discriminator that narrows
+      variant, population, or biological semantics. A StateM half would
+      therefore be unconstrained semantic search rather than a family repair.
+    next_use: >-
+      Preserve as direct calibration and park. Reopen only if another
+      numerical-model task supplies a reusable public discriminator that can
+      be applied without task-specific biological answers or hidden verifier
+      evidence.
