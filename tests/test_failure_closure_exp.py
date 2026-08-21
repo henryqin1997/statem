@@ -18,6 +18,10 @@ from integrations.harbor.experimental.failure_feedback_gate import (
     prepare_retry_brief,
     validate_preflight_delta,
 )
+from integrations.harbor.experimental.transition_failure_feedback import (
+    latest_transition_feedback,
+    main as transition_failure_feedback_main,
+)
 from integrations.harbor.experimental.recovering_develop_guard import (
     close_cycle,
     open_cycle,
@@ -492,6 +496,112 @@ class FailureClosureTest(unittest.TestCase):
             )
 
         self.assertEqual(exit_code, 1)
+        self.assertFalse(output_path.exists())
+
+    def test_v4p40_blocker_becomes_bounded_resume_feedback(self) -> None:
+        state = {
+            "current": "solve",
+            "current_entry_id": "20260821T023710Z-cdc93414",
+            "history": [
+                {
+                    "event": "goto_blocked",
+                    "from": "solve",
+                    "to": "falsify",
+                    "stage": "before_transfer",
+                    "current_entry_id": "20260821T023710Z-cdc93414",
+                    "results": [
+                        {
+                            "type": "command",
+                            "purpose": "before_transfer",
+                            "passed": False,
+                            "blocking": True,
+                            "exit_code": 1,
+                            "on_failure": "block",
+                            "output": (
+                                "failure feedback gate: candidate-blind acceptance "
+                                "plan did not append the exact prior validation delta\n"
+                                + "raw details must not enter the receipt"
+                            ),
+                        }
+                    ],
+                }
+            ],
+        }
+        receipt = latest_transition_feedback(state)
+        self.assertIsNotNone(receipt)
+        assert receipt is not None
+        self.assertEqual(receipt["current_state"], "solve")
+        self.assertEqual(receipt["target_state"], "falsify")
+        self.assertEqual(
+            receipt["failed_checks"][0]["summary"],
+            "failure feedback gate: candidate-blind acceptance plan did not "
+            "append the exact prior validation delta",
+        )
+        self.assertEqual(len(receipt["blocker_fingerprint"]), 64)
+        self.assertNotIn("raw details", json.dumps(receipt))
+
+    def test_transition_feedback_redacts_ids_and_caps_failed_checks(self) -> None:
+        results = [
+            {
+                "type": "command",
+                "purpose": f"gate-{index}",
+                "passed": False,
+                "blocking": True,
+                "exit_code": 1,
+                "on_failure": "block",
+                "output": (
+                    "blocked receipt "
+                    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef "
+                    "123e4567-e89b-12d3-a456-426614174000"
+                ),
+            }
+            for index in range(6)
+        ]
+        receipt = latest_transition_feedback(
+            {
+                "current": "solve",
+                "current_entry_id": "entry-1",
+                "history": [
+                    {
+                        "event": "goto_blocked",
+                        "from": "solve",
+                        "to": "falsify",
+                        "stage": "before_transfer",
+                        "current_entry_id": "entry-1",
+                        "results": results,
+                    }
+                ],
+            }
+        )
+        assert receipt is not None
+        self.assertEqual(len(receipt["failed_checks"]), 4)
+        self.assertIn("<sha256>", receipt["failed_checks"][0]["summary"])
+        self.assertIn("<uuid>", receipt["failed_checks"][0]["summary"])
+
+    def test_no_blocker_removes_stale_transition_feedback(self) -> None:
+        state_path = self.root / "state.json"
+        output_path = self.root / "transition-feedback.json"
+        state_path.write_text(
+            json.dumps(
+                {
+                    "current": "solve",
+                    "current_entry_id": "entry-1",
+                    "history": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        output_path.write_text("stale", encoding="utf-8")
+        with patch("builtins.print"):
+            exit_code = transition_failure_feedback_main(
+                [
+                    "--state",
+                    str(state_path),
+                    "--output",
+                    str(output_path),
+                ]
+            )
+        self.assertEqual(exit_code, 0)
         self.assertFalse(output_path.exists())
 
     def test_v4p31_adapter_and_runbook_are_versioned_and_valid(self) -> None:

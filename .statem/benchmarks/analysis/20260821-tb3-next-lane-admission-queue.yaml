@@ -38,4 +38,32 @@ candidates:
       Do not launch StateM if the direct cell is infrastructure-invalid or if
       post-result public evidence cannot define a reusable family-level
       discriminator. Park after two hypothesis-scoped no-progress cells.
-    state: admitted_direct_calibration_only
+    state: completed_direct_raw_zero_parked_pending_new_family_hypothesis
+    direct_result:
+      raw_reward: 0.0
+      reward_valid: true
+      protocol_valid: true
+      error: null
+      cost_usd: 3.640013
+      input_tokens: 3349549
+      cached_input_tokens: 3200256
+      output_tokens: 43114
+      wall_seconds: 1033
+      agent_seconds: 962
+      atif: ATIF-v1.5
+      raw_sessions: 0
+      backup_files: 30
+      backup_bytes: 1359716
+      backup_tree_sha256: d92008e37cfa59af9a3d059c0b673466736edffe725c0950cc433c26369e7416
+    observed_owner: mixed_semantic_implementation_capability
+    attribution: >-
+      The standard-timeout direct cell completed normally and produced the
+      requested public artifact bundle, so infrastructure, timeout, and
+      unavailable hardware are not the dominant owner. Raw reward remained
+      zero. Without a candidate-blind public discriminator that identifies a
+      reusable authority, entailment, query-semantics, or output-stage defect,
+      a StateM cell would be unconstrained search rather than a family repair.
+    next_use: >-
+      Preserve as direct calibration. Do not launch a StateM score half until
+      another structured-transformation task supplies a reusable public
+      discriminator or a bounded artifact check narrows the owner.

@@ -38,6 +38,7 @@ from integrations.harbor.statem_codex_multirole_develop_exp import (
     EvidenceDevelopV4p38ExperimentalStatemCodex,
     EvidenceDevelopV4p39ExperimentalStatemCodex,
     EvidenceDevelopV4p40ExperimentalStatemCodex,
+    EvidenceDevelopV4p41ExperimentalStatemCodex,
     RecoveringMultiRoleDevelopExperimentalStatemCodex,
 )
 from integrations.harbor.statem_codex import TeamRunStatemCodex
@@ -1170,6 +1171,43 @@ class RecoveringDevelopRunbookTest(unittest.TestCase):
             agent.name(),
             "ziheng-yaxin-statem-codex-evidence-develop-v4p40-exp",
         )
+
+    def test_v4p41_adapter_closes_feedback_without_changing_shared_runbook(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            agent = EvidenceDevelopV4p41ExperimentalStatemCodex(
+                logs_dir=Path(temp_dir),
+                model_name="gpt-5.6-sol",
+            )
+        names = [path.name for path in agent._verification_check_paths()]
+        self.assertEqual(agent._version, "0.148.0")
+        self.assertEqual(
+            agent.name(),
+            "ziheng-yaxin-statem-codex-evidence-develop-v4p41-exp",
+        )
+        self.assertEqual(
+            Path(agent._runbook_path).name,
+            "frontier-bench-agent-evidence-develop-v4p35-exp.yaml",
+        )
+        self.assertIn("transition_failure_feedback.py", names)
+        self.assertIn(
+            "recovering-develop/transition-failure-feedback.json",
+            agent._PROGRESS_RECEIPTS,
+        )
+
+    def test_v4p41_resume_prompt_binds_latest_failed_gate(self) -> None:
+        agent = object.__new__(EvidenceDevelopV4p41ExperimentalStatemCodex)
+        agent._final_state = "handoff"
+        agent._latest_transition_failure_summary = (
+            "failure feedback gate: candidate-blind acceptance plan did not "
+            "append the exact prior validation delta"
+        )
+        prompt = agent._session_resume_prompt(
+            {"current": "solve", "current_entry_id": "entry-1"}
+        )
+        self.assertIn("transition-failure-feedback.json", prompt)
+        self.assertIn("exact prior validation delta", prompt)
+        self.assertIn("Preserve already passing obligations", prompt)
+        self.assertIn("do not repeat an unchanged transition attempt", prompt)
 
     def test_v4_adapter_enforces_terminal_state_and_installs_runtime_hook(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

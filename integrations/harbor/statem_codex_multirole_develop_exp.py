@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shlex
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -1110,3 +1111,85 @@ class EvidenceDevelopV4p40ExperimentalStatemCodex(
     @staticmethod
     def name() -> str:
         return "ziheng-yaxin-statem-codex-evidence-develop-v4p40-exp"
+
+
+class EvidenceDevelopV4p41ExperimentalStatemCodex(
+    EvidenceDevelopV4p40ExperimentalStatemCodex
+):
+    """Carry bounded transition failures into same-session recovery prompts."""
+
+    _LOCAL_TRANSITION_FAILURE_FEEDBACK = (
+        Path(__file__).resolve().parent
+        / "experimental"
+        / "transition_failure_feedback.py"
+    )
+    _TRANSITION_FAILURE_FEEDBACK = (
+        "/tmp/statem-verification-checks/recovering-develop/"
+        "transition-failure-feedback.json"
+    )
+    _PROGRESS_RECEIPTS = (
+        *EvidenceDevelopV4p40ExperimentalStatemCodex._PROGRESS_RECEIPTS,
+        "recovering-develop/transition-failure-feedback.json",
+    )
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self._latest_transition_failure_summary = ""
+        super().__init__(*args, **kwargs)
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p41-exp"
+
+    def _verification_check_paths(self) -> list[Path]:
+        return [
+            *super()._verification_check_paths(),
+            self._LOCAL_TRANSITION_FAILURE_FEEDBACK,
+        ]
+
+    async def _session_progress_identity(
+        self,
+        environment: BaseEnvironment,
+        run_id: str,
+        current: dict[str, Any],
+    ) -> tuple[str, ...]:
+        state_path = f"/tmp/statem-state/runs/{run_id}/state.json"
+        command = (
+            "python3 /tmp/statem-verification-checks/"
+            "transition_failure_feedback.py "
+            f"--state {shlex.quote(state_path)} "
+            f"--output {shlex.quote(self._TRANSITION_FAILURE_FEEDBACK)}"
+        )
+        self._latest_transition_failure_summary = ""
+        try:
+            result = await self.exec_as_agent(
+                environment,
+                command=command,
+                env=self._statem_env(run_id),
+            )
+            payload = json.loads((result.stdout or "").strip())
+            failed = payload.get("failed_checks") if isinstance(payload, dict) else None
+            if isinstance(failed, list):
+                summaries = [
+                    str(item.get("summary") or "").strip()
+                    for item in failed
+                    if isinstance(item, dict) and str(item.get("summary") or "").strip()
+                ]
+                self._latest_transition_failure_summary = "; ".join(summaries)[:1000]
+        except Exception:
+            self._latest_transition_failure_summary = ""
+        return await super()._session_progress_identity(environment, run_id, current)
+
+    def _session_resume_prompt(self, current: dict[str, Any]) -> str:
+        base = super()._session_resume_prompt(current)
+        summary = getattr(self, "_latest_transition_failure_summary", "").strip()
+        if not summary:
+            return base
+        return (
+            base
+            + " The host recorded the latest bounded transition failure in "
+            + self._TRANSITION_FAILURE_FEEDBACK
+            + f": {summary}. Repair that exact failed gate before retrying the "
+            "transition. Preserve already passing obligations, update the owning "
+            "artifact or validation plan, rerun the failed public gate, and do not "
+            "repeat an unchanged transition attempt."
+        )

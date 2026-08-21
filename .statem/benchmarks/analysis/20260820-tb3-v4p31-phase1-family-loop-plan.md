@@ -303,3 +303,22 @@ not used to author v4p35 and remains score-eligible. Launch its direct half only
 after a remote lane is free and a job-bound admission-v2 receipt is issued;
 preserve that half before launching StateM so resource contention cannot alter
 the matched comparison.
+
+## v4p41 and ontology calibration update
+
+The v4p40 risk sentinel was protocol-invalid in `solve`: the host correctly
+blocked a candidate-blind plan that omitted the exact prior validation delta,
+but four same-context resumes did not expose that failed gate to the lead
+solver. v4p41 closes only this host feedback path. It writes a bounded latest
+transition-failure receipt and adds its summaries to the existing resume
+prompt. The shared v4p35 runbook and family router remain unchanged. The full
+suite passes, but v4p41 is not promoted until a fresh risk sentinel is both
+reward-valid and protocol-valid.
+
+The admitted `ontology-kg-querying` direct calibration completed raw `0.0`
+without timeout, setup, verifier, or protocol error. It produced a substantial
+public artifact bundle for `$3.640013`, so infrastructure and unavailable
+hardware are not the dominant owner. The remaining semantic/implementation
+fork is not yet separated by a reusable public discriminator. Ontology is
+therefore parked after direct calibration rather than receiving unconstrained
+StateM search.
