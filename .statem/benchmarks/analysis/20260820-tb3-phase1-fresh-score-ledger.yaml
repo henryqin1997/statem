@@ -367,20 +367,19 @@ pairs:
       job: tb3-sol-evidence-v4p39-data-anonymization-k1-aws-x86-b
       agent: ziheng-yaxin-statem-codex-evidence-develop-v4p39-exp
       source_manifest_sha256: 94e67ccb1ac85a73fc2acccaa327c07608a2c17c62f41d1ced478348a8dcc92e
-      state: unsigned_pending_v4p39_risk_sentinel
+      state: signed_pending_launch_after_v4p39_risk_pass
       raw_reward: null
       protocol_valid: null
       cost_usd: null
       backup_tree_sha256: null
-    matched_verdict: direct_valid_zero_stateM_pending_v4p39_risk_gate
+    matched_verdict: direct_valid_zero_stateM_admitted_pending_launch
     score_eligible: pending
     use: fresh_k1_triage_then_matched_k5_if_promoted
     gate_note: >-
-      v4p38 reached handoff and raw one without any host resume, but ATIF
-      recorded Codex 0.149.0 instead of the matched 0.148.0 release. v4p39 pins
-      0.148.0 at the adapter boundary without changing runbook semantics. Do
-      not sign or launch this StateM half until v4p39 completes a
-      protocol-valid raw-one risk sentinel.
+      v4p39 completed a protocol-valid raw-one risk sentinel with Codex 0.148.0,
+      no host resume, a complete handoff, and a checksum-verified backup. This
+      signs exactly one fresh StateM k1 triage cell; promotion to k5 still
+      requires a protocol-valid result and family-level attribution.
 
 aggregate:
   completed_pairs: 3

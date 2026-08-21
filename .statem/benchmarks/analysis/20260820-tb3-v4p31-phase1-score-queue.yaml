@@ -226,7 +226,7 @@ current_control:
   full_validation: >-
     727 tests run and 11 skipped; one known unrelated git-webserver-family
     subprocess import failure remained.
-  promotion_state: pending_v4p39_risk_sentinel
+  promotion_state: v4p39_risk_sentinel_passed_for_one_fresh_k1
   v4p37_risk_result: >-
     Canonical preflight evidence reached candidate construction, two independent
     falsifier reviews, quarantine, final replay, and one information-gain and
@@ -247,7 +247,13 @@ current_control:
     - adapter_boundary_requires_codex_0_148_0
     - conflicting_caller_version_is_rejected
     - v4p38_runbook_and_semantic_controls_are_unchanged
-  next_gate: protocol_valid_raw_one_risk_sentinel
+  v4p39_risk_result: >-
+    Protocol-valid raw one with Codex 0.148.0, no host resume, and a complete
+    handoff through revise, second falsification, quarantine, and final replay.
+    One mechanical replay-receipt shape error was repaired in the same context
+    before the transition succeeded. The checksum-verified sentinel admits one
+    fresh matched data-anonymization k1 StateM cell but is not score eligible.
+  next_gate: fresh_data_anonymization_k1
 
 previous_control:
   version: v4p34
@@ -561,7 +567,7 @@ fresh_holdout_candidates:
     statem_job: tb3-sol-evidence-v4p39-data-anonymization-k1-aws-x86-b
     development_attempts_for_current_hypothesis: 0
     hypothesis_scoped_no_progress_count: 0
-    state: direct_valid_zero_backed_up_stateM_blocked_pending_v4p39_risk_gate
+    state: direct_valid_zero_backed_up_stateM_admitted_pending_launch
     score_eligible: true
   - task: fix-uautomizer-soundness
     public_sol_passes: 0
@@ -708,14 +714,26 @@ negative_transfer_sentinels:
         files: 157
         bytes: 6768049
         tree_sha256: 1a9ae68cce89fe249afbc6cd4a37c7a17ed7e669b3800fd4b90664792f6a36cd
-    next_statem:
+    v4p39_statem:
       job: tb3-sol-evidence-v4p39-risk-scorer-replay-k1-aws-x86-e
-      state: pending_exact_codex_0_148_0_rerun
+      state: completed_valid_backed_up
       agent: ziheng-yaxin-statem-codex-evidence-develop-v4p39-exp
       source_manifest_sha256: 94e67ccb1ac85a73fc2acccaa327c07608a2c17c62f41d1ced478348a8dcc92e
-      protocol_valid: null
-      raw_reward: null
-    matched_verdict: direct_valid_v4p38_reward_valid_version_invalid_no_promotion
+      protocol_valid: true
+      raw_reward: 1.0
+      cost_usd: 12.762398
+      input_tokens: 15740488
+      cache_tokens: 15347456
+      output_tokens: 104117
+      atif_schema: ATIF-v1.5
+      atif_steps: 174
+      final_statem_state: handoff
+      session_resume_attempts: 0
+      backup:
+        files: 158
+        bytes: 5559436
+        tree_sha256: cab073a9fd23dfcd161dbe9ac1a4cc730c060ab22224bb16639903d4b7170d61
+    matched_verdict: direct_valid_v4p39_valid_raw_one_k1_risk_gate_passed
     note: >-
       The first direct attempt is excluded for non-root authentication
       ownership and a2 is excluded for experiment-identity mismatch. The exact
@@ -727,7 +745,8 @@ negative_transfer_sentinels:
       budget ended. v4p38 then reached handoff and raw one without a host
       resume, but the unpinned Harbor adapter installed Codex 0.149.0 instead
       of the matched 0.148.0 release. v4p39 pins 0.148.0 at the adapter
-      boundary; fresh score cells remain blocked until its repeated sentinel
-      is protocol valid.
+      boundary and completed a protocol-valid raw-one handoff without a host
+      resume. Exactly one fresh matched data-anonymization k1 cell is now
+      admitted.
       This repeated k1 pair remains an early regression discriminator only; a
       promotion claim still requires the predeclared matched k5 sentinel.
