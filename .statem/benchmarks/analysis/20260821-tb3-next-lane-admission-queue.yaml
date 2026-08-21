@@ -1,0 +1,41 @@
+version: 1
+objective:
+  metric: terminal_bench_3_raw_percentage_points
+  target_delta: 15
+
+triage_policy:
+  no_progress_limit: 2
+  allocation_rule: >-
+    Prefer CPU-feasible cells with high StateM ownership and a cheap public
+    discriminator. Defer likely capability or hardware ceilings unless a new
+    generic hypothesis makes the next observation informative.
+  stop_rule: >-
+    Park a task after two hypothesis-scoped attempts without a new reproducible
+    discriminator, narrower failure owner, public artifact improvement,
+    candidate-blind validation delta, or independently replayable milestone.
+
+candidates:
+  - task: ontology-kg-querying
+    public_sol_passes: 0
+    public_sol_attempts: 5
+    public_errors: 0
+    expected_family: structured-transformation
+    dominant_limit_prior: mixed
+    owning_control_layer: >-
+      structured_transformation_authority_query_semantics_and_stage_validation
+    hardware_feasibility: high_aws_x86_cpu
+    required_cpus: 1
+    required_memory_mb: 2048
+    required_gpus: 0
+    agent_timeout_sec: 14400
+    official_mean_cost_usd: 4.54
+    cheapest_public_discriminator: >-
+      one standard-timeout direct k1 cell on the future StateM platform
+    observable_progress_target: >-
+      Obtain a valid direct reward and public artifact while separating task
+      execution, semantic reasoning, environment, and validation ownership.
+    stop_or_park_condition: >-
+      Do not launch StateM if the direct cell is infrastructure-invalid or if
+      post-result public evidence cannot define a reusable family-level
+      discriminator. Park after two hypothesis-scoped no-progress cells.
+    state: admitted_direct_calibration_only

@@ -211,7 +211,8 @@ initial_lanes:
 current_control:
   branch: codex/tb3-v4p31-failure-loop-20260820
   source_commit: 725ce8e
-  adapter: ziheng-yaxin-statem-codex-evidence-develop-v4p40-exp
+  adapter_candidate: ziheng-yaxin-statem-codex-evidence-develop-v4p40-exp
+  last_validated_adapter: ziheng-yaxin-statem-codex-evidence-develop-v4p39-exp
   canonical_manifest_file_count: 35
   canonical_manifest_sha256: 5dc788d466cda29676eafa105f781f865d53217341c992608b3f82479fb10478
   native_baseline_harness_commit: ca2415f
@@ -224,7 +225,7 @@ current_control:
     - rollback_policy
   focused_validation: 99_tests_passed
   full_validation: 730_tests_passed_3_skipped
-  promotion_state: pending_v4p40_risk_sentinel
+  promotion_state: rejected_v4p40_risk_sentinel_protocol_invalid
   v4p37_risk_result: >-
     Canonical preflight evidence reached candidate construction, two independent
     falsifier reviews, quarantine, final replay, and one information-gain and
@@ -258,6 +259,14 @@ current_control:
     the review router correctly quarantined the candidate. The downstream gate
     rejected that deadline-authorized route five times because one review slot
     remained, so the standard-timeout cell ended protocol-invalid in quarantine
+  v4p40_risk_result: >-
+    The repeated negative-transfer sentinel reached a second solve cycle with a
+    candidate, candidate-bound public evidence, adapter replay, and complete
+    preflight review. The solve-to-falsify gate then rejected the candidate-blind
+    plan because it did not append the exact prior validation delta. Four host
+    resumes produced no progress, so the cell ended protocol-invalid in solve
+    without verifier reward. This is the same failure-closure class previously
+    observed in v4p37 and supplies no new generic progress; v4p40 is not promoted.
     without verifier reward. The complete 849 MB job is checksum verified.
   v4p40_control:
     - deadline_quarantine_requires_bound_review_route
@@ -759,14 +768,28 @@ negative_transfer_sentinels:
         files: 158
         bytes: 5559436
         tree_sha256: cab073a9fd23dfcd161dbe9ac1a4cc730c060ab22224bb16639903d4b7170d61
-    next_statem:
+    v4p40_statem:
       job: tb3-sol-evidence-v4p40-risk-scorer-replay-k1-aws-x86-f
-      state: pending_bound_deadline_quarantine_regression_gate
+      state: completed_protocol_invalid_exact_validation_delta_missing
       agent: ziheng-yaxin-statem-codex-evidence-develop-v4p40-exp
       source_manifest_sha256: 5dc788d466cda29676eafa105f781f865d53217341c992608b3f82479fb10478
-      protocol_valid: null
+      protocol_valid: false
       raw_reward: null
-    matched_verdict: direct_valid_v4p40_pending_k1_risk_gate
+      reward_valid: false
+      cost_usd: 0.294271
+      input_tokens: 446639
+      cache_tokens: 440832
+      output_tokens: 1494
+      atif_schema: ATIF-v1.5
+      atif_steps: 342
+      final_statem_state: solve
+      session_resume_attempts: 4
+      blocker: candidate_blind_plan_missing_exact_prior_validation_delta
+      backup:
+        files: 193
+        bytes: 9491306
+        tree_sha256: fd199be423648cf0ac77b05ef5db423f6f0edd82e83a5d0901510ed2742f8d4c
+    matched_verdict: direct_valid_v4p40_protocol_invalid_no_promotion
     note: >-
       The first direct attempt is excluded for non-root authentication
       ownership and a2 is excluded for experiment-identity mismatch. The exact
@@ -780,7 +803,10 @@ negative_transfer_sentinels:
       of the matched 0.148.0 release. v4p39 pins 0.148.0 at the adapter
       boundary and completed a protocol-valid raw-one handoff without a host
       resume. The admitted data cell then exposed a downstream deadline-route
-      authorization mismatch. v4p40 changes only that mechanically bound gate
-      and requires a fresh raw-one sentinel before another score cell.
+      authorization mismatch. v4p40 changed only that mechanically bound gate,
+      but its fresh risk sentinel repeated the old exact-validation-delta
+      closure failure and ended in solve after four no-progress resumes. It is
+      therefore rejected for promotion; v4p39 remains the last validated
+      adapter.
       This repeated k1 pair remains an early regression discriminator only; a
       promotion claim still requires the predeclared matched k5 sentinel.
