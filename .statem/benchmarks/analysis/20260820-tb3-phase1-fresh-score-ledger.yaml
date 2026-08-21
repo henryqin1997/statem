@@ -31,6 +31,7 @@ eligibility_contract:
     - ziheng-yaxin-statem-codex-evidence-develop-v4p37-exp
     - ziheng-yaxin-statem-codex-evidence-develop-v4p38-exp
     - ziheng-yaxin-statem-codex-evidence-develop-v4p39-exp
+    - ziheng-yaxin-statem-codex-evidence-develop-v4p40-exp
   require:
     - standard_timeout
     - no_retry
@@ -367,23 +368,42 @@ pairs:
       job: tb3-sol-evidence-v4p39-data-anonymization-k1-aws-x86-b
       agent: ziheng-yaxin-statem-codex-evidence-develop-v4p39-exp
       source_manifest_sha256: 94e67ccb1ac85a73fc2acccaa327c07608a2c17c62f41d1ced478348a8dcc92e
-      state: signed_pending_launch_after_v4p39_risk_pass
+      state: completed_protocol_invalid_final_quarantine
       raw_reward: null
-      protocol_valid: null
-      cost_usd: null
-      backup_tree_sha256: null
-    matched_verdict: direct_valid_zero_stateM_admitted_pending_launch
-    score_eligible: pending
-    use: fresh_k1_triage_then_matched_k5_if_promoted
+      reward_valid: false
+      protocol_valid: false
+      error_bucket: deadline_degraded_quarantine_rejected_by_promotion_gate
+      cost_usd: 14.800273
+      input_tokens: 19420013
+      cache_tokens: 19024896
+      output_tokens: 110408
+      wall_seconds: 3658.308686
+      agent_seconds: 3605.748173
+      atif_schema: ATIF-v1.5
+      atif_steps: 225
+      final_statem_state: quarantine
+      family_id: structured-transformation
+      candidate_replay_checks_passed: 4
+      unresolved_hard_contract_gaps: 1
+      repeated_blocked_transitions: 5
+      raw_session_paths: 0
+      backup_files: 101
+      backup_bytes: 849636517
+      backup_tree_sha256: c8df458e3bc56d42b8d97a87d55081af8b7d393e105f443a62d7e990ecb9e9ab
+    matched_verdict: direct_valid_zero_statem_protocol_invalid_no_score
+    score_eligible: false
+    use: adapted_development_evidence_only_after_observed_failure
     gate_note: >-
       v4p39 completed a protocol-valid raw-one risk sentinel with Codex 0.148.0,
       no host resume, a complete handoff, and a checksum-verified backup. This
-      signs exactly one fresh StateM k1 triage cell; promotion to k5 still
-      requires a protocol-valid result and family-level attribution.
+      signed exactly one fresh StateM k1 triage cell. That cell completed
+      candidate construction and review but ended protocol-invalid after a
+      bound deadline-degraded quarantine was rejected by the downstream gate.
+      It is excluded from score and cannot be reused as a v4p40 holdout.
 
 aggregate:
   completed_pairs: 3
-  protocol_invalid_statem_pairs: 2
+  protocol_invalid_statem_pairs: 3
   eligible_direct_reward: 0
   eligible_statem_reward: 0
   observed_reward_delta: 0

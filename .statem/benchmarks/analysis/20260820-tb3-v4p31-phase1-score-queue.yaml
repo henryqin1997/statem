@@ -210,23 +210,21 @@ initial_lanes:
 
 current_control:
   branch: codex/tb3-v4p31-failure-loop-20260820
-  source_commit: fb7f9c3
-  adapter: ziheng-yaxin-statem-codex-evidence-develop-v4p39-exp
+  source_commit: 725ce8e
+  adapter: ziheng-yaxin-statem-codex-evidence-develop-v4p40-exp
   canonical_manifest_file_count: 35
-  canonical_manifest_sha256: 94e67ccb1ac85a73fc2acccaa327c07608a2c17c62f41d1ced478348a8dcc92e
+  canonical_manifest_sha256: 5dc788d466cda29676eafa105f781f865d53217341c992608b3f82479fb10478
   native_baseline_harness_commit: ca2415f
-  repair: codex_version_pin_over_v4p38_semantic_blocker_lifecycle
+  repair: bound_deadline_degraded_quarantine_authorization
   semantic_fields_unchanged:
     - task_contract
     - candidate_artifact
     - reviewer_verdict
     - promotion_authorization
     - rollback_policy
-  focused_validation: 63_tests_passed
-  full_validation: >-
-    727 tests run and 11 skipped; one known unrelated git-webserver-family
-    subprocess import failure remained.
-  promotion_state: v4p39_risk_sentinel_passed_for_one_fresh_k1
+  focused_validation: 99_tests_passed
+  full_validation: 730_tests_passed_3_skipped
+  promotion_state: pending_v4p40_risk_sentinel
   v4p37_risk_result: >-
     Canonical preflight evidence reached candidate construction, two independent
     falsifier reviews, quarantine, final replay, and one information-gain and
@@ -253,7 +251,22 @@ current_control:
     One mechanical replay-receipt shape error was repaired in the same context
     before the transition succeeded. The checksum-verified sentinel admits one
     fresh matched data-anonymization k1 StateM cell but is not score eligible.
-  next_gate: fresh_data_anonymization_k1
+  v4p39_data_result: >-
+    The fresh data-anonymization cell produced a candidate, an eight-obligation
+    preflight, four passing adapter-owned replay checks, and one independent
+    review. With 681 seconds remaining against a 1,500-second revision reserve,
+    the review router correctly quarantined the candidate. The downstream gate
+    rejected that deadline-authorized route five times because one review slot
+    remained, so the standard-timeout cell ended protocol-invalid in quarantine
+    without verifier reward. The complete 849 MB job is checksum verified.
+  v4p40_control:
+    - deadline_quarantine_requires_bound_review_route
+    - remaining_seconds_must_be_less_than_complete_revision_reserve
+    - candidate_disposition_and_evaluation_target_must_match
+    - all_other_early_route_changes_remain_blocked
+    - v4p39_runbook_codex_version_and_semantic_receipts_are_unchanged
+  exact_branch_replay: passed_with_original_data_receipts_and_candidate_snapshot
+  next_gate: protocol_valid_raw_one_v4p40_risk_sentinel
 
 previous_control:
   version: v4p34
@@ -565,10 +578,23 @@ fresh_holdout_candidates:
     matched_pair_id: data-anonymization-aws-x86-v4p39-k1-a
     direct_job: tb3-sol-native-baseline-v2-data-anonymization-k1-aws-x86-a
     statem_job: tb3-sol-evidence-v4p39-data-anonymization-k1-aws-x86-b
-    development_attempts_for_current_hypothesis: 0
+    development_attempts_for_current_hypothesis: 1
     hypothesis_scoped_no_progress_count: 0
-    state: direct_valid_zero_backed_up_stateM_admitted_pending_launch
-    score_eligible: true
+    state: completed_protocol_invalid_deadline_quarantine_gate_mismatch
+    final_statem_state: quarantine
+    raw_reward: null
+    reward_valid: false
+    protocol_valid: false
+    cost_usd: 14.800273
+    development_progress: >-
+      Candidate construction, eight candidate-blind obligations, four passing
+      adapter-owned replay checks, an independent review, and one reproducible
+      downstream authorization blocker narrowed ownership to the deadline-aware
+      quarantine gate. Exact receipt and snapshot replay validates the generic
+      v4p40 repair.
+    score_eligible: false
+    fresh_for_v4p40: false
+    next_use: adapted_evidence_only_never_successor_holdout
   - task: fix-uautomizer-soundness
     public_sol_passes: 0
     expected_family: structured-transformation
@@ -733,7 +759,14 @@ negative_transfer_sentinels:
         files: 158
         bytes: 5559436
         tree_sha256: cab073a9fd23dfcd161dbe9ac1a4cc730c060ab22224bb16639903d4b7170d61
-    matched_verdict: direct_valid_v4p39_valid_raw_one_k1_risk_gate_passed
+    next_statem:
+      job: tb3-sol-evidence-v4p40-risk-scorer-replay-k1-aws-x86-f
+      state: pending_bound_deadline_quarantine_regression_gate
+      agent: ziheng-yaxin-statem-codex-evidence-develop-v4p40-exp
+      source_manifest_sha256: 5dc788d466cda29676eafa105f781f865d53217341c992608b3f82479fb10478
+      protocol_valid: null
+      raw_reward: null
+    matched_verdict: direct_valid_v4p40_pending_k1_risk_gate
     note: >-
       The first direct attempt is excluded for non-root authentication
       ownership and a2 is excluded for experiment-identity mismatch. The exact
@@ -746,7 +779,8 @@ negative_transfer_sentinels:
       resume, but the unpinned Harbor adapter installed Codex 0.149.0 instead
       of the matched 0.148.0 release. v4p39 pins 0.148.0 at the adapter
       boundary and completed a protocol-valid raw-one handoff without a host
-      resume. Exactly one fresh matched data-anonymization k1 cell is now
-      admitted.
+      resume. The admitted data cell then exposed a downstream deadline-route
+      authorization mismatch. v4p40 changes only that mechanically bound gate
+      and requires a fresh raw-one sentinel before another score cell.
       This repeated k1 pair remains an early regression discriminator only; a
       promotion claim still requires the predeclared matched k5 sentinel.
