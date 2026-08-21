@@ -275,3 +275,103 @@ candidates:
       task-specific warranty decisions. Count progress only if the public
       bundle becomes complete or a narrower independently replayable failure
       owner is established.
+  - task: medical-claims-processing
+    public_sol_passes: 0
+    public_sol_attempts: 5
+    public_errors: 0
+    expected_family: document-cross-reference
+    dominant_limit_prior: mixed
+    owning_control_layer: >-
+      document_authority_cross_reference_workflow_and_domain_reasoning
+    hardware_feasibility: high_aws_x86_cpu
+    required_cpus: 2
+    required_memory_mb: 10240
+    required_gpus: 0
+    agent_timeout_sec: 5400
+    official_mean_cost_usd: 3.82
+    state: completed_direct_raw_zero_parked_no_public_semantic_discriminator
+    direct_result:
+      raw_reward: 0.0
+      reward_valid: true
+      protocol_valid: true
+      error: null
+      cost_usd: 3.740719
+      input_tokens: 3893573
+      cached_input_tokens: 3695488
+      output_tokens: 30085
+      wall_seconds: 976.230
+      agent_seconds: 674.773
+      model: gpt-5.6-sol
+      codex_version: 0.149.0
+      atif: ATIF-v1.5
+      atif_steps: 53
+      raw_sessions: 0
+      public_artifact_gate_complete: true
+      public_artifact_gate_receipt_sha256: >-
+        cef662867d717188d43ec18159b580c090b1b4be383e1a6afcae4ee4d0efcb3b
+      backup_files: 28
+      backup_bytes: 9798898
+      backup_tree_sha256: >-
+        7817ba859218499f7e129a73a3d6eea8d9b82edbc67553c87cf5b90be3d3fd30
+    observed_owner: mixed_document_semantic_or_base_capability
+    attribution: >-
+      The standard-timeout direct cell completed normally with healthy browser
+      and workspace services. The declared public bundle was harvested,
+      parseable, and structurally plausible, including ten decision records and
+      116 line decisions. Public evidence exposes no independent expected
+      decision or candidate-blind semantic oracle, so infrastructure, timeout,
+      artifact production, and malformed output are not the first owner.
+    next_use: >-
+      Preserve as direct calibration and park. Reopen only if another task
+      supplies a reusable public discriminator for document authority or
+      cross-reference workflow without task-specific claims answers or hidden
+      verifier evidence.
+  - task: freight-dispatch-shift
+    public_sol_passes: 0
+    public_sol_attempts: 5
+    public_errors: 0
+    expected_family: stateful-lifecycle
+    dominant_limit_prior: mixed
+    owning_control_layer: >-
+      fixed_population_constraint_replay_stateful_cli_and_planning_semantics
+    hardware_feasibility: high_local_arm64_cpu
+    required_cpus: 2
+    required_memory_mb: 4096
+    required_gpus: 0
+    agent_timeout_sec: 7200
+    official_mean_cost_usd: 5.10
+    state: completed_direct_raw_zero_parked_no_independent_constraint_oracle
+    direct_result:
+      raw_reward: 0.0
+      reward_valid: true
+      protocol_valid: true
+      error: null
+      cost_usd: 8.412501
+      input_tokens: 8536467
+      cached_input_tokens: 8347392
+      output_tokens: 109781
+      wall_seconds: 2837.525
+      agent_seconds: 2756.115
+      model: gpt-5.6-sol
+      codex_version: 0.149.0
+      atif: ATIF-v1.5
+      atif_steps: 92
+      raw_sessions: 0
+      public_artifact_gate_complete: true
+      public_artifact_gate_receipt_sha256: >-
+        31359f6e055ce1489eca5126de5d591d41338c3bc64838e59fe8f46a764d8497
+      backup_files: 15
+      backup_bytes: 960704
+      backup_tree_sha256: >-
+        e71601ffeeb7ec1d7619dbcd91b5f77c4dd682ac7e54379ccc8ebcf95efc8b17
+    observed_owner: mixed_constraint_semantics_or_base_planning_capability
+    attribution: >-
+      The direct cell completed normally and produced a non-empty executable
+      Python CLI with explicit lifecycle and audit paths. The public artifact
+      is structurally complete, but its audit logic is candidate-owned and no
+      independent expected schedule, population, or constraint oracle is
+      available from public post-result evidence.
+    next_use: >-
+      Preserve and park. Reopen only after a reusable candidate-blind
+      constraint/population discriminator or independent public schedule
+      consumer exists; do not infer a StateM route from raw zero alone.

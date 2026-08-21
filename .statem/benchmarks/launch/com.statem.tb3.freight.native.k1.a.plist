@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.statem.tb3.freight.native.k1.a</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>/Users/qinziheng/workspace/statem/.statem/benchmarks/launch/run_tb3_native_baseline_freight_k1_local_a.sh</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/qinziheng/workspace/statem</string>
+  <key>StandardOutPath</key>
+  <string>/Users/qinziheng/workspace/statem/.statem/benchmarks/launch/tb3-freight-native-k1-a.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/qinziheng/workspace/statem/.statem/benchmarks/launch/tb3-freight-native-k1-a.err.log</string>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>RunAtLoad</key>
+  <true/>
+</dict>
+</plist>
