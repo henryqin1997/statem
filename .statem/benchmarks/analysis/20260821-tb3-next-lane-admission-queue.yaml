@@ -15,6 +15,46 @@ triage_policy:
     candidate-blind validation delta, or independently replayable milestone.
 
 candidates:
+  - task: ks-solver-cpp
+    public_sol_passes: 1
+    public_sol_attempts: 5
+    public_errors: 0
+    expected_family: numerical-model
+    dominant_limit_prior: mixed
+    owning_control_layer: >-
+      numerical_spectral_solver_contract_and_independent_stage_validation
+    hardware_feasibility: high_aws_x86_cpu
+    required_cpus: 4
+    required_memory_mb: 8192
+    required_gpus: 0
+    agent_timeout_sec: 14400
+    official_mean_cost_usd: 3.10
+    public_metadata_basis: >-
+      Official final-trial evidence is 1/5 with no ordinary errors. Public
+      task metadata classifies the task as Science/Physics with PDE, C++,
+      Bessel-function, spectral-method, numerical-analysis, and
+      Kuramoto-Sivashinsky tags. It requires four CPUs, 8 GB memory, no GPU,
+      and a 14,400-second agent timeout. No task instruction, semantic
+      artifact, verifier content, or prior trajectory was inspected.
+    cheapest_public_discriminator: >-
+      one standard-timeout direct k1 cell on AWS x86_64, followed only by raw
+      reward and protocol metadata
+    observable_progress_target: >-
+      Obtain one reward-valid and protocol-valid direct observation while
+      preserving the untouched task as a frozen numerical-model matched arm.
+      A direct one closes this k1 conversion opportunity; a direct zero may
+      reserve one independently frozen StateM arm only after v4p44 promotion.
+    stop_or_park_condition: >-
+      Allow at most one infrastructure replacement if reward-invalid. Do not
+      inspect submitted semantic artifacts or derive controls from this cell.
+      Skip StateM after direct one. After direct zero, admit at most one frozen
+      matched StateM arm following independent v4p44 promotion and park after
+      no raw gain or no narrower task-general owner.
+    state: admitted_fresh_direct_pending_remote_lane
+    next_use: >-
+      Launch the direct half when one remote x86 lane becomes available. Keep
+      any later StateM half independent of this trajectory and do not derive
+      numerical practices from its submitted artifacts.
   - task: ontology-kg-querying
     public_sol_passes: 0
     public_sol_attempts: 5
