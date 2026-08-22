@@ -20,6 +20,7 @@ from integrations.harbor.experimental.submission_eligibility_gate import (
 )
 from integrations.harbor.statem_codex_multirole_develop_exp import (
     EvidenceDevelopV4p56ExperimentalStatemCodex,
+    EvidenceDevelopV4p57ExperimentalStatemCodex,
 )
 from statem.core import validate_spec
 
@@ -79,6 +80,22 @@ class SubmissionLifecycleV4p56Test(unittest.TestCase):
         instruction = agent._augment_instruction("task", "run-1", "solve")
         self.assertIn("submission eligibility are separate host decisions", instruction)
         self.assertIn("only advisory uncertainty", instruction)
+
+    def test_v4p57_changes_identity_but_reuses_submission_topology(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            agent = EvidenceDevelopV4p57ExperimentalStatemCodex(
+                logs_dir=Path(temp_dir),
+                model_name="gpt-5.6-sol",
+            )
+        self.assertEqual(
+            agent.name(),
+            "ziheng-yaxin-statem-codex-evidence-develop-v4p57-exp",
+        )
+        self.assertEqual(agent._runbook_path, RUNBOOK)
+        self.assertEqual(
+            agent._PROGRESS_RECEIPTS,
+            EvidenceDevelopV4p56ExperimentalStatemCodex._PROGRESS_RECEIPTS,
+        )
 
     def test_adapter_accepts_strict_policy_and_rejects_unknown_policy(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

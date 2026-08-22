@@ -1944,3 +1944,13 @@ Evidence-develop v4p56 submission-eligibility control:
                 )
             except Exception:
                 pass
+
+
+class EvidenceDevelopV4p57ExperimentalStatemCodex(
+    EvidenceDevelopV4p56ExperimentalStatemCodex
+):
+    """Correct promotion receipt revision ownership without changing topology."""
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p57-exp"
