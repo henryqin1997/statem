@@ -32,12 +32,16 @@ class MultiRoleDevelopExperimentalStatemCodex(TeamRunStatemCodex):
         Path(__file__).resolve().parent / "experimental" / "artifact_identity.py"
     )
     _LOCAL_PROMOTION_GATE = (
-        Path(__file__).resolve().parent / "experimental" / "multirole_promotion_gate.py"
+        Path(__file__).resolve().parent
+        / "experimental"
+        / "multirole_promotion_gate.py"
     )
     _REMOTE_PROMOTION_GATE = PurePosixPath(
         "/tmp/statem-verification-checks/multirole_promotion_gate.py"
     )
-    _REMOTE_RECEIPTS = PurePosixPath("/tmp/statem-verification-checks/multirole")
+    _REMOTE_RECEIPTS = PurePosixPath(
+        "/tmp/statem-verification-checks/multirole"
+    )
 
     def __init__(
         self,
@@ -50,7 +54,9 @@ class MultiRoleDevelopExperimentalStatemCodex(TeamRunStatemCodex):
     ):
         repo_root = Path(__file__).resolve().parents[2]
         runbook = (
-            repo_root / "examples" / "frontier-bench-agent-multirole-develop-exp.yaml"
+            repo_root
+            / "examples"
+            / "frontier-bench-agent-multirole-develop-exp.yaml"
         )
         super().__init__(
             *args,
@@ -80,7 +86,10 @@ class MultiRoleDevelopExperimentalStatemCodex(TeamRunStatemCodex):
         if deadline.is_file():
             paths.append(deadline)
         stop_hook = (
-            self._statem_source_dir / "integrations" / "hooks" / "statem_stop_hook.py"
+            self._statem_source_dir
+            / "integrations"
+            / "hooks"
+            / "statem_stop_hook.py"
         )
         if stop_hook.is_file():
             paths.append(stop_hook)
@@ -104,9 +113,7 @@ class MultiRoleDevelopExperimentalStatemCodex(TeamRunStatemCodex):
         environment: BaseEnvironment,
     ) -> PurePosixPath:
         result = await self.exec_as_agent(environment, command="pwd -P")
-        lines = [
-            line.strip() for line in (result.stdout or "").splitlines() if line.strip()
-        ]
+        lines = [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
         if len(lines) != 1 or not lines[0].startswith("/"):
             raise RuntimeError("could not bind one absolute default task workspace")
         root = PurePosixPath(lines[0])
@@ -215,7 +222,9 @@ class RecoveringMultiRoleDevelopExperimentalStatemCodex(
     """Bounded recovery loop with an independent per-cycle falsifier."""
 
     _LOCAL_RECOVERY_GUARD = (
-        Path(__file__).resolve().parent / "experimental" / "recovering_develop_guard.py"
+        Path(__file__).resolve().parent
+        / "experimental"
+        / "recovering_develop_guard.py"
     )
     _REMOTE_RECOVERY_RECEIPTS = PurePosixPath(
         "/tmp/statem-verification-checks/recovering-develop"
@@ -254,9 +263,7 @@ class RecoveringMultiRoleDevelopExperimentalStatemCodex(
         current_context: str,
     ) -> str:
         base = super()._augment_instruction(instruction, run_id, current_context)
-        return (
-            base
-            + """
+        return base + """
 
 Recovery-cycle controls:
 - Keep ordinary recoverable debugging in the lead solver context. Use the
@@ -274,7 +281,6 @@ Recovery-cycle controls:
   previously verified selected artifact, while public contract preservation is
   checked on every promotion.
 """
-        )
 
     async def _collect_statem_artifacts(
         self,
@@ -326,10 +332,14 @@ class EvidenceDevelopV4ExperimentalStatemCodex(
         "/tmp/statem-verification-checks/candidate_acceptance_replay.py"
     )
     _LOCAL_ACTIVATION_GATE = (
-        Path(__file__).resolve().parent / "experimental" / "develop_activation_gate.py"
+        Path(__file__).resolve().parent
+        / "experimental"
+        / "develop_activation_gate.py"
     )
     _LOCAL_REVIEWER_PRACTICES = (
-        Path(__file__).resolve().parents[2] / "examples" / "reviewer-practices-v1.yaml"
+        Path(__file__).resolve().parents[2]
+        / "examples"
+        / "reviewer-practices-v1.yaml"
     )
     _LOCAL_REVIEWER_PROFILE_CATALOG = (
         Path(__file__).resolve().parents[2]
@@ -338,7 +348,9 @@ class EvidenceDevelopV4ExperimentalStatemCodex(
     )
     _LOCAL_REVIEWER_PROFILES = tuple(
         sorted(
-            (Path(__file__).resolve().parents[2] / "examples" / "reviewer").glob("*.md")
+            (Path(__file__).resolve().parents[2] / "examples" / "reviewer").glob(
+                "*.md"
+            )
         )
     )
 
@@ -355,7 +367,9 @@ class EvidenceDevelopV4ExperimentalStatemCodex(
     ):
         repo_root = Path(__file__).resolve().parents[2]
         runbook = (
-            repo_root / "examples" / "frontier-bench-agent-evidence-develop-v4-exp.yaml"
+            repo_root
+            / "examples"
+            / "frontier-bench-agent-evidence-develop-v4-exp.yaml"
         )
         super().__init__(
             *args,
@@ -368,20 +382,26 @@ class EvidenceDevelopV4ExperimentalStatemCodex(
         )
         if preflight_reviewer_timeout_seconds < 30:
             raise ValueError("preflight_reviewer_timeout_seconds must be at least 30")
-        self._preflight_reviewer_reasoning_effort = preflight_reviewer_reasoning_effort
+        self._preflight_reviewer_reasoning_effort = (
+            preflight_reviewer_reasoning_effort
+        )
         self._preflight_reviewer_timeout_seconds = int(
             preflight_reviewer_timeout_seconds
         )
         preflight_slack = min(
             60, max(30, self._preflight_reviewer_timeout_seconds // 8)
         )
-        minimum_lease = self._preflight_reviewer_timeout_seconds + preflight_slack + 60
+        minimum_lease = (
+            self._preflight_reviewer_timeout_seconds + preflight_slack + 60
+        )
         if preflight_reviewer_lease_seconds < minimum_lease:
             raise ValueError(
                 "preflight_reviewer_lease_seconds must leave at least 60 seconds "
                 "after the worker wall budget"
             )
-        self._preflight_reviewer_lease_seconds = int(preflight_reviewer_lease_seconds)
+        self._preflight_reviewer_lease_seconds = int(
+            preflight_reviewer_lease_seconds
+        )
 
     @staticmethod
     def name() -> str:
@@ -414,9 +434,7 @@ class EvidenceDevelopV4ExperimentalStatemCodex(
         preflight_handle = (
             "/tmp/statem-verification-checks/multirole/preflight-worker.json"
         )
-        return (
-            base
-            + f"""
+        return base + f"""
 
 Evidence-develop v4 controls:
 - The filesystem artifact provider, not StateM core, owns immutable baseline and
@@ -521,7 +539,6 @@ Evidence-develop v4 controls:
 - Never manually copy or restore {workspace_root}. Follow only provider activation/restore
   hooks and their verified receipts.
 """
-        )
 
     async def _collect_statem_artifacts(
         self,
@@ -549,7 +566,9 @@ Evidence-develop v4 controls:
             PurePosixPath(EnvironmentPaths.agent_dir.as_posix()) / "statem"
         )
         provider_export = agent_statem_dir / "artifact-provider"
-        receipt_only = " --receipt-only" if self._RECEIPT_ONLY_PROVIDER_EXPORT else ""
+        receipt_only = (
+            " --receipt-only" if self._RECEIPT_ONLY_PROVIDER_EXPORT else ""
+        )
         await self.exec_as_agent(
             environment,
             command=(
@@ -604,7 +623,9 @@ class EvidenceDevelopV4p31ExperimentalStatemCodex(
     """Family-routed failure closure with deadline-feasible recovery cycles."""
 
     _LOCAL_FAMILY_ROUTER = (
-        Path(__file__).resolve().parent / "experimental" / "develop_family_router.py"
+        Path(__file__).resolve().parent
+        / "experimental"
+        / "develop_family_router.py"
     )
     _LOCAL_FAMILY_CATALOG = (
         Path(__file__).resolve().parents[2]
@@ -612,7 +633,9 @@ class EvidenceDevelopV4p31ExperimentalStatemCodex(
         / "develop-family-router-v1.yaml"
     )
     _LOCAL_FAILURE_FEEDBACK_GATE = (
-        Path(__file__).resolve().parent / "experimental" / "failure_feedback_gate.py"
+        Path(__file__).resolve().parent
+        / "experimental"
+        / "failure_feedback_gate.py"
     )
 
     def __init__(
@@ -652,18 +675,16 @@ class EvidenceDevelopV4p31ExperimentalStatemCodex(
         current_context: str,
     ) -> str:
         base = super()._augment_instruction(instruction, run_id, current_context)
-        return (
-            base.replace(
-                "--include\n"
-                "  /tmp/statem-verification-checks/multirole/review-profile.json --include\n"
-                "  /tmp/statem-verification-checks/multirole/solver-plan.json --output",
-                "--include\n"
-                "  /tmp/statem-verification-checks/multirole/review-profile.json --include\n"
-                "  /tmp/statem-verification-checks/family/family-selection.json --include\n"
-                "  /tmp/statem-verification-checks/recovering-develop/retry-brief.json --include\n"
-                "  /tmp/statem-verification-checks/multirole/solver-plan.json --output",
-            )
-            + """
+        return base.replace(
+            "--include\n"
+            "  /tmp/statem-verification-checks/multirole/review-profile.json --include\n"
+            "  /tmp/statem-verification-checks/multirole/solver-plan.json --output",
+            "--include\n"
+            "  /tmp/statem-verification-checks/multirole/review-profile.json --include\n"
+            "  /tmp/statem-verification-checks/family/family-selection.json --include\n"
+            "  /tmp/statem-verification-checks/recovering-develop/retry-brief.json --include\n"
+            "  /tmp/statem-verification-checks/multirole/solver-plan.json --output",
+        ) + """
 
 Evidence-develop v4p31 controls:
 - Treat family-selection.json as host-owned routing. It limits procedural
@@ -682,7 +703,6 @@ Evidence-develop v4p31 controls:
   requires the family-specific full-cycle reserve needed for solve, review,
   replay, receipt closure, and handoff.
 """
-        )
 
     async def _collect_statem_artifacts(
         self,
@@ -754,13 +774,11 @@ class EvidenceDevelopV4p32ExperimentalStatemCodex(
         run_id: str,
         current_context: str,
     ) -> str:
-        return (
-            super()._augment_instruction(
-                instruction,
-                run_id,
-                current_context,
-            )
-            + """
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
 
 Evidence-develop v4p32 controls:
 - Same-node continuation is real progress when the task artifact or a bounded
@@ -769,7 +787,6 @@ Evidence-develop v4p32 controls:
 - Candidate-blind adapter replay must bind every predeclared required_strata
   value through covered_strata. Requirement-id coverage alone is insufficient.
 """
-        )
 
     async def _session_progress_identity(
         self,
@@ -839,20 +856,17 @@ class EvidenceDevelopV4p33ExperimentalStatemCodex(
         run_id: str,
         current_context: str,
     ) -> str:
-        return (
-            super()._augment_instruction(
-                instruction,
-                run_id,
-                current_context,
-            )
-            + """
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
 
 Evidence-develop v4p33 controls:
 - Acceptance requirement ids are mechanical receipt keys. The host trims and
   lowercases them before schema validation, rejects canonical collisions, and
   leaves claims, evidence modes, strata, and verdicts unchanged.
 """
-        )
 
 
 class EvidenceDevelopV4p34ExperimentalStatemCodex(
@@ -888,13 +902,11 @@ class EvidenceDevelopV4p34ExperimentalStatemCodex(
         run_id: str,
         current_context: str,
     ) -> str:
-        return (
-            super()._augment_instruction(
-                instruction,
-                run_id,
-                current_context,
-            )
-            + """
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
 
 Evidence-develop v4p34 controls:
 - Before opening another revision and independent review, the host compares the
@@ -903,7 +915,6 @@ Evidence-develop v4p34 controls:
   isolated and continue through quarantine, final replay, and handoff. Never
   spend the finalization reserve on a partial revision.
 """
-        )
 
 
 class EvidenceDevelopV4p35ExperimentalStatemCodex(
@@ -939,13 +950,11 @@ class EvidenceDevelopV4p35ExperimentalStatemCodex(
         run_id: str,
         current_context: str,
     ) -> str:
-        return (
-            super()._augment_instruction(
-                instruction,
-                run_id,
-                current_context,
-            )
-            + """
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
 
 Evidence-develop v4p35 controls:
 - Every candidate-blind acceptance obligation receives exactly one independent
@@ -956,7 +965,6 @@ Evidence-develop v4p35 controls:
 - Multiple plausible objective orderings remain unresolved until visible
   authority or a fixed public population actually distinguishes their outputs.
 """
-        )
 
 
 class EvidenceDevelopV4p36ExperimentalStatemCodex(
@@ -986,13 +994,11 @@ class EvidenceDevelopV4p36ExperimentalStatemCodex(
         run_id: str,
         current_context: str,
     ) -> str:
-        return (
-            super()._augment_instruction(
-                instruction,
-                run_id,
-                current_context,
-            )
-            + """
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
 
 Evidence-develop v4p36 controls:
 - Candidate-blind plan and reviewer-profile revisions are lifecycle progress
@@ -1003,7 +1009,6 @@ Evidence-develop v4p36 controls:
 - Each resume records only bounded state and progress-change metadata so a
   protocol stop can be attributed without exposing task trajectories.
 """
-        )
 
 
 class EvidenceDevelopV4p37ExperimentalStatemCodex(
@@ -1021,13 +1026,11 @@ class EvidenceDevelopV4p37ExperimentalStatemCodex(
         run_id: str,
         current_context: str,
     ) -> str:
-        return (
-            super()._augment_instruction(
-                instruction,
-                run_id,
-                current_context,
-            )
-            + """
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
 
 Evidence-develop v4p37 controls:
 - The canonical plan_preflight_evidence receipt remains mechanically valid
@@ -1035,7 +1038,6 @@ Evidence-develop v4p37 controls:
   final promotion decision. Receipt naming cannot discard bound semantic
   evidence or strand the run in the falsify state.
 """
-        )
 
 
 class EvidenceDevelopV4p38ExperimentalStatemCodex(
@@ -1122,13 +1124,11 @@ class EvidenceDevelopV4p38ExperimentalStatemCodex(
         run_id: str,
         current_context: str,
     ) -> str:
-        return (
-            super()._augment_instruction(
-                instruction,
-                run_id,
-                current_context,
-            )
-            + """
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
 
 Evidence-develop v4p38 controls:
 - Within one StateM entry, the latest blocking-check fingerprint dominates
@@ -1138,7 +1138,6 @@ Evidence-develop v4p38 controls:
 - Failed validation-delta application removes any prior success receipt before
   returning failure, so stale evidence cannot affect progress or audit tools.
 """
-        )
 
 
 class EvidenceDevelopV4p39ExperimentalStatemCodex(
@@ -1332,7 +1331,9 @@ class EvidenceDevelopV4p43ExperimentalStatemCodex(
     def _codex_stop_hook_payload(self) -> dict[str, Any]:
         payload = super()._codex_stop_hook_payload()
         hook = payload["hooks"]["Stop"][0]["hooks"][0]
-        hook["command"] = "STATEM_STOP_MAX_CONTINUATIONS_PER_ENTRY=1 " + hook["command"]
+        hook["command"] = (
+            "STATEM_STOP_MAX_CONTINUATIONS_PER_ENTRY=1 " + hook["command"]
+        )
         return payload
 
     def _augment_instruction(
@@ -1341,13 +1342,11 @@ class EvidenceDevelopV4p43ExperimentalStatemCodex(
         run_id: str,
         current_context: str,
     ) -> str:
-        return (
-            super()._augment_instruction(
-                instruction,
-                run_id,
-                current_context,
-            )
-            + """
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
 
 Evidence-develop v4p43 controls:
 - A blocked transition is a repairable lifecycle event with an immediate
@@ -1359,7 +1358,6 @@ Evidence-develop v4p43 controls:
   blocker remains, stop fail-closed as protocol-invalid instead of consuming
   additional review or candidate cycles.
 """
-        )
 
 
 class EvidenceDevelopV4p44ExperimentalStatemCodex(
@@ -1375,7 +1373,8 @@ class EvidenceDevelopV4p44ExperimentalStatemCodex(
         payload = super()._codex_stop_hook_payload()
         hook = payload["hooks"]["Stop"][0]["hooks"][0]
         hook["command"] = (
-            "STATEM_STOP_EXTRA_CONTINUATIONS_AFTER_GOTO_BLOCKED=1 " + hook["command"]
+            "STATEM_STOP_EXTRA_CONTINUATIONS_AFTER_GOTO_BLOCKED=1 "
+            + hook["command"]
         )
         return payload
 
@@ -1385,13 +1384,11 @@ class EvidenceDevelopV4p44ExperimentalStatemCodex(
         run_id: str,
         current_context: str,
     ) -> str:
-        return (
-            super()._augment_instruction(
-                instruction,
-                run_id,
-                current_context,
-            )
-            + """
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
 
 Evidence-develop v4p44 lifecycle control:
 - The base entry continuation remains unchanged. If this exact entry records a
@@ -1401,8 +1398,6 @@ Evidence-develop v4p44 lifecycle control:
   candidate, review, or blocker-fingerprint budgets. A repeated unchanged
   block still fails closed.
 """
-        )
-
 
 class EvidenceDevelopV4p45ExperimentalStatemCodex(
     EvidenceDevelopV4p44ExperimentalStatemCodex
@@ -1426,13 +1421,11 @@ class EvidenceDevelopV4p45ExperimentalStatemCodex(
         run_id: str,
         current_context: str,
     ) -> str:
-        return (
-            super()._augment_instruction(
-                instruction,
-                run_id,
-                current_context,
-            )
-            + """
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
 
 Evidence-develop v4p45 preflight repair transaction:
 - When bounded transition feedback assigns an acceptance-plan gap to the test
@@ -1465,7 +1458,6 @@ Evidence-develop v4p45 preflight repair transaction:
   against the canonical path before retrying the blocked transition. Do not
   spend another candidate or review cycle on this planner-owned repair.
 """
-        )
 
 
 class EvidenceDevelopV4p46ExperimentalStatemCodex(
@@ -1533,13 +1525,11 @@ class EvidenceDevelopV4p51ExperimentalStatemCodex(
         run_id: str,
         current_context: str,
     ) -> str:
-        return (
-            super()._augment_instruction(
-                instruction,
-                run_id,
-                current_context,
-            )
-            + """
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
 
 Evidence-develop v4p51 support-coverage control:
 - Candidate-blind acceptance requirements bind their pre-candidate population
@@ -1551,7 +1541,6 @@ Evidence-develop v4p51 support-coverage control:
   remain explicit review obligations rather than silently disappearing into a
   larger numeric population.
 """
-        )
 
 
 class EvidenceDevelopV4p52ExperimentalStatemCodex(
@@ -1631,10 +1620,10 @@ class EvidenceDevelopV4p53ExperimentalStatemCodex(
         run_id: str,
     ) -> None:
         self._latest_targeted_preflight_repair_status = ""
-        if getattr(
-            self, "_latest_transition_failure_owner", ""
-        ) != "test_planner" or not getattr(
-            self, "_latest_transition_failure_fingerprint", ""
+        if (
+            getattr(self, "_latest_transition_failure_owner", "")
+            != "test_planner"
+            or not getattr(self, "_latest_transition_failure_fingerprint", "")
         ):
             return
         try:
@@ -1649,7 +1638,8 @@ class EvidenceDevelopV4p53ExperimentalStatemCodex(
             payload = json.loads((result.stdout or "").strip())
             if (
                 not isinstance(payload, dict)
-                or payload.get("kind") != "canonical_preflight_repair_transaction"
+                or payload.get("kind")
+                != "canonical_preflight_repair_transaction"
                 or payload.get("status") not in {"committed", "already_committed"}
             ):
                 raise ValueError("targeted repair command returned an invalid receipt")
@@ -1676,14 +1666,16 @@ class EvidenceDevelopV4p53ExperimentalStatemCodex(
         status = getattr(self, "_latest_targeted_preflight_repair_status", "")
         if status in {"committed", "already_committed"}:
             return (
-                prompt + " The host mechanically committed the targeted append-only "
+                prompt
+                + " The host mechanically committed the targeted append-only "
                 "preflight repair. Update any adapter-replay plan needed to "
                 "execute the newly effective stratum, then rerun the ordinary "
                 "gates; do not rewrite reviewer evidence."
             )
         if status == "failed":
             return (
-                prompt + " The host declined the targeted preflight transaction. "
+                prompt
+                + " The host declined the targeted preflight transaction. "
                 "Inspect the bounded retry brief and transition receipt; fix "
                 "only an explicit target or evidence conflict and do not infer "
                 "a replacement requirement."
@@ -1696,13 +1688,11 @@ class EvidenceDevelopV4p53ExperimentalStatemCodex(
         run_id: str,
         current_context: str,
     ) -> str:
-        return (
-            super()._augment_instruction(
-                instruction,
-                run_id,
-                current_context,
-            )
-            + """
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
 
 Evidence-develop v4p53 targeted validation-delta control:
 - Every recoverable validation delta names exactly one existing candidate-blind
@@ -1722,7 +1712,6 @@ Evidence-develop v4p53 targeted validation-delta control:
   require-preflight, and validation-delta gates; a receipt-only append is not
   evidence that the new check ran.
 """
-        )
 
 
 class EvidenceDevelopV4p54ExperimentalStatemCodex(
@@ -1758,13 +1747,11 @@ class EvidenceDevelopV4p54ExperimentalStatemCodex(
         run_id: str,
         current_context: str,
     ) -> str:
-        return (
-            super()._augment_instruction(
-                instruction,
-                run_id,
-                current_context,
-            )
-            + """
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
 
 Evidence-develop v4p54 solver-obligation and plan-resolution control:
 - The host projects mandatory common practices, primary profile checks, and
@@ -1796,7 +1783,6 @@ Evidence-develop v4p54 solver-obligation and plan-resolution control:
   path may be absent only for a ready verdict. Pass solver-plan.json and
   preflight-resolution.json to both proposal and require-preflight actions.
 """
-        )
 
 
 class EvidenceDevelopV4p55ExperimentalStatemCodex(
@@ -1832,13 +1818,11 @@ class EvidenceDevelopV4p55ExperimentalStatemCodex(
         run_id: str,
         current_context: str,
     ) -> str:
-        return (
-            super()._augment_instruction(
-                instruction,
-                run_id,
-                current_context,
-            )
-            + """
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
 
 Evidence-develop v4p55 role-boundary control:
 - Every solver obligation now carries invariant, required_action, and self_check.
@@ -1851,7 +1835,6 @@ Evidence-develop v4p55 role-boundary control:
   expression and never proves a candidate defect. The deterministic gate remains
   fail-closed and never truncates or rewrites semantic reviewer evidence.
 """
-        )
 
 
 class EvidenceDevelopV4p56ExperimentalStatemCodex(
@@ -1881,7 +1864,9 @@ class EvidenceDevelopV4p56ExperimentalStatemCodex(
         **kwargs: Any,
     ):
         if submission_policy not in self._SUBMISSION_POLICIES:
-            raise ValueError(f"unsupported submission policy: {submission_policy}")
+            raise ValueError(
+                f"unsupported submission policy: {submission_policy}"
+            )
         repo_root = Path(__file__).resolve().parents[2]
         runbook = (
             repo_root
@@ -1916,13 +1901,11 @@ class EvidenceDevelopV4p56ExperimentalStatemCodex(
         run_id: str,
         current_context: str,
     ) -> str:
-        return (
-            super()._augment_instruction(
-                instruction,
-                run_id,
-                current_context,
-            )
-            + """
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
 
 Evidence-develop v4p56 submission-eligibility control:
 - Promotion authorization, diagnostic replay eligibility, and benchmark
@@ -1937,7 +1920,6 @@ Evidence-develop v4p56 submission-eligibility control:
   evidence. It is a submission transaction, not a claim that the baseline is
   semantically correct and not permission to erase or rewrite review evidence.
 """
-        )
 
     async def _collect_statem_artifacts(
         self,
@@ -2007,13 +1989,11 @@ class EvidenceDevelopV4p59ExperimentalStatemCodex(
         run_id: str,
         current_context: str,
     ) -> str:
-        return (
-            super()._augment_instruction(
-                instruction,
-                run_id,
-                current_context,
-            )
-            + """
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
 
 Evidence-develop v4p59 evidence-scope control:
 - Candidate-blind acceptance obligations distinguish bounded public acceptance
@@ -2023,7 +2003,6 @@ Evidence-develop v4p59 evidence-scope control:
   discriminating analytic authority and disposition every predeclared
   uncovered region; otherwise the host safely routes to revision or quarantine.
 """
-        )
 
 
 class EvidenceDevelopV4p60ExperimentalStatemCodex(
@@ -2059,13 +2038,11 @@ class EvidenceDevelopV4p60ExperimentalStatemCodex(
         run_id: str,
         current_context: str,
     ) -> str:
-        return (
-            super()._augment_instruction(
-                instruction,
-                run_id,
-                current_context,
-            )
-            + """
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
 
 Evidence-develop v4p60 claim-boundary control:
 - A bounded acceptance claim is host-valid only when its declared population is
@@ -2074,7 +2051,6 @@ Evidence-develop v4p60 claim-boundary control:
   independent authority/disposition checks inherited from v4p59. Contradictory
   boundary fields block before candidate evaluation.
 """
-        )
 
 
 class EvidenceDevelopV4p61ExperimentalStatemCodex(
@@ -2110,13 +2086,11 @@ class EvidenceDevelopV4p61ExperimentalStatemCodex(
         run_id: str,
         current_context: str,
     ) -> str:
-        return (
-            super()._augment_instruction(
-                instruction,
-                run_id,
-                current_context,
-            )
-            + """
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
 
 Evidence-develop v4p61 scope-exclusion control:
 - uncovered_regions names material gaps inside a claim and cannot be hidden by
@@ -2126,4 +2100,3 @@ Evidence-develop v4p61 scope-exclusion control:
   contract or public surface. Material or unresolved exclusions block
   promotion; proven out-of-scope boundaries do not force generalization.
 """
-        )

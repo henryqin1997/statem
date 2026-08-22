@@ -106,7 +106,9 @@ class SubmissionLifecycleV4p56Test(unittest.TestCase):
                 for hook in solve_hooks
             )
         )
-        result_schema = spec["nodes"]["falsify"]["multi_agent"]["result_schema"]
+        result_schema = spec["nodes"]["falsify"]["multi_agent"][
+            "result_schema"
+        ]
         self.assertIn(
             "acceptance_obligation_assessments",
             result_schema["required"],
