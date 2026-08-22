@@ -23,6 +23,7 @@ from integrations.harbor.statem_codex_multirole_develop_exp import (
     EvidenceDevelopV4p57ExperimentalStatemCodex,
     EvidenceDevelopV4p59ExperimentalStatemCodex,
     EvidenceDevelopV4p60ExperimentalStatemCodex,
+    EvidenceDevelopV4p61ExperimentalStatemCodex,
 )
 from statem.core import validate_spec
 
@@ -31,9 +32,38 @@ REPO = Path(__file__).resolve().parents[1]
 RUNBOOK = REPO / "examples/frontier-bench-agent-evidence-develop-v4p56-exp.yaml"
 RUNBOOK_V59 = REPO / "examples/frontier-bench-agent-evidence-develop-v4p59-exp.yaml"
 RUNBOOK_V60 = REPO / "examples/frontier-bench-agent-evidence-develop-v4p60-exp.yaml"
+RUNBOOK_V61 = REPO / "examples/frontier-bench-agent-evidence-develop-v4p61-exp.yaml"
 
 
 class SubmissionLifecycleV4p56Test(unittest.TestCase):
+    def test_v4p61_runbook_requires_scope_exclusion_audit(self) -> None:
+        self.assertTrue(validate_spec(str(RUNBOOK_V61), strict=True)["ok"])
+        spec = yaml.safe_load(RUNBOOK_V61.read_text(encoding="utf-8"))
+        self.assertEqual(
+            spec["name"],
+            "frontier-bench-statem-evidence-develop-v4p61-experiment",
+        )
+        solve_hooks = spec["nodes"]["solve"]["before_transfer"]
+        require_preflight = next(
+            hook["run"]
+            for hook in solve_hooks
+            if "require-preflight" in hook.get("run", "")
+        )
+        self.assertIn("--require-claim-boundary-closure", require_preflight)
+        self.assertIn("--require-scope-exclusion-schema", require_preflight)
+
+    def test_v4p61_adapter_binds_distinct_identity_and_runbook(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            agent = EvidenceDevelopV4p61ExperimentalStatemCodex(
+                logs_dir=Path(temp_dir),
+                model_name="gpt-5.6-sol",
+            )
+        self.assertEqual(
+            agent.name(),
+            "ziheng-yaxin-statem-codex-evidence-develop-v4p61-exp",
+        )
+        self.assertEqual(Path(agent._runbook_path), RUNBOOK_V61)
+
     def test_v4p60_runbook_requires_claim_boundary_closure(self) -> None:
         self.assertTrue(validate_spec(str(RUNBOOK_V60), strict=True)["ok"])
         spec = yaml.safe_load(RUNBOOK_V60.read_text(encoding="utf-8"))
@@ -76,9 +106,7 @@ class SubmissionLifecycleV4p56Test(unittest.TestCase):
                 for hook in solve_hooks
             )
         )
-        result_schema = spec["nodes"]["falsify"]["multi_agent"][
-            "result_schema"
-        ]
+        result_schema = spec["nodes"]["falsify"]["multi_agent"]["result_schema"]
         self.assertIn(
             "acceptance_obligation_assessments",
             result_schema["required"],

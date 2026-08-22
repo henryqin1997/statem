@@ -58,9 +58,7 @@ DEFAULT_PREFLIGHT_CONTEXT_VIEW = DEFAULT_DIR / "preflight-context-view.json"
 DEFAULT_PREFLIGHT_TASK = DEFAULT_DIR / "preflight-task.json"
 DEFAULT_PREFLIGHT_EVIDENCE = DEFAULT_DIR / "preflight-evidence.json"
 DEFAULT_PREFLIGHT_RESOLUTION = DEFAULT_DIR / "preflight-resolution.json"
-DEFAULT_RECOVERY_DIR = Path(
-    "/tmp/statem-verification-checks/recovering-develop"
-)
+DEFAULT_RECOVERY_DIR = Path("/tmp/statem-verification-checks/recovering-develop")
 DEFAULT_RAW_PREFLIGHT_EVIDENCE = DEFAULT_RECOVERY_DIR / "preflight-evidence.raw.json"
 DEFAULT_PREFLIGHT_REPAIR_TRANSACTION = (
     DEFAULT_RECOVERY_DIR / "preflight-repair-transaction.json"
@@ -206,9 +204,13 @@ V2_ACCEPTANCE_REQUIREMENT_FIELDS = {
     *LEGACY_ACCEPTANCE_REQUIREMENT_FIELDS,
     "claim_scope",
 }
-ACCEPTANCE_REQUIREMENT_FIELDS = {
+V3_ACCEPTANCE_REQUIREMENT_FIELDS = {
     *V2_ACCEPTANCE_REQUIREMENT_FIELDS,
     "coverage_complete",
+}
+ACCEPTANCE_REQUIREMENT_FIELDS = {
+    *V3_ACCEPTANCE_REQUIREMENT_FIELDS,
+    "scope_exclusions",
 }
 ACCEPTANCE_CLAIM_SCOPES = {"bounded_acceptance", "generalization"}
 ACCEPTANCE_EVIDENCE_MODES = {
@@ -225,9 +227,13 @@ LEGACY_ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS = {
     "independence_basis",
     "unresolved_reason",
 }
-ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS = {
+V2_ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS = {
     *LEGACY_ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS,
     "generalization_assessment",
+}
+ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS = {
+    *V2_ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS,
+    "scope_exclusion_assessment",
 }
 ACCEPTANCE_OBLIGATION_STATUSES = {"satisfied", "unresolved", "falsified"}
 ACCEPTANCE_OBLIGATION_PROVENANCE = {
@@ -277,6 +283,22 @@ UNCOVERED_REGION_DISPOSITION_FIELDS = {"region", "status", "evidence"}
 UNCOVERED_REGION_DISPOSITION_STATUSES = {
     "resolved",
     "not_material",
+    "unresolved",
+}
+SCOPE_EXCLUSION_ASSESSMENT_FIELDS = {"authority", "dispositions"}
+SCOPE_EXCLUSION_AUTHORITIES = {
+    "sealed_contract",
+    "public_surface_definition",
+    "insufficient",
+}
+SCOPE_EXCLUSION_POSITIVE_AUTHORITIES = {
+    "sealed_contract",
+    "public_surface_definition",
+}
+SCOPE_EXCLUSION_DISPOSITION_FIELDS = {"region", "status", "evidence"}
+SCOPE_EXCLUSION_DISPOSITION_STATUSES = {
+    "out_of_scope",
+    "material",
     "unresolved",
 }
 ACCEPTANCE_REQUIREMENT_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,47}$")
@@ -448,9 +470,8 @@ def main(argv: list[str] | None = None) -> int:
                 require_generalization_evidence_scope=(
                     args.require_generalization_evidence_scope
                 ),
-                require_claim_boundary_closure=(
-                    args.require_claim_boundary_closure
-                ),
+                require_claim_boundary_closure=(args.require_claim_boundary_closure),
+                require_scope_exclusion_schema=(args.require_scope_exclusion_schema),
             )
         elif args.action == "review-pre-submit":
             falsifier = (
@@ -637,9 +658,7 @@ def _parser() -> argparse.ArgumentParser:
     obligations.add_argument(
         "--review-practices", type=Path, default=DEFAULT_REVIEW_PRACTICES
     )
-    obligations.add_argument(
-        "--output", type=Path, default=DEFAULT_SOLVER_OBLIGATIONS
-    )
+    obligations.add_argument("--output", type=Path, default=DEFAULT_SOLVER_OBLIGATIONS)
 
     preflight_task_parser = subparsers.add_parser("preflight-task")
     preflight_task_parser.add_argument("--plan", type=Path, default=DEFAULT_SOLVER_PLAN)
@@ -651,7 +670,9 @@ def _parser() -> argparse.ArgumentParser:
         "--review-profile", type=Path, default=DEFAULT_REVIEW_PROFILE
     )
     preflight_task_parser.add_argument("--solver-obligations", type=Path)
-    preflight_task_parser.add_argument("--output", type=Path, default=DEFAULT_PREFLIGHT_TASK)
+    preflight_task_parser.add_argument(
+        "--output", type=Path, default=DEFAULT_PREFLIGHT_TASK
+    )
 
     preflight_evidence = subparsers.add_parser("preflight-evidence")
     preflight_evidence.add_argument("--plan", type=Path, default=DEFAULT_SOLVER_PLAN)
@@ -664,7 +685,9 @@ def _parser() -> argparse.ArgumentParser:
     )
     preflight_evidence.add_argument("--solver-obligations", type=Path)
     preflight_evidence.add_argument("--reviewer-result", type=Path)
-    preflight_evidence.add_argument("--output", type=Path, default=DEFAULT_PREFLIGHT_EVIDENCE)
+    preflight_evidence.add_argument(
+        "--output", type=Path, default=DEFAULT_PREFLIGHT_EVIDENCE
+    )
 
     resolution = subparsers.add_parser("resolve-preflight")
     resolution.add_argument("--draft", type=Path)
@@ -675,9 +698,7 @@ def _parser() -> argparse.ArgumentParser:
     resolution.add_argument(
         "--solver-obligations", type=Path, default=DEFAULT_SOLVER_OBLIGATIONS
     )
-    resolution.add_argument(
-        "--output", type=Path, default=DEFAULT_PREFLIGHT_RESOLUTION
-    )
+    resolution.add_argument("--output", type=Path, default=DEFAULT_PREFLIGHT_RESOLUTION)
 
     require_preflight = subparsers.add_parser("require-preflight")
     require_preflight.add_argument("--proposal", type=Path, default=DEFAULT_PROPOSAL)
@@ -689,6 +710,9 @@ def _parser() -> argparse.ArgumentParser:
     )
     require_preflight.add_argument(
         "--require-claim-boundary-closure", action="store_true"
+    )
+    require_preflight.add_argument(
+        "--require-scope-exclusion-schema", action="store_true"
     )
     require_preflight.add_argument("--solver-plan", type=Path)
     require_preflight.add_argument("--preflight-resolution", type=Path)
@@ -727,12 +751,16 @@ def _parser() -> argparse.ArgumentParser:
     context_view.add_argument(
         "--include-if-present", type=Path, action="append", default=[]
     )
-    context_view.add_argument("--include-snapshot", type=Path, action="append", default=[])
+    context_view.add_argument(
+        "--include-snapshot", type=Path, action="append", default=[]
+    )
     context_view.add_argument("--output", type=Path, default=DEFAULT_CONTEXT_VIEW)
 
     review_profile = subparsers.add_parser("review-profile")
     review_profile.add_argument("--draft", type=Path, required=True)
-    review_profile.add_argument("--catalog", type=Path, default=DEFAULT_REVIEW_PROFILE_CATALOG)
+    review_profile.add_argument(
+        "--catalog", type=Path, default=DEFAULT_REVIEW_PROFILE_CATALOG
+    )
     review_profile.add_argument("--seal", type=Path, default=DEFAULT_SEAL)
     review_profile.add_argument("--output", type=Path, default=DEFAULT_REVIEW_PROFILE)
 
@@ -793,7 +821,9 @@ def seal_contract(
         if baseline_snapshot.get("snapshot_kind") != "baseline":
             raise ValueError("contract seal requires a baseline snapshot")
         if baseline_snapshot.get("artifact_identity") != baseline_identity:
-            raise ValueError("baseline snapshot does not match the live contract artifact")
+            raise ValueError(
+                "baseline snapshot does not match the live contract artifact"
+            )
     return {
         "version": 1,
         "kind": "contract_seal",
@@ -808,7 +838,9 @@ def seal_contract(
             stable_sha256(baseline_snapshot) if baseline_snapshot is not None else None
         ),
         "baseline_snapshot_path": (
-            baseline_snapshot.get("snapshot_path") if baseline_snapshot is not None else None
+            baseline_snapshot.get("snapshot_path")
+            if baseline_snapshot is not None
+            else None
         ),
         "contract_sources": sources,
         "public_contract_snapshot": snapshot,
@@ -834,7 +866,9 @@ def record_proposal(
     if producer["role"] != "solver":
         raise ValueError("candidate proposal requires StateM agent role 'solver'")
     required_fields = (
-        PROPOSAL_FIELDS if seal.get("baseline_snapshot_sha256") else LEGACY_PROPOSAL_FIELDS
+        PROPOSAL_FIELDS
+        if seal.get("baseline_snapshot_sha256")
+        else LEGACY_PROPOSAL_FIELDS
     )
     missing = sorted(required_fields - set(draft))
     unknown = sorted(set(draft) - PROPOSAL_FIELDS)
@@ -855,7 +889,9 @@ def record_proposal(
         if not _string_list(draft.get(key)):
             raise ValueError(f"proposal draft {key} must be a non-empty string list")
     if "protected_behavior_basis" in draft:
-        protected_basis = _protected_behavior_basis(draft.get("protected_behavior_basis"))
+        protected_basis = _protected_behavior_basis(
+            draft.get("protected_behavior_basis")
+        )
         protected_behaviors = set(draft["protected_behavior"])
         if {item["behavior"] for item in protected_basis} != protected_behaviors:
             raise ValueError(
@@ -866,7 +902,9 @@ def record_proposal(
     if seal.get("baseline_snapshot_path") and (
         draft["rollback_locator"] != seal["baseline_snapshot_path"]
     ):
-        raise ValueError("proposal rollback locator must match the sealed provider snapshot")
+        raise ValueError(
+            "proposal rollback locator must match the sealed provider snapshot"
+        )
     context = _state_context()
     if context["run_id"] != seal["run_id"]:
         raise ValueError("proposal and contract seal run ids differ")
@@ -878,9 +916,10 @@ def record_proposal(
     if preflight_evidence is not None:
         _require_receipt(preflight_evidence, "plan_preflight_evidence")
         preflight_producer = preflight_evidence.get("producer")
-        if not isinstance(preflight_producer, dict) or preflight_producer.get(
-            "role"
-        ) != "preflight-reviewer":
+        if (
+            not isinstance(preflight_producer, dict)
+            or preflight_producer.get("role") != "preflight-reviewer"
+        ):
             raise ValueError("preflight evidence requires the preflight-reviewer role")
         if preflight_evidence.get("run_id") != context["run_id"]:
             raise ValueError("proposal and preflight evidence run ids differ")
@@ -916,17 +955,17 @@ def record_proposal(
         }
         supersedes = stable_sha256(previous_proposal)
         if preflight_evidence_sha256 is None:
-            preflight_evidence_sha256 = _text(
-                previous_proposal.get("preflight_evidence_sha256")
-            ) or None
+            preflight_evidence_sha256 = (
+                _text(previous_proposal.get("preflight_evidence_sha256")) or None
+            )
         if solver_plan_sha256 is None:
-            solver_plan_sha256 = _text(
-                previous_proposal.get("solver_plan_sha256")
-            ) or None
+            solver_plan_sha256 = (
+                _text(previous_proposal.get("solver_plan_sha256")) or None
+            )
         if preflight_resolution_sha256 is None:
-            preflight_resolution_sha256 = _text(
-                previous_proposal.get("preflight_resolution_sha256")
-            ) or None
+            preflight_resolution_sha256 = (
+                _text(previous_proposal.get("preflight_resolution_sha256")) or None
+            )
     return {
         "version": 1,
         "kind": "candidate_proposal",
@@ -970,9 +1009,13 @@ def record_acceptance_evidence(
         ("candidate snapshot", candidate_snapshot),
     ):
         if receipt.get("run_id") != context["run_id"]:
-            raise ValueError(f"acceptance evidence {receipt_name} belongs to another run")
+            raise ValueError(
+                f"acceptance evidence {receipt_name} belongs to another run"
+            )
         if receipt.get("entry_id") != context["entry_id"]:
-            raise ValueError(f"acceptance evidence {receipt_name} belongs to another entry")
+            raise ValueError(
+                f"acceptance evidence {receipt_name} belongs to another entry"
+            )
     if set(draft) != ACCEPTANCE_EVIDENCE_FIELDS:
         missing = sorted(ACCEPTANCE_EVIDENCE_FIELDS - set(draft))
         unknown = sorted(set(draft) - ACCEPTANCE_EVIDENCE_FIELDS)
@@ -996,7 +1039,9 @@ def record_acceptance_evidence(
         expected_sha256=None,
         required=True,
     ):
-        raise ValueError("acceptance evidence requires the exact immutable candidate snapshot")
+        raise ValueError(
+            "acceptance evidence requires the exact immutable candidate snapshot"
+        )
     proposal_sha256 = stable_sha256(proposal)
     if candidate_snapshot.get("expected_receipt_sha256") != proposal_sha256:
         raise ValueError("candidate snapshot is not bound to the current proposal")
@@ -1077,7 +1122,10 @@ def _solver_obligation_text(value: Any, field: str) -> str:
 
 def _common_practice_solver_projection(practice: dict[str, Any]) -> dict[str, str]:
     projection = practice.get("solver_projection")
-    if not isinstance(projection, dict) or set(projection) != SOLVER_OBLIGATION_ACTION_FIELDS:
+    if (
+        not isinstance(projection, dict)
+        or set(projection) != SOLVER_OBLIGATION_ACTION_FIELDS
+    ):
         raise ValueError(
             "solver-facing common practice requires exactly invariant, "
             "required_action, and self_check"
@@ -1203,7 +1251,11 @@ def record_solver_obligations(
     primary = _text(review_profile.get("primary"))
     secondary = review_profile.get("secondary")
     documents = review_profile.get("documents")
-    if not primary or not isinstance(secondary, list) or not isinstance(documents, list):
+    if (
+        not primary
+        or not isinstance(secondary, list)
+        or not isinstance(documents, list)
+    ):
         raise ValueError("review profile selection is incomplete")
     profile_documents = {
         _text(item.get("profile_id")): item
@@ -1214,7 +1266,9 @@ def record_solver_obligations(
     if primary_document is None:
         raise ValueError("primary review profile document is missing")
     primary_checks = primary_document.get("checks")
-    if not isinstance(primary_checks, list) or not all(_text(item) for item in primary_checks):
+    if not isinstance(primary_checks, list) or not all(
+        _text(item) for item in primary_checks
+    ):
         raise ValueError("primary review profile checks are invalid")
     for check_id in primary_checks:
         obligations.append(
@@ -1234,10 +1288,14 @@ def record_solver_obligations(
     for profile_id in secondary:
         document = profile_documents.get(profile_id)
         if document is None:
-            raise ValueError(f"secondary review profile document is missing: {profile_id}")
+            raise ValueError(
+                f"secondary review profile document is missing: {profile_id}"
+            )
         checks = document.get("checks")
         if not isinstance(checks, list) or not all(_text(item) for item in checks):
-            raise ValueError(f"secondary review profile checks are invalid: {profile_id}")
+            raise ValueError(
+                f"secondary review profile checks are invalid: {profile_id}"
+            )
         obligations.append(
             {
                 "obligation_id": f"profile:{profile_id}:secondary-scope",
@@ -1288,7 +1346,9 @@ def _solver_obligation_ids(solver_obligations: dict[str, Any]) -> list[str]:
         if isinstance(item, dict)
     ]
     if len(ids) != len(obligations) or any(not item for item in ids):
-        raise ValueError("solver obligation projection contains an invalid obligation id")
+        raise ValueError(
+            "solver obligation projection contains an invalid obligation id"
+        )
     if len(ids) != len(set(ids)):
         raise ValueError("solver obligation projection contains duplicate ids")
     for index, item in enumerate(obligations):
@@ -1321,7 +1381,9 @@ def _validate_solver_plan_draft(
         if not _string_list(draft.get(field)):
             raise ValueError(f"solver plan {field} must be a non-empty string list")
     assumptions = draft.get("assumptions")
-    if not isinstance(assumptions, list) or not all(_text(item) for item in assumptions):
+    if not isinstance(assumptions, list) or not all(
+        _text(item) for item in assumptions
+    ):
         raise ValueError("solver plan assumptions must be a string list")
     if solver_obligations is None:
         return
@@ -1337,8 +1399,10 @@ def _validate_solver_plan_draft(
             )
         obligation_id = _text(item.get("obligation_id"))
         sections = item.get("plan_sections")
-        if not isinstance(sections, list) or not sections or not all(
-            section in SOLVER_PLAN_SECTIONS for section in sections
+        if (
+            not isinstance(sections, list)
+            or not sections
+            or not all(section in SOLVER_PLAN_SECTIONS for section in sections)
         ):
             raise ValueError(
                 f"solver plan obligation_coverage[{index}] has invalid plan_sections"
@@ -1428,9 +1492,7 @@ def preflight_task(
         raise ValueError("review profile is not bound to the contract seal")
     if solver_obligations is not None:
         _require_receipt(solver_obligations, "solver_obligation_projection")
-        if plan.get("solver_obligations_sha256") != stable_sha256(
-            solver_obligations
-        ):
+        if plan.get("solver_obligations_sha256") != stable_sha256(solver_obligations):
             raise ValueError("solver plan is not bound to the obligation projection")
         if solver_obligations.get("review_profile_sha256") != profile_sha256:
             raise ValueError("solver obligations are not bound to the review profile")
@@ -1516,9 +1578,13 @@ def preflight_task(
                     "it mechanically satisfiable. Set coverage_complete=true only when "
                     "the bounded claim surface is closed and uncovered_regions is empty. "
                     "If any known category, range, state, path, consumer, schedule, or "
-                    "semantic fork remains uncovered, set coverage_complete=false, list "
-                    "every such region, and use generalization rather than "
-                    "bounded_acceptance. The host rejects contradictory boundary claims. "
+                    "semantic fork remains inside the claim but uncovered, set "
+                    "coverage_complete=false, list it in uncovered_regions, and use "
+                    "generalization rather than bounded_acceptance. Put only contract-"
+                    "justified out-of-claim boundaries in scope_exclusions. Do not hide a "
+                    "material in-claim gap by relabeling it as an exclusion; the independent "
+                    "reviewer must disposition every exclusion against the sealed contract. "
+                    "The host rejects contradictory boundary claims. "
                     "Use requirement_id "
                     "values as unique lowercase slugs. The host repairs ASCII case "
                     "mechanically and rejects collisions after canonicalization. Use "
@@ -1573,8 +1639,10 @@ def _canonical_preflight_result_payload(raw: dict[str, Any]) -> dict[str, Any]:
         acceptance_plan_schema_version = 1
     elif any("missing_coverage_complete" in repair for repair in schema_repairs):
         acceptance_plan_schema_version = 2
-    else:
+    elif any("missing_scope_exclusions" in repair for repair in schema_repairs):
         acceptance_plan_schema_version = 3
+    else:
+        acceptance_plan_schema_version = 4
     return {
         "advisory_verdict": verdict,
         **{field: raw.get(field) for field in binding_fields},
@@ -1612,10 +1680,14 @@ def record_preflight_evidence(
         raise ValueError("preflight evidence must be recorded in the solve entry")
     for field in ("run_id", "node", "entry_id"):
         if reviewer_result.get(field) != context[field]:
-            raise ValueError(f"preflight reviewer result {field} differs from current entry")
+            raise ValueError(
+                f"preflight reviewer result {field} differs from current entry"
+            )
     producer = reviewer_result.get("producer")
     if not isinstance(producer, dict) or producer.get("role") != "preflight-reviewer":
-        raise ValueError("preflight evidence requires exactly one preflight-reviewer result")
+        raise ValueError(
+            "preflight evidence requires exactly one preflight-reviewer result"
+        )
     if reviewer_result.get("status") not in {"completed", "terminal"}:
         raise ValueError("preflight reviewer did not complete")
     coverage = reviewer_result.get("coverage")
@@ -1625,9 +1697,11 @@ def record_preflight_evidence(
     if not isinstance(raw, dict):
         raise ValueError("preflight reviewer result is missing its raw payload")
     raw_coverage = raw.get("coverage")
-    if raw.get("status") not in {"completed", "terminal"} or not isinstance(
-        raw_coverage, dict
-    ) or raw_coverage.get("complete") is not True:
+    if (
+        raw.get("status") not in {"completed", "terminal"}
+        or not isinstance(raw_coverage, dict)
+        or raw_coverage.get("complete") is not True
+    ):
         raise ValueError("preflight reviewer raw payload is incomplete")
     expected_hashes = {
         "plan_sha256": stable_sha256(plan),
@@ -1639,9 +1713,10 @@ def record_preflight_evidence(
         if raw.get(field) != expected:
             raise ValueError(f"preflight reviewer {field} binding is invalid")
     canonical_payload = _canonical_preflight_result_payload(raw)
-    if plan.get("run_id") != context["run_id"] or plan.get("entry_id") != context[
-        "entry_id"
-    ]:
+    if (
+        plan.get("run_id") != context["run_id"]
+        or plan.get("entry_id") != context["entry_id"]
+    ):
         raise ValueError("solver plan belongs to another solve entry")
     return {
         "version": 1,
@@ -1688,10 +1763,14 @@ def record_preflight_resolution(
     context = _state_context()
     producer = _producer()
     if context["node"] != "solve" or producer.get("role") != "solver":
-        raise ValueError("preflight resolution belongs to the solve entry and solver role")
+        raise ValueError(
+            "preflight resolution belongs to the solve entry and solver role"
+        )
     for receipt in (plan, preflight_evidence, solver_obligations):
         if receipt.get("run_id") != context["run_id"]:
-            raise ValueError("preflight resolution inputs belong to different StateM runs")
+            raise ValueError(
+                "preflight resolution inputs belong to different StateM runs"
+            )
     if preflight_evidence.get("entry_id") != context["entry_id"]:
         raise ValueError("preflight evidence belongs to another solve entry")
     if plan.get("solver_obligations_sha256") != stable_sha256(solver_obligations):
@@ -1829,19 +1908,22 @@ def _require_preflight_resolution_binding(
         raise ValueError("preflight resolution belongs to another solve entry")
     if resolution.get("original_plan_sha256") != stable_sha256(plan):
         raise ValueError("preflight resolution is not bound to the solver plan")
-    if resolution.get("preflight_evidence_sha256") != stable_sha256(
-        preflight_evidence
-    ):
+    if resolution.get("preflight_evidence_sha256") != stable_sha256(preflight_evidence):
         raise ValueError("preflight resolution is not bound to preflight evidence")
     verdict = preflight_evidence.get("advisory_verdict")
     expected_status = "revised" if verdict == "revise_plan" else "not_required"
     if resolution.get("status") != expected_status:
-        raise ValueError("preflight resolution status does not close the advisory verdict")
+        raise ValueError(
+            "preflight resolution status does not close the advisory verdict"
+        )
 
 
 def _require_claim_boundary_closure(
     preflight_evidence: dict[str, Any],
 ) -> None:
+    exclusion_schema_required = (
+        int(preflight_evidence.get("acceptance_plan_schema_version") or 0) >= 4
+    )
     plan = preflight_evidence.get("acceptance_plan")
     requirements = plan.get("requirements") if isinstance(plan, dict) else None
     if not isinstance(requirements, list) or not requirements:
@@ -1853,6 +1935,7 @@ def _require_claim_boundary_closure(
         claim_scope = _text(requirement.get("claim_scope"))
         coverage_complete = requirement.get("coverage_complete")
         uncovered_regions = requirement.get("uncovered_regions")
+        scope_exclusions = requirement.get("scope_exclusions")
         if not requirement_id or claim_scope not in ACCEPTANCE_CLAIM_SCOPES:
             raise ValueError("claim-boundary closure has an invalid requirement")
         if not isinstance(coverage_complete, bool):
@@ -1864,6 +1947,28 @@ def _require_claim_boundary_closure(
         ):
             raise ValueError(
                 f"acceptance requirement {requirement_id} has invalid uncovered regions"
+            )
+        if scope_exclusions is None and not exclusion_schema_required:
+            scope_exclusions = []
+        if not isinstance(scope_exclusions, list) or any(
+            not _text(region) for region in scope_exclusions
+        ):
+            raise ValueError(
+                f"acceptance requirement {requirement_id} has invalid scope exclusions"
+            )
+        if len({_text(region) for region in uncovered_regions}) != len(
+            uncovered_regions
+        ) or len({_text(region) for region in scope_exclusions}) != len(
+            scope_exclusions
+        ):
+            raise ValueError(
+                f"acceptance requirement {requirement_id} has duplicate boundary regions"
+            )
+        if {_text(region) for region in uncovered_regions} & {
+            _text(region) for region in scope_exclusions
+        }:
+            raise ValueError(
+                f"acceptance requirement {requirement_id} overlaps gaps and exclusions"
             )
         if coverage_complete and uncovered_regions:
             raise ValueError(
@@ -1895,6 +2000,7 @@ def require_preflight_binding(
     preflight_resolution: dict[str, Any] | None = None,
     require_generalization_evidence_scope: bool = False,
     require_claim_boundary_closure: bool = False,
+    require_scope_exclusion_schema: bool = False,
 ) -> dict[str, Any]:
     _require_receipt(proposal, "candidate_proposal")
     _require_receipt(preflight_evidence, "plan_preflight_evidence")
@@ -1919,11 +2025,18 @@ def require_preflight_binding(
             "generalization claim scope"
         )
     if require_claim_boundary_closure:
-        if preflight_evidence.get("acceptance_plan_schema_version") != 3:
+        if int(preflight_evidence.get("acceptance_plan_schema_version") or 0) < 3:
             raise ValueError(
                 "preflight evidence requires explicit claim-boundary closure"
             )
         _require_claim_boundary_closure(preflight_evidence)
+    if (
+        require_scope_exclusion_schema
+        and preflight_evidence.get("acceptance_plan_schema_version") != 4
+    ):
+        raise ValueError(
+            "preflight evidence requires explicit in-scope gaps and scope exclusions"
+        )
     if solver_plan is not None or preflight_resolution is not None:
         if solver_plan is None or preflight_resolution is None:
             raise ValueError(
@@ -1982,11 +2095,10 @@ def _require_preflight_result_binding(
     if not isinstance(raw, dict):
         raise ValueError("bound preflight TeamRun result has no raw payload")
     canonical_payload = _canonical_preflight_result_payload(raw)
-    if any(
-        value != evidence.get(field)
-        for field, value in canonical_payload.items()
-    ):
-        raise ValueError("preflight evidence differs from the immutable TeamRun payload")
+    if any(value != evidence.get(field) for field, value in canonical_payload.items()):
+        raise ValueError(
+            "preflight evidence differs from the immutable TeamRun payload"
+        )
     submitted_at = reviewer_result.get("submitted_at")
     if submitted_at and evidence.get("created_at") != submitted_at:
         raise ValueError("preflight evidence timestamp differs from TeamRun submission")
@@ -2095,19 +2207,25 @@ def _require_derived_preflight_binding(
 
     raw_plan = raw_evidence.get("acceptance_plan")
     derived_plan = evidence.get("acceptance_plan")
-    raw_requirements = raw_plan.get("requirements") if isinstance(raw_plan, dict) else None
+    raw_requirements = (
+        raw_plan.get("requirements") if isinstance(raw_plan, dict) else None
+    )
     derived_requirements = (
         derived_plan.get("requirements") if isinstance(derived_plan, dict) else None
     )
-    if not isinstance(raw_requirements, list) or not isinstance(
-        derived_requirements, list
-    ) or len(raw_requirements) != len(derived_requirements):
+    if (
+        not isinstance(raw_requirements, list)
+        or not isinstance(derived_requirements, list)
+        or len(raw_requirements) != len(derived_requirements)
+    ):
         raise ValueError("derived preflight requirements do not preserve the raw plan")
 
     normalized = copy.deepcopy(evidence)
     normalized_requirements = normalized["acceptance_plan"]["requirements"]
     changed_requirement = ""
-    for index, (before, after) in enumerate(zip(raw_requirements, derived_requirements)):
+    for index, (before, after) in enumerate(
+        zip(raw_requirements, derived_requirements)
+    ):
         if not isinstance(before, dict) or not isinstance(after, dict):
             raise TypeError("derived preflight requirements must be objects")
         requirement_id = _text(before.get("requirement_id"))
@@ -2119,14 +2237,25 @@ def _require_derived_preflight_binding(
             raise TypeError("derived preflight required_strata must be arrays")
         if after_strata == before_strata:
             continue
-        if changed_requirement or check in before_strata or after_strata != [*before_strata, check]:
-            raise ValueError("derived preflight must append exactly one authorized check")
+        if (
+            changed_requirement
+            or check in before_strata
+            or after_strata != [*before_strata, check]
+        ):
+            raise ValueError(
+                "derived preflight must append exactly one authorized check"
+            )
         changed_requirement = requirement_id
         normalized_requirements[index]["required_strata"] = copy.deepcopy(before_strata)
-    if not changed_requirement or transaction.get("requirement_id") != changed_requirement:
+    if (
+        not changed_requirement
+        or transaction.get("requirement_id") != changed_requirement
+    ):
         raise ValueError("derived preflight transaction requirement is not bound")
     if normalized != raw_evidence:
-        raise ValueError("derived preflight changed evidence outside the authorized append")
+        raise ValueError(
+            "derived preflight changed evidence outside the authorized append"
+        )
 
 
 def _contract_ledger(value: Any) -> dict[str, list[dict[str, str]]]:
@@ -2161,8 +2290,7 @@ def _contract_ledger_task_schema() -> dict[str, Any]:
     return {
         "required_top_level_fields": sorted(CONTRACT_LEDGER_FIELDS),
         "item_fields": {
-            field: list(fields)
-            for field, fields in CONTRACT_LEDGER_SCHEMAS.items()
+            field: list(fields) for field, fields in CONTRACT_LEDGER_SCHEMAS.items()
         },
         "max_items_per_field": CONTRACT_LEDGER_MAX_ITEMS,
         "max_text_chars": CONTRACT_LEDGER_TEXT_MAX_CHARS,
@@ -2205,6 +2333,7 @@ def _candidate_blind_acceptance_plan_with_repairs(
         item_fields = set(item) if isinstance(item, dict) else set()
         if not isinstance(item, dict) or item_fields not in (
             ACCEPTANCE_REQUIREMENT_FIELDS,
+            V3_ACCEPTANCE_REQUIREMENT_FIELDS,
             V2_ACCEPTANCE_REQUIREMENT_FIELDS,
             LEGACY_ACCEPTANCE_REQUIREMENT_FIELDS,
         ):
@@ -2253,7 +2382,10 @@ def _candidate_blind_acceptance_plan_with_repairs(
             allow_empty=True,
         )
         coverage_complete = item.get("coverage_complete")
-        if item_fields == ACCEPTANCE_REQUIREMENT_FIELDS:
+        if item_fields in (
+            ACCEPTANCE_REQUIREMENT_FIELDS,
+            V3_ACCEPTANCE_REQUIREMENT_FIELDS,
+        ):
             if not isinstance(coverage_complete, bool):
                 raise ValueError(
                     f"acceptance requirement {requirement_id} requires boolean "
@@ -2267,6 +2399,17 @@ def _candidate_blind_acceptance_plan_with_repairs(
                 f"requirements[{index}]:missing_coverage_complete"
                 f"->{str(coverage_complete).lower()}"
             )
+        if item_fields == ACCEPTANCE_REQUIREMENT_FIELDS:
+            scope_exclusions = _bounded_acceptance_plan_list(
+                item.get("scope_exclusions"),
+                field=f"requirements[{index}].scope_exclusions",
+                allow_empty=True,
+            )
+        else:
+            scope_exclusions = []
+            schema_repairs.append(
+                f"requirements[{index}]:missing_scope_exclusions->empty"
+            )
         normalized.append(
             {
                 "requirement_id": requirement_id,
@@ -2277,6 +2420,7 @@ def _candidate_blind_acceptance_plan_with_repairs(
                 "evidence_mode": evidence_mode,
                 "claim_scope": claim_scope,
                 "coverage_complete": coverage_complete,
+                "scope_exclusions": scope_exclusions,
                 "support_dimensions": support_dimensions,
                 "required_strata": required_strata,
                 "selection_basis": _bounded_contract_text(
@@ -2286,9 +2430,7 @@ def _candidate_blind_acceptance_plan_with_repairs(
                 "independence_basis": _bounded_contract_text(
                     item.get("independence_basis"), "independence_basis"
                 ),
-                "rationale": _bounded_contract_text(
-                    item.get("rationale"), "rationale"
-                ),
+                "rationale": _bounded_contract_text(item.get("rationale"), "rationale"),
             }
         )
     if not any(item["evidence_mode"] == "adapter_replay" for item in normalized):
@@ -2300,9 +2442,7 @@ def _candidate_blind_acceptance_plan_with_repairs(
             value.get("adapter_replay_mapping"),
             requirements=normalized,
         )
-        schema_repairs.append(
-            "discarded_non_authoritative_adapter_replay_mapping"
-        )
+        schema_repairs.append("discarded_non_authoritative_adapter_replay_mapping")
     return {"requirements": normalized}, schema_repairs
 
 
@@ -2356,15 +2496,12 @@ def _bounded_acceptance_plan_list(
             f"preflight acceptance_plan {field} requires "
             f"{minimum}-{ACCEPTANCE_PLAN_MAX_LIST_ITEMS} strings"
         )
-    return [
-        _bounded_contract_text(item, field)
-        for item in value
-    ]
+    return [_bounded_contract_text(item, field) for item in value]
 
 
 def _candidate_blind_acceptance_plan_task_schema() -> dict[str, Any]:
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "required_top_level_fields": sorted(ACCEPTANCE_PLAN_FIELDS),
         "requirement_fields": sorted(ACCEPTANCE_REQUIREMENT_FIELDS),
         "claim_scopes": sorted(ACCEPTANCE_CLAIM_SCOPES),
@@ -2383,6 +2520,8 @@ def _candidate_blind_acceptance_plan_task_schema() -> dict[str, Any]:
             "bounded_acceptance_requires_coverage_complete": True,
             "coverage_complete_requires_empty_uncovered_regions": True,
             "coverage_incomplete_requires_named_uncovered_regions": True,
+            "scope_exclusions_mean": "contract-justified out-of-claim boundaries",
+            "scope_exclusions_require_independent_disposition": True,
         },
         "evidence_modes": sorted(ACCEPTANCE_EVIDENCE_MODES),
         "max_requirements": ACCEPTANCE_PLAN_MAX_REQUIREMENTS,
@@ -2400,16 +2539,27 @@ def _candidate_blind_acceptance_plan_task_schema() -> dict[str, Any]:
 def _acceptance_obligation_assessment_task_schema(
     preflight_evidence: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    preflight_schema_version = int(
+        (preflight_evidence or {}).get("acceptance_plan_schema_version") or 0
+    )
     scope_schema_required = bool(
-        preflight_evidence is not None
-        and int(preflight_evidence.get("acceptance_plan_schema_version") or 0) >= 2
+        preflight_evidence is not None and preflight_schema_version >= 2
+    )
+    exclusion_schema_required = bool(
+        preflight_evidence is not None and preflight_schema_version >= 4
     )
     return {
-        "schema_version": 2 if scope_schema_required else 1,
+        "schema_version": 3
+        if exclusion_schema_required
+        else (2 if scope_schema_required else 1),
         "assessment_fields": sorted(
             ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS
-            if scope_schema_required
-            else LEGACY_ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS
+            if exclusion_schema_required
+            else (
+                V2_ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS
+                if scope_schema_required
+                else LEGACY_ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS
+            )
         ),
         "statuses": sorted(ACCEPTANCE_OBLIGATION_STATUSES),
         "evidence_provenance": sorted(ACCEPTANCE_OBLIGATION_PROVENANCE),
@@ -2440,6 +2590,17 @@ def _acceptance_obligation_assessment_task_schema(
             "every_predeclared_uncovered_region_required": True,
             "training_or_public_fit_alone_is_sufficient": False,
             "generated_population_alone_is_sufficient": False,
+        },
+        "scope_exclusion_assessment": {
+            "required_when_scope_exclusions_nonempty": True,
+            "null_when_scope_exclusions_empty": True,
+            "fields": sorted(SCOPE_EXCLUSION_ASSESSMENT_FIELDS),
+            "authorities": sorted(SCOPE_EXCLUSION_AUTHORITIES),
+            "positive_authorities": sorted(SCOPE_EXCLUSION_POSITIVE_AUTHORITIES),
+            "disposition_fields": sorted(SCOPE_EXCLUSION_DISPOSITION_FIELDS),
+            "disposition_statuses": sorted(SCOPE_EXCLUSION_DISPOSITION_STATUSES),
+            "every_predeclared_scope_exclusion_required": True,
+            "material_or_unresolved_exclusion_blocks_satisfaction": True,
         },
     }
 
@@ -2492,7 +2653,10 @@ def _generalization_assessment_state(
     seen_regions: set[str] = set()
     normalized_dispositions: list[dict[str, str]] = []
     for item in dispositions:
-        if not isinstance(item, dict) or set(item) != UNCOVERED_REGION_DISPOSITION_FIELDS:
+        if (
+            not isinstance(item, dict)
+            or set(item) != UNCOVERED_REGION_DISPOSITION_FIELDS
+        ):
             return False, False, {}
         region = _text(item.get("region"))
         status = _text(item.get("status"))
@@ -2537,6 +2701,77 @@ def _generalization_assessment_state(
     )
 
 
+def _missing_scope_exclusion_assessment(
+    scope_exclusions: list[str],
+) -> dict[str, Any]:
+    return {
+        "authority": "insufficient",
+        "dispositions": [
+            {
+                "region": region,
+                "status": "unresolved",
+                "evidence": "reviewer did not audit this predeclared exclusion",
+            }
+            for region in scope_exclusions
+        ],
+    }
+
+
+def _scope_exclusion_assessment_state(
+    value: Any,
+    *,
+    scope_exclusions: list[str],
+) -> tuple[bool, bool, dict[str, Any] | None]:
+    if not scope_exclusions:
+        return (True, True, None) if value is None else (False, False, None)
+    if value is None:
+        return True, False, _missing_scope_exclusion_assessment(scope_exclusions)
+    if not isinstance(value, dict) or set(value) != SCOPE_EXCLUSION_ASSESSMENT_FIELDS:
+        return False, False, None
+    authority = _text(value.get("authority"))
+    if authority not in SCOPE_EXCLUSION_AUTHORITIES:
+        return False, False, None
+    dispositions = value.get("dispositions")
+    if not isinstance(dispositions, list) or len(dispositions) != len(scope_exclusions):
+        return False, False, None
+    expected_regions = set(scope_exclusions)
+    seen_regions: set[str] = set()
+    normalized_dispositions: list[dict[str, str]] = []
+    for item in dispositions:
+        if (
+            not isinstance(item, dict)
+            or set(item) != SCOPE_EXCLUSION_DISPOSITION_FIELDS
+        ):
+            return False, False, None
+        region = _text(item.get("region"))
+        status = _text(item.get("status"))
+        evidence = _text(item.get("evidence"))
+        if (
+            region not in expected_regions
+            or region in seen_regions
+            or status not in SCOPE_EXCLUSION_DISPOSITION_STATUSES
+            or not evidence
+            or len(evidence) > ACCEPTANCE_OBLIGATION_TEXT_MAX_CHARS
+        ):
+            return False, False, None
+        seen_regions.add(region)
+        normalized_dispositions.append(
+            {"region": region, "status": status, "evidence": evidence}
+        )
+    if seen_regions != expected_regions:
+        return False, False, None
+    normalized_dispositions.sort(key=lambda item: item["region"])
+    scope_closed = bool(
+        authority in SCOPE_EXCLUSION_POSITIVE_AUTHORITIES
+        and all(item["status"] == "out_of_scope" for item in normalized_dispositions)
+    )
+    return (
+        True,
+        scope_closed,
+        {"authority": authority, "dispositions": normalized_dispositions},
+    )
+
+
 def _acceptance_obligation_assessment_state(
     value: Any,
     preflight_evidence: dict[str, Any] | None,
@@ -2553,9 +2788,11 @@ def _acceptance_obligation_assessment_state(
     if not isinstance(value, list) or len(value) != len(requirements):
         return False, False, []
 
-    scope_schema_required = int(
+    preflight_schema_version = int(
         preflight_evidence.get("acceptance_plan_schema_version") or 0
-    ) >= 2
+    )
+    scope_schema_required = preflight_schema_version >= 2
+    exclusion_schema_required = preflight_schema_version >= 4
     expected: dict[str, dict[str, Any]] = {}
     for requirement in requirements:
         if not isinstance(requirement, dict):
@@ -2564,14 +2801,13 @@ def _acceptance_obligation_assessment_state(
         evidence_mode = _text(requirement.get("evidence_mode"))
         claim_scope = _text(requirement.get("claim_scope")) or "bounded_acceptance"
         uncovered_regions = requirement.get("uncovered_regions")
+        scope_exclusions = requirement.get("scope_exclusions")
         if (
             not requirement_id
             or evidence_mode not in ACCEPTANCE_MODE_PROVENANCE
             or claim_scope not in ACCEPTANCE_CLAIM_SCOPES
-            or (
-                scope_schema_required
-                and not isinstance(uncovered_regions, list)
-            )
+            or (scope_schema_required and not isinstance(uncovered_regions, list))
+            or (exclusion_schema_required and not isinstance(scope_exclusions, list))
             or requirement_id in expected
         ):
             return False, False, []
@@ -2583,6 +2819,11 @@ def _acceptance_obligation_assessment_state(
                 if isinstance(uncovered_regions, list)
                 else []
             ),
+            "scope_exclusions": (
+                [_text(item) for item in scope_exclusions]
+                if isinstance(scope_exclusions, list)
+                else []
+            ),
         }
 
     normalized: list[dict[str, Any]] = []
@@ -2592,6 +2833,7 @@ def _acceptance_obligation_assessment_state(
         item_fields = set(item) if isinstance(item, dict) else set()
         if not isinstance(item, dict) or item_fields not in (
             ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS,
+            V2_ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS,
             LEGACY_ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS,
         ):
             return False, False, []
@@ -2633,7 +2875,11 @@ def _acceptance_obligation_assessment_state(
         use_scope_schema = bool(
             scope_schema_required
             or claim_scope == "generalization"
-            or item_fields == ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS
+            or item_fields
+            in (
+                ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS,
+                V2_ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS,
+            )
         )
         generalization_assessment: dict[str, Any] | None = None
         if claim_scope == "generalization":
@@ -2657,10 +2903,39 @@ def _acceptance_obligation_assessment_state(
                 all_satisfied = False
             elif status != "satisfied":
                 all_satisfied = False
-        elif item_fields == ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS and item.get(
-            "generalization_assessment"
-        ) is not None:
+        elif (
+            item_fields
+            in (
+                ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS,
+                V2_ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS,
+            )
+            and item.get("generalization_assessment") is not None
+        ):
             return False, False, []
+
+        use_exclusion_schema = bool(
+            exclusion_schema_required
+            or item_fields == ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS
+        )
+        exclusion_valid, exclusion_closed, scope_exclusion_assessment = (
+            _scope_exclusion_assessment_state(
+                item.get("scope_exclusion_assessment"),
+                scope_exclusions=expected[requirement_id]["scope_exclusions"],
+            )
+        )
+        if not exclusion_valid:
+            return False, False, []
+        if status == "satisfied" and not exclusion_closed:
+            status = "unresolved"
+            provenance = "insufficient"
+            independence_basis = ""
+            unresolved_reason = (
+                "one or more declared scope exclusions lack independent contract "
+                "or public-surface authority"
+            )
+            all_satisfied = False
+        elif status != "satisfied":
+            all_satisfied = False
 
         record: dict[str, Any] = {
             "requirement_id": requirement_id,
@@ -2673,6 +2948,8 @@ def _acceptance_obligation_assessment_state(
         }
         if use_scope_schema:
             record["generalization_assessment"] = generalization_assessment
+        if use_exclusion_schema:
+            record["scope_exclusion_assessment"] = scope_exclusion_assessment
         normalized.append(record)
     if seen != set(expected):
         return False, False, []
@@ -2727,7 +3004,9 @@ def canonicalize_falsifier_result(
     for field in ("run_id", "node", "entry_id"):
         supplied = _text(falsifier.get(field))
         if supplied and supplied != context[field]:
-            raise ValueError(f"falsifier result {field} conflicts with the active entry")
+            raise ValueError(
+                f"falsifier result {field} conflicts with the active entry"
+            )
 
     canonical = json.loads(json.dumps(falsifier))
     raw = canonical.get("raw") if isinstance(canonical.get("raw"), dict) else canonical
@@ -2879,7 +3158,9 @@ def record_review_profile(
     if context["node"] != "contract_audit" or producer.get("role") != "solver":
         raise ValueError("review profile selection belongs to contract_audit")
     if set(draft) != {"primary", "secondary", "evidence"}:
-        raise ValueError("review profile draft requires exactly primary, secondary, and evidence")
+        raise ValueError(
+            "review profile draft requires exactly primary, secondary, and evidence"
+        )
     primary = _text(draft.get("primary"))
     secondary = draft.get("secondary")
     evidence = draft.get("evidence")
@@ -2894,7 +3175,9 @@ def record_review_profile(
     if primary not in profiles or any(item not in profiles for item in secondary):
         raise ValueError("review profile selection contains an unknown profile")
     if len(secondary) > max_secondary:
-        raise ValueError("review profile selection exceeds the secondary profile budget")
+        raise ValueError(
+            "review profile selection exceeds the secondary profile budget"
+        )
 
     selected_files = [("base", base_file)] + [
         (profile_id, profiles[profile_id]["file"])
@@ -2949,9 +3232,7 @@ def falsifier_task(
     _require_receipt(context_view, "context_view")
     context_bundle = _context_bundle(context_view)
     review_protocol = (
-        _review_protocol(review_practices)
-        if review_practices is not None
-        else None
+        _review_protocol(review_practices) if review_practices is not None else None
     )
     if review_profile is not None:
         _require_receipt(review_profile, "review_profile_selection")
@@ -2981,9 +3262,7 @@ def falsifier_task(
                 "review_execution_class": "code_semantic_artifact",
                 "acceptance_plan": acceptance_plan,
                 "acceptance_obligation_assessment_schema": (
-                    _acceptance_obligation_assessment_task_schema(
-                        preflight_evidence
-                    )
+                    _acceptance_obligation_assessment_task_schema(preflight_evidence)
                     if acceptance_plan is not None
                     else None
                 ),
@@ -3070,7 +3349,8 @@ def falsifier_task(
                     "requirement_id. Each item has exactly requirement_id, "
                     "evidence_mode, status, evidence_provenance, evidence, "
                     "independence_basis, unresolved_reason, and "
-                    "generalization_assessment. Copy requirement_id "
+                    "generalization_assessment; schema version 3 also requires "
+                    "scope_exclusion_assessment. Copy requirement_id "
                     "and evidence_mode exactly. status is satisfied, unresolved, or "
                     "falsified. A satisfied or falsified adapter_replay requirement "
                     "requires adapter_replay_receipt provenance; paired_review "
@@ -3097,6 +3377,17 @@ def falsifier_task(
                     "analytic evidence, and no unresolved region. Observationally "
                     "equivalent semantic forks remain unresolved; successful exits and "
                     "finite favorable samples do not turn them into analytic proof. "
+                    "When scope_exclusions is non-empty, independently audit every "
+                    "predeclared exclusion exactly once in scope_exclusion_assessment. "
+                    "It has exactly authority and dispositions; each disposition has "
+                    "exactly region, status, and evidence. authority is sealed_contract, "
+                    "public_surface_definition, or insufficient. status is out_of_scope, "
+                    "material, or unresolved. Only sealed_contract or "
+                    "public_surface_definition authority with every region proven "
+                    "out_of_scope closes the claim boundary. A material or unresolved "
+                    "region blocks satisfaction. When scope_exclusions is empty, return "
+                    "scope_exclusion_assessment as null. Do not move an in-claim coverage "
+                    "gap into scope_exclusions merely to preserve bounded_acceptance. "
                     "When context_bundle contains a candidate_acceptance_replay, independently "
                     "audit its adapter producer, snapshot-copy scope, proposal, snapshot, "
                     "acceptance, and plan bindings, declared argv checks, minimal environment, "
@@ -3158,9 +3449,7 @@ def _context_bundle(context_view: dict[str, Any]) -> dict[str, Any]:
             continue
         root = Path(_text(item.get("path"))).expanduser().resolve()
         context_role = _text(item.get("role")) or "required"
-        root_kind = (
-            "file" if root.is_file() else "directory" if root.is_dir() else ""
-        )
+        root_kind = "file" if root.is_file() else "directory" if root.is_dir() else ""
         paths = (
             [root]
             if root_kind == "file"
@@ -3461,7 +3750,9 @@ def decide_promotion(
     falsifier = _canonical_falsifier_payload(falsifier)
     context = _state_context()
     raw = falsifier.get("raw") if isinstance(falsifier.get("raw"), dict) else falsifier
-    producer = falsifier.get("producer") if isinstance(falsifier.get("producer"), dict) else {}
+    producer = (
+        falsifier.get("producer") if isinstance(falsifier.get("producer"), dict) else {}
+    )
     candidate_identity = artifact_identity(artifact_root)
     current_snapshot = public_contract_snapshot(artifact_root)
     contract_sources_current = _contract_sources_match(seal)
@@ -3513,9 +3804,7 @@ def decide_promotion(
         if item.get("evidence_status") == "falsified"
     ]
     review_protocol = (
-        _review_protocol(review_practices)
-        if review_practices is not None
-        else None
+        _review_protocol(review_practices) if review_practices is not None else None
     )
     (
         review_protocol_bound,
@@ -3527,8 +3816,8 @@ def decide_promotion(
         review_profile,
         seal=seal,
     )
-    profile_receipts_valid, profile_practices_complete = (
-        _review_profile_receipt_state(raw, review_profile)
+    profile_receipts_valid, profile_practices_complete = _review_profile_receipt_state(
+        raw, review_profile
     )
     preflight_evidence_bound = True
     if preflight_evidence is not None:
@@ -3544,11 +3833,20 @@ def decide_promotion(
         raw.get("acceptance_obligation_assessments"),
         preflight_evidence,
     )
-    counterevidence = raw.get("counterevidence") if isinstance(raw.get("counterevidence"), list) else []
+    counterevidence = (
+        raw.get("counterevidence")
+        if isinstance(raw.get("counterevidence"), list)
+        else []
+    )
     verdict = _text(raw.get("verdict"))
-    coverage = falsifier.get("coverage") if isinstance(falsifier.get("coverage"), dict) else {}
+    coverage = (
+        falsifier.get("coverage") if isinstance(falsifier.get("coverage"), dict) else {}
+    )
     checks = {
-        "same_run": seal.get("run_id") == proposal.get("run_id") == falsifier.get("run_id") == context["run_id"],
+        "same_run": seal.get("run_id")
+        == proposal.get("run_id")
+        == falsifier.get("run_id")
+        == context["run_id"],
         "stage_bindings": (
             seal.get("node") == "contract_audit"
             and proposal.get("node") in {"solve", "revise"}
@@ -3559,8 +3857,10 @@ def decide_promotion(
             and context_view.get("entry_id") == context["entry_id"]
         ),
         "seal_bound": proposal.get("contract_seal_sha256") == stable_sha256(seal),
-        "candidate_bound": raw.get("candidate_artifact_identity") == proposal.get("candidate_artifact_identity"),
-        "candidate_fresh": candidate_identity == proposal.get("candidate_artifact_identity"),
+        "candidate_bound": raw.get("candidate_artifact_identity")
+        == proposal.get("candidate_artifact_identity"),
+        "candidate_fresh": candidate_identity
+        == proposal.get("candidate_artifact_identity"),
         "baseline_snapshot_bound": _snapshot_bound(
             baseline_snapshot,
             expected_kind="baseline",
@@ -3575,13 +3875,16 @@ def decide_promotion(
             expected_sha256=None,
             required=bool(seal.get("baseline_snapshot_sha256")),
         ),
-        "independent_identity": bool(producer.get("agent_id")) and producer.get("agent_id") != proposal.get("producer", {}).get("agent_id"),
+        "independent_identity": bool(producer.get("agent_id"))
+        and producer.get("agent_id") != proposal.get("producer", {}).get("agent_id"),
         "falsifier_role": producer.get("role") == "falsifier",
         "solver_role": proposal.get("producer", {}).get("role") == "solver",
-        "falsifier_complete": falsifier.get("status") in {"completed", "terminal"} and coverage.get("complete") is True,
+        "falsifier_complete": falsifier.get("status") in {"completed", "terminal"}
+        and coverage.get("complete") is True,
         "verdict_valid": verdict in VERDICTS,
         "contract_binding": raw.get("contract_seal_sha256") == stable_sha256(seal),
-        "context_view_binding": raw.get("context_view_sha256") == stable_sha256(context_view),
+        "context_view_binding": raw.get("context_view_sha256")
+        == stable_sha256(context_view),
         "context_view_role": context_view.get("consumer_role") == "falsifier",
         "context_view_fresh": _context_view_matches(context_view),
         "contract_sources_unchanged": contract_sources_current,
@@ -3618,9 +3921,7 @@ def decide_promotion(
         "acceptance_obligation_assessments_valid": (
             acceptance_obligation_assessments_valid
         ),
-        "all_acceptance_obligations_satisfied": (
-            all_acceptance_obligations_satisfied
-        ),
+        "all_acceptance_obligations_satisfied": (all_acceptance_obligations_satisfied),
     }
     failed_check_reason_codes = {
         "no_blocking_regressions": "blocking_regressions_present",
@@ -3717,9 +4018,7 @@ def decide_promotion(
             if isinstance(raw.get("profile_receipts"), list)
             else []
         ),
-        "acceptance_obligation_assessments": (
-            acceptance_obligation_assessments
-        ),
+        "acceptance_obligation_assessments": (acceptance_obligation_assessments),
         "preflight_evidence_sha256": (
             stable_sha256(preflight_evidence)
             if preflight_evidence is not None
@@ -3737,7 +4036,9 @@ def decide_promotion(
             stable_sha256(baseline_snapshot) if baseline_snapshot is not None else None
         ),
         "candidate_snapshot_sha256": (
-            stable_sha256(candidate_snapshot) if candidate_snapshot is not None else None
+            stable_sha256(candidate_snapshot)
+            if candidate_snapshot is not None
+            else None
         ),
         "created_at": _now(),
     }
@@ -3807,7 +4108,9 @@ def verify_application(
         if not provider_application.get("verified"):
             raise ValueError("provider application is not verified")
         if provider_application.get("observed_artifact_identity") != expected:
-            raise ValueError("provider application identity does not match authorization")
+            raise ValueError(
+                "provider application identity does not match authorization"
+            )
     elif provider_required:
         raise ValueError("provider application receipt is required")
     observed = artifact_identity(artifact_root)
@@ -3831,10 +4134,14 @@ def verify_application(
         "expected_artifact_identity": expected,
         "observed_artifact_identity": observed,
         "artifact_provider": (
-            "filesystem_snapshot_provider" if provider_application is not None else "external"
+            "filesystem_snapshot_provider"
+            if provider_application is not None
+            else "external"
         ),
         "provider_application_sha256": (
-            stable_sha256(provider_application) if provider_application is not None else None
+            stable_sha256(provider_application)
+            if provider_application is not None
+            else None
         ),
         "verified": True,
         "created_at": _now(),
@@ -3854,11 +4161,17 @@ def _require_effective_review_route(
         )
     for field in ("run_id", "node", "entry_id"):
         if route.get(field) != decision.get(field):
-            raise ValueError(f"effective review route {field} does not match promotion decision")
+            raise ValueError(
+                f"effective review route {field} does not match promotion decision"
+            )
     if route.get("promotion_decision") != decision.get("decision"):
-        raise ValueError("effective review route does not preserve the promotion decision")
+        raise ValueError(
+            "effective review route does not preserve the promotion decision"
+        )
     if route.get("promotion_decision_sha256") != stable_sha256(decision):
-        raise ValueError("effective review route is not bound to the promotion decision")
+        raise ValueError(
+            "effective review route is not bound to the promotion decision"
+        )
     if route.get("route") != decision.get("decision"):
         budget_exhausted = route.get("review_budget_exhausted") is True
         deadline_degraded = _deadline_degraded_quarantine(route, decision)
@@ -3910,7 +4223,9 @@ def _load_current_role_result(role: str) -> dict[str, Any]:
     context = _state_context()
     state_path = _active_state_path(context["run_id"])
     if state_path is None:
-        raise ValueError("cannot discover TeamRun result without an active StateM state file")
+        raise ValueError(
+            "cannot discover TeamRun result without an active StateM state file"
+        )
     node_dir = (
         state_path.parent
         / "nodes"
@@ -3922,7 +4237,9 @@ def _load_current_role_result(role: str) -> dict[str, Any]:
     matches: list[dict[str, Any]] = []
     for path in results:
         payload = _read_json(path)
-        producer = payload.get("producer") if isinstance(payload.get("producer"), dict) else {}
+        producer = (
+            payload.get("producer") if isinstance(payload.get("producer"), dict) else {}
+        )
         if producer.get("role") == role:
             matches.append(payload)
     if len(matches) != 1:
@@ -3934,7 +4251,9 @@ def _load_current_role_result(role: str) -> dict[str, Any]:
 
 def _state_context() -> dict[str, str]:
     run_id = _text(os.environ.get("STATEM_RUN_ID"))
-    state_dir = Path(os.environ.get("STATEM_STATE_DIR") or ".statem").expanduser().resolve()
+    state_dir = (
+        Path(os.environ.get("STATEM_STATE_DIR") or ".statem").expanduser().resolve()
+    )
     state: dict[str, Any] = {}
     if run_id:
         for candidate in (state_dir / "runs").glob("*/state.json"):
@@ -3958,7 +4277,9 @@ def _state_context() -> dict[str, str]:
 
 
 def _active_state_path(run_id: str) -> Path | None:
-    state_dir = Path(os.environ.get("STATEM_STATE_DIR") or ".statem").expanduser().resolve()
+    state_dir = (
+        Path(os.environ.get("STATEM_STATE_DIR") or ".statem").expanduser().resolve()
+    )
     for candidate in (state_dir / "runs").glob("*/state.json"):
         try:
             value = _read_json(candidate)
@@ -4046,11 +4367,11 @@ def _protected_behavior_basis(value: Any) -> list[dict[str, str]]:
         evidence = _text(item.get("evidence"))
         if not behavior or not evidence or basis not in PROVENANCE_BASES:
             raise ValueError("protected behavior provenance is missing or unsupported")
-        normalized.append(
-            {"behavior": behavior, "basis": basis, "evidence": evidence}
-        )
+        normalized.append({"behavior": behavior, "basis": basis, "evidence": evidence})
     if len({item["behavior"] for item in normalized}) != len(normalized):
-        raise ValueError("protected_behavior_basis contains duplicate behavior bindings")
+        raise ValueError(
+            "protected_behavior_basis contains duplicate behavior bindings"
+        )
     return normalized
 
 
@@ -4086,9 +4407,7 @@ def _contract_violation_state(
     for item in value:
         if not isinstance(item, dict) or set(item) != CONTRACT_VIOLATION_FIELDS:
             return False, []
-        record = {
-            field: _text(item.get(field)) for field in CONTRACT_VIOLATION_FIELDS
-        }
+        record = {field: _text(item.get(field)) for field in CONTRACT_VIOLATION_FIELDS}
         if (
             record["contract_basis"] not in PROVENANCE_BASES
             or record["severity"] not in REGRESSION_SEVERITIES
@@ -4164,8 +4483,7 @@ def _hard_contract_gap_state(value: Any) -> tuple[bool, list[dict[str, str]]]:
             or record["contract_basis"] not in PROVENANCE_BASES
             or record["evidence_status"] not in HARD_CONTRACT_GAP_STATUSES
             or record["evidence_role"] not in EVIDENCE_ROLES
-            or record["population_access"]
-            not in HARD_CONTRACT_GAP_POPULATION_ACCESS
+            or record["population_access"] not in HARD_CONTRACT_GAP_POPULATION_ACCESS
             or any(not record[field] for field in HARD_CONTRACT_GAP_FIELDS)
         ):
             return False, []
@@ -4192,24 +4510,29 @@ def _review_protocol(catalog: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("review stage must contain exactly id and objective")
         stage_id = _text(stage.get("id"))
         if not stage_id or stage_id in stage_ids or not _text(stage.get("objective")):
-            raise ValueError("review stage ids and objectives must be unique and non-empty")
+            raise ValueError(
+                "review stage ids and objectives must be unique and non-empty"
+            )
         stage_ids.add(stage_id)
     practice_ids: set[str] = set()
     for practice in practices:
-        if not isinstance(practice, dict) or set(practice) not in ({
-            "id",
-            "allow_not_applicable",
-            "trigger",
-            "procedure",
-            "required_evidence",
-        }, {
-            "id",
-            "allow_not_applicable",
-            "trigger",
-            "procedure",
-            "required_evidence",
-            "solver_projection",
-        }):
+        if not isinstance(practice, dict) or set(practice) not in (
+            {
+                "id",
+                "allow_not_applicable",
+                "trigger",
+                "procedure",
+                "required_evidence",
+            },
+            {
+                "id",
+                "allow_not_applicable",
+                "trigger",
+                "procedure",
+                "required_evidence",
+                "solver_projection",
+            },
+        ):
             raise ValueError(
                 "review practice must contain id, applicability, trigger, procedure, and evidence"
             )
@@ -4243,9 +4566,7 @@ def _review_receipt_state(
 ) -> tuple[bool, bool, bool]:
     if protocol is None:
         return True, True, True
-    protocol_bound = raw.get("review_protocol_sha256") == protocol.get(
-        "binding_sha256"
-    )
+    protocol_bound = raw.get("review_protocol_sha256") == protocol.get("binding_sha256")
     stages = raw.get("review_stages")
     expected_stages = [item["id"] for item in protocol["stages"]]
     stages_complete = isinstance(stages, list) and len(stages) == len(expected_stages)
@@ -4288,7 +4609,9 @@ def _review_receipt_state(
                     receipts_complete = False
                     break
             elif status == "not_applicable":
-                if not practice["allow_not_applicable"] or not _text(item.get("reason")):
+                if not practice["allow_not_applicable"] or not _text(
+                    item.get("reason")
+                ):
                     receipts_complete = False
                     break
             else:
@@ -4308,7 +4631,9 @@ def _review_profile_catalog(
     max_secondary = catalog.get("max_secondary")
     raw_profiles = catalog.get("profiles")
     if not base or not isinstance(max_secondary, int) or max_secondary < 0:
-        raise ValueError("review profile catalog base and secondary budget are required")
+        raise ValueError(
+            "review profile catalog base and secondary budget are required"
+        )
     if not isinstance(raw_profiles, list) or not raw_profiles:
         raise ValueError("review profile catalog requires profiles")
     profiles: dict[str, dict[str, Any]] = {}
@@ -4431,7 +4756,10 @@ def _snapshot_bound(
 ) -> bool:
     if receipt is None:
         return not required
-    if receipt.get("version") != 1 or receipt.get("kind") != "filesystem_artifact_snapshot":
+    if (
+        receipt.get("version") != 1
+        or receipt.get("kind") != "filesystem_artifact_snapshot"
+    ):
         return False
     if receipt.get("snapshot_kind") != expected_kind:
         return False
@@ -4472,7 +4800,9 @@ def _read_yaml(path: Path) -> dict[str, Any]:
 def _write_json(path: Path, value: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-    temporary.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    temporary.write_text(
+        json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     temporary.replace(path)
 
 
@@ -4500,7 +4830,9 @@ def _reuse_equivalent_receipt(
 
 
 def _string_list(value: Any) -> bool:
-    return isinstance(value, list) and bool(value) and all(_text(item) for item in value)
+    return (
+        isinstance(value, list) and bool(value) and all(_text(item) for item in value)
+    )
 
 
 def _text(value: Any) -> str:

@@ -61,7 +61,9 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         )
         self.module.write_text(self.baseline_text, encoding="utf-8")
         self.task = self.root / "task.txt"
-        self.task.write_text("Repair transform while preserving its interface.\n", encoding="utf-8")
+        self.task.write_text(
+            "Repair transform while preserving its interface.\n", encoding="utf-8"
+        )
         self.state_dir = self.root / "state"
         self.run_id = "multirole-test"
         self.agent_id = "lead-solver"
@@ -89,7 +91,9 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             encoding="utf-8",
         )
 
-    def _receipts(self) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
+    def _receipts(
+        self,
+    ) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
         self._state("contract_audit", "contract-entry")
         with patch.dict("os.environ", self.env, clear=False):
             seal = seal_contract(artifact_root=self.app, contract_sources=[self.task])
@@ -197,18 +201,24 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             str(paths["decision"]),
         ]
         with patch.dict("os.environ", self.env, clear=False):
-            with patch(
-                "integrations.harbor.experimental.multirole_promotion_gate._now",
-                return_value="2026-08-15T00:00:00Z",
-            ), redirect_stdout(io.StringIO()):
+            with (
+                patch(
+                    "integrations.harbor.experimental.multirole_promotion_gate._now",
+                    return_value="2026-08-15T00:00:00Z",
+                ),
+                redirect_stdout(io.StringIO()),
+            ):
                 self.assertEqual(promotion_gate_main(argv), 0)
         first_bytes = paths["decision"].read_bytes()
 
         with patch.dict("os.environ", self.env, clear=False):
-            with patch(
-                "integrations.harbor.experimental.multirole_promotion_gate._now",
-                return_value="2026-08-15T00:01:00Z",
-            ), redirect_stdout(io.StringIO()):
+            with (
+                patch(
+                    "integrations.harbor.experimental.multirole_promotion_gate._now",
+                    return_value="2026-08-15T00:01:00Z",
+                ),
+                redirect_stdout(io.StringIO()),
+            ):
                 self.assertEqual(promotion_gate_main(argv), 0)
         self.assertEqual(paths["decision"].read_bytes(), first_bytes)
         self.assertEqual(
@@ -219,10 +229,13 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         falsifier["raw"]["verdict"] = "inconclusive"
         paths["falsifier"].write_text(json.dumps(falsifier), encoding="utf-8")
         with patch.dict("os.environ", self.env, clear=False):
-            with patch(
-                "integrations.harbor.experimental.multirole_promotion_gate._now",
-                return_value="2026-08-15T00:02:00Z",
-            ), redirect_stdout(io.StringIO()):
+            with (
+                patch(
+                    "integrations.harbor.experimental.multirole_promotion_gate._now",
+                    return_value="2026-08-15T00:02:00Z",
+                ),
+                redirect_stdout(io.StringIO()),
+            ):
                 self.assertEqual(promotion_gate_main(argv), 0)
         changed = json.loads(paths["decision"].read_text(encoding="utf-8"))
         self.assertEqual(changed["created_at"], "2026-08-15T00:02:00Z")
@@ -250,11 +263,16 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             plan = record_solver_plan(
                 draft={
                     "objective": "repair transform without changing its interface",
-                    "steps": ["inspect the public implementation", "apply the smallest repair"],
+                    "steps": [
+                        "inspect the public implementation",
+                        "apply the smallest repair",
+                    ],
                     "assumptions": ["the public signature is a hard constraint"],
                     "planned_checks": ["exercise zero, positive, and negative values"],
                     "mutation_scope": ["worker.py implementation body"],
-                    "success_criteria": ["public checks pass with the signature unchanged"],
+                    "success_criteria": [
+                        "public checks pass with the signature unchanged"
+                    ],
                 },
                 seal=seal,
                 review_profile=profile,
@@ -275,9 +293,7 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         assignment = task["tasks"][0]
         self.assertIn("authorize promotion", assignment["assignment"])
         self.assertEqual(
-            assignment["contract_ledger_schema"]["item_fields"][
-                "hard_constraints"
-            ],
+            assignment["contract_ledger_schema"]["item_fields"]["hard_constraints"],
             ["claim", "basis", "evidence"],
         )
         self.assertIn("Do not invent aliases", assignment["assignment"])
@@ -422,8 +438,10 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             [
                 "requirements[0]:missing_claim_scope->bounded_acceptance",
                 "requirements[0]:missing_coverage_complete->true",
+                "requirements[0]:missing_scope_exclusions->empty",
                 "requirements[1]:missing_claim_scope->bounded_acceptance",
                 "requirements[1]:missing_coverage_complete->true",
+                "requirements[1]:missing_scope_exclusions->empty",
                 "discarded_non_authoritative_adapter_replay_mapping",
             ],
         )
@@ -451,13 +469,13 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             v2_evidence["schema_repairs"],
             [
                 "requirements[0]:missing_coverage_complete->true",
+                "requirements[0]:missing_scope_exclusions->empty",
                 "requirements[1]:missing_coverage_complete->true",
+                "requirements[1]:missing_scope_exclusions->empty",
             ],
         )
         v3_reviewer_result = json.loads(json.dumps(v2_reviewer_result))
-        for requirement in v3_reviewer_result["raw"]["acceptance_plan"][
-            "requirements"
-        ]:
+        for requirement in v3_reviewer_result["raw"]["acceptance_plan"]["requirements"]:
             requirement["coverage_complete"] = True
             requirement["uncovered_regions"] = []
         with patch.dict("os.environ", self.env, clear=False):
@@ -469,7 +487,26 @@ class MultiRolePromotionGateTest(unittest.TestCase):
                 reviewer_result=v3_reviewer_result,
             )
         self.assertEqual(v3_evidence["acceptance_plan_schema_version"], 3)
-        self.assertEqual(v3_evidence["schema_repairs"], [])
+        self.assertEqual(
+            v3_evidence["schema_repairs"],
+            [
+                "requirements[0]:missing_scope_exclusions->empty",
+                "requirements[1]:missing_scope_exclusions->empty",
+            ],
+        )
+        v4_reviewer_result = json.loads(json.dumps(v3_reviewer_result))
+        for requirement in v4_reviewer_result["raw"]["acceptance_plan"]["requirements"]:
+            requirement["scope_exclusions"] = []
+        with patch.dict("os.environ", self.env, clear=False):
+            v4_evidence = record_preflight_evidence(
+                plan=plan,
+                seal=seal,
+                context_view=view,
+                review_profile=profile,
+                reviewer_result=v4_reviewer_result,
+            )
+        self.assertEqual(v4_evidence["acceptance_plan_schema_version"], 4)
+        self.assertEqual(v4_evidence["schema_repairs"], [])
         draft = {
             "target_gap": "transform returns the unmodified value",
             "hypothesis": "the implementation omits the required increment",
@@ -486,9 +523,7 @@ class MultiRolePromotionGateTest(unittest.TestCase):
                 artifact_root=self.app,
                 preflight_evidence=evidence,
             )
-        self.assertEqual(
-            proposal["preflight_evidence_sha256"], stable_sha256(evidence)
-        )
+        self.assertEqual(proposal["preflight_evidence_sha256"], stable_sha256(evidence))
         require_preflight_binding(
             proposal=proposal,
             preflight_evidence=evidence,
@@ -502,9 +537,7 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             "required_strata"
         ].append(appended_check)
         derived_proposal = json.loads(json.dumps(proposal))
-        derived_proposal["preflight_evidence_sha256"] = stable_sha256(
-            derived_evidence
-        )
+        derived_proposal["preflight_evidence_sha256"] = stable_sha256(derived_evidence)
         brief = {
             "version": 1,
             "kind": "failure_feedback_retry_brief",
@@ -645,17 +678,15 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             )
 
         rewritten_evidence = json.loads(json.dumps(derived_evidence))
-        rewritten_evidence["acceptance_plan"]["requirements"][0][
-            "claim"
-        ] = "a rewritten claim"
+        rewritten_evidence["acceptance_plan"]["requirements"][0]["claim"] = (
+            "a rewritten claim"
+        )
         rewritten_proposal = json.loads(json.dumps(derived_proposal))
         rewritten_proposal["preflight_evidence_sha256"] = stable_sha256(
             rewritten_evidence
         )
         forged_transaction = json.loads(json.dumps(transaction))
-        forged_transaction["draft_preflight_sha256"] = stable_sha256(
-            rewritten_evidence
-        )
+        forged_transaction["draft_preflight_sha256"] = stable_sha256(rewritten_evidence)
         forged_transaction["canonical_preflight_sha256"] = stable_sha256(
             rewritten_evidence
         )
@@ -677,9 +708,9 @@ class MultiRolePromotionGateTest(unittest.TestCase):
                 transition_feedback=transition_feedback,
             )
         changed_result = json.loads(json.dumps(reviewer_result))
-        changed_result["raw"]["contract_ledger"]["hard_constraints"][0][
-            "claim"
-        ] = "a different hard constraint"
+        changed_result["raw"]["contract_ledger"]["hard_constraints"][0]["claim"] = (
+            "a different hard constraint"
+        )
         with self.assertRaisesRegex(ValueError, "immutable TeamRun payload"):
             require_preflight_binding(
                 proposal=proposal,
@@ -717,9 +748,9 @@ class MultiRolePromotionGateTest(unittest.TestCase):
                     reviewer_result=collision_result,
                 )
         invalid_mapping_result = json.loads(json.dumps(reviewer_result))
-        invalid_mapping_result["raw"]["acceptance_plan"][
-            "adapter_replay_mapping"
-        ][0]["requirement_id"] = "an-unknown-requirement"
+        invalid_mapping_result["raw"]["acceptance_plan"]["adapter_replay_mapping"][0][
+            "requirement_id"
+        ] = "an-unknown-requirement"
         with patch.dict("os.environ", self.env, clear=False):
             with self.assertRaisesRegex(ValueError, "differs from canonical"):
                 record_preflight_evidence(
@@ -752,7 +783,9 @@ class MultiRolePromotionGateTest(unittest.TestCase):
                 draft={
                     "primary": "parsing-transformation",
                     "secondary": [],
-                    "evidence": ["the public output composes named transformation stages"],
+                    "evidence": [
+                        "the public output composes named transformation stages"
+                    ],
                 },
                 catalog=catalog,
                 catalog_root=REPO / "examples",
@@ -795,9 +828,7 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         review_practices = {
             "version": 1,
             "role": "falsifier",
-            "stages": [
-                {"id": "bind_scope", "objective": "bind the reviewed inputs"}
-            ],
+            "stages": [{"id": "bind_scope", "objective": "bind the reviewed inputs"}],
             "practices": [
                 {
                     "id": "public_consumer_first",
@@ -843,9 +874,7 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             {"stage_id": "bind_scope", "status": "completed", "evidence": "bound"},
         )
         self.assertEqual(canonical["raw"]["practice_receipts"][0]["reason"], "")
-        self.assertIn(
-            "practice_receipts[0]:missing_reason->empty", receipt["repairs"]
-        )
+        self.assertIn("practice_receipts[0]:missing_reason->empty", receipt["repairs"])
         decision = self._decide(seal, proposal, view, receipt)
         self.assertEqual(decision["decision"], "promote")
 
@@ -896,7 +925,9 @@ class MultiRolePromotionGateTest(unittest.TestCase):
 
     def test_independent_complete_falsifier_authorizes_promotion(self) -> None:
         seal, proposal, view = self._receipts()
-        decision = self._decide(seal, proposal, view, self._falsifier(seal, proposal, view))
+        decision = self._decide(
+            seal, proposal, view, self._falsifier(seal, proposal, view)
+        )
         self.assertEqual(decision["decision"], "promote")
         self.assertFalse(decision["candidate_revision_required"])
         self.assertTrue(all(decision["checks"].values()))
@@ -960,7 +991,9 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             "recovering_develop_review_route",
         )
 
-    def test_deadline_degraded_quarantine_requires_a_real_reserve_shortfall(self) -> None:
+    def test_deadline_degraded_quarantine_requires_a_real_reserve_shortfall(
+        self,
+    ) -> None:
         self._state("quarantine", "quarantine-entry")
         candidate_identity = artifact_identity(self.app)
         seal = {
@@ -1091,18 +1124,12 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             "independent_analytic_derivation",
         )
         self.assertEqual(
-            assignment["acceptance_obligation_assessment_schema"][
-                "max_text_chars"
-            ],
+            assignment["acceptance_obligation_assessment_schema"]["max_text_chars"],
             600,
         )
         self.assertEqual(promoted["decision"], "promote")
-        self.assertTrue(
-            promoted["checks"]["acceptance_obligation_assessments_valid"]
-        )
-        self.assertTrue(
-            promoted["checks"]["all_acceptance_obligations_satisfied"]
-        )
+        self.assertTrue(promoted["checks"]["acceptance_obligation_assessments_valid"])
+        self.assertTrue(promoted["checks"]["all_acceptance_obligations_satisfied"])
 
         unresolved = json.loads(json.dumps(falsifier))
         unresolved_item = unresolved["raw"]["acceptance_obligation_assessments"][2]
@@ -1152,9 +1179,9 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         self.assertFalse(decision["candidate_revision_required"])
 
         overlong_evidence = json.loads(json.dumps(falsifier))
-        overlong_evidence["raw"]["acceptance_obligation_assessments"][0][
-            "evidence"
-        ] = "x" * 601
+        overlong_evidence["raw"]["acceptance_obligation_assessments"][0]["evidence"] = (
+            "x" * 601
+        )
         with patch.dict("os.environ", self.env, clear=False):
             decision = decide_promotion(
                 seal=seal,
@@ -1207,9 +1234,7 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         legacy_preflight = json.loads(json.dumps(preflight))
         legacy_preflight["acceptance_plan_schema_version"] = 1
         legacy_proposal = json.loads(json.dumps(proposal))
-        legacy_proposal["preflight_evidence_sha256"] = stable_sha256(
-            legacy_preflight
-        )
+        legacy_proposal["preflight_evidence_sha256"] = stable_sha256(legacy_preflight)
         with self.assertRaisesRegex(ValueError, "explicit bounded_acceptance"):
             require_preflight_binding(
                 proposal=legacy_proposal,
@@ -1257,20 +1282,14 @@ class MultiRolePromotionGateTest(unittest.TestCase):
                 preflight_evidence=preflight,
             )
         self.assertEqual(downgraded["decision"], "revise")
-        self.assertTrue(
-            downgraded["checks"]["acceptance_obligation_assessments_valid"]
-        )
-        self.assertFalse(
-            downgraded["checks"]["all_acceptance_obligations_satisfied"]
-        )
+        self.assertTrue(downgraded["checks"]["acceptance_obligation_assessments_valid"])
+        self.assertFalse(downgraded["checks"]["all_acceptance_obligations_satisfied"])
         normalized = downgraded["acceptance_obligation_assessments"][0]
         self.assertEqual(normalized["status"], "unresolved")
         self.assertEqual(normalized["evidence_provenance"], "insufficient")
 
         supported = json.loads(json.dumps(falsifier))
-        supported_assessment = supported["raw"][
-            "acceptance_obligation_assessments"
-        ][0]
+        supported_assessment = supported["raw"]["acceptance_obligation_assessments"][0]
         supported_assessment["generalization_assessment"].update(
             {
                 "evidence_population_roles": ["held_out"],
@@ -1314,9 +1333,7 @@ class MultiRolePromotionGateTest(unittest.TestCase):
                 preflight_evidence=preflight,
             )
         self.assertEqual(repaired["decision"], "revise")
-        self.assertTrue(
-            repaired["checks"]["acceptance_obligation_assessments_valid"]
-        )
+        self.assertTrue(repaired["checks"]["acceptance_obligation_assessments_valid"])
         missing_normalized = repaired["acceptance_obligation_assessments"][0]
         self.assertEqual(missing_normalized["status"], "unresolved")
         self.assertEqual(
@@ -1382,9 +1399,7 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             )
 
         contradictory = json.loads(json.dumps(preflight))
-        contradictory["acceptance_plan"]["requirements"][0][
-            "coverage_complete"
-        ] = True
+        contradictory["acceptance_plan"]["requirements"][0]["coverage_complete"] = True
         contradictory_proposal = json.loads(json.dumps(proposal))
         contradictory_proposal["preflight_evidence_sha256"] = stable_sha256(
             contradictory
@@ -1410,9 +1425,9 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         )
 
         generalization = json.loads(json.dumps(preflight))
-        generalization["acceptance_plan"]["requirements"][0][
-            "claim_scope"
-        ] = "generalization"
+        generalization["acceptance_plan"]["requirements"][0]["claim_scope"] = (
+            "generalization"
+        )
         generalization_proposal = json.loads(json.dumps(proposal))
         generalization_proposal["preflight_evidence_sha256"] = stable_sha256(
             generalization
@@ -1434,6 +1449,139 @@ class MultiRolePromotionGateTest(unittest.TestCase):
                 preflight_evidence=legacy,
                 require_claim_boundary_closure=True,
             )
+
+    def test_scope_exclusions_require_independent_authority_without_forcing_generalization(
+        self,
+    ) -> None:
+        seal, proposal, view = self._receipts()
+        requirement = {
+            "requirement_id": "published-snapshot",
+            "evidence_mode": "adapter_replay",
+            "claim_scope": "bounded_acceptance",
+            "coverage_complete": True,
+            "uncovered_regions": [],
+            "scope_exclusions": ["mutation after the published snapshot"],
+        }
+        preflight = {
+            "version": 1,
+            "kind": "plan_preflight_evidence",
+            "run_id": self.run_id,
+            "node": "solve",
+            "entry_id": "solve-entry",
+            "producer": {"agent_id": "preflight-1", "role": "preflight-reviewer"},
+            "promotion_authority": False,
+            "contract_seal_sha256": proposal["contract_seal_sha256"],
+            "acceptance_plan_schema_version": 4,
+            "acceptance_plan": {"requirements": [requirement]},
+        }
+        proposal["preflight_evidence_sha256"] = stable_sha256(preflight)
+        require_preflight_binding(
+            proposal=proposal,
+            preflight_evidence=preflight,
+            require_generalization_evidence_scope=True,
+            require_claim_boundary_closure=True,
+            require_scope_exclusion_schema=True,
+        )
+
+        schema3 = json.loads(json.dumps(preflight))
+        schema3["acceptance_plan_schema_version"] = 3
+        del schema3["acceptance_plan"]["requirements"][0]["scope_exclusions"]
+        schema3_proposal = json.loads(json.dumps(proposal))
+        schema3_proposal["preflight_evidence_sha256"] = stable_sha256(schema3)
+        with self.assertRaisesRegex(ValueError, "scope exclusions"):
+            require_preflight_binding(
+                proposal=schema3_proposal,
+                preflight_evidence=schema3,
+                require_scope_exclusion_schema=True,
+            )
+
+        falsifier = self._falsifier(seal, proposal, view)
+        assessment = {
+            "requirement_id": "published-snapshot",
+            "evidence_mode": "adapter_replay",
+            "status": "satisfied",
+            "evidence_provenance": "adapter_replay_receipt",
+            "evidence": "the adapter replayed the complete published snapshot",
+            "independence_basis": "adapter execution is independent of solver prose",
+            "unresolved_reason": "",
+            "generalization_assessment": None,
+        }
+        falsifier["raw"]["acceptance_obligation_assessments"] = [assessment]
+        with patch.dict("os.environ", self.env, clear=False):
+            missing_audit = decide_promotion(
+                seal=seal,
+                proposal=proposal,
+                context_view=view,
+                falsifier=falsifier,
+                artifact_root=self.app,
+                preflight_evidence=preflight,
+            )
+        self.assertEqual(missing_audit["decision"], "revise")
+        self.assertTrue(
+            missing_audit["checks"]["acceptance_obligation_assessments_valid"]
+        )
+        normalized = missing_audit["acceptance_obligation_assessments"][0]
+        self.assertEqual(normalized["status"], "unresolved")
+        self.assertEqual(
+            normalized["scope_exclusion_assessment"]["authority"],
+            "insufficient",
+        )
+
+        supported = json.loads(json.dumps(falsifier))
+        supported_item = supported["raw"]["acceptance_obligation_assessments"][0]
+        supported_item["scope_exclusion_assessment"] = {
+            "authority": "public_surface_definition",
+            "dispositions": [
+                {
+                    "region": "mutation after the published snapshot",
+                    "status": "out_of_scope",
+                    "evidence": "the public API defines one immutable snapshot read",
+                }
+            ],
+        }
+        with patch.dict("os.environ", self.env, clear=False):
+            promoted = decide_promotion(
+                seal=seal,
+                proposal=proposal,
+                context_view=view,
+                falsifier=supported,
+                artifact_root=self.app,
+                preflight_evidence=preflight,
+            )
+        self.assertEqual(promoted["decision"], "promote")
+
+        material = json.loads(json.dumps(supported))
+        material["raw"]["acceptance_obligation_assessments"][0][
+            "scope_exclusion_assessment"
+        ]["dispositions"][0]["status"] = "material"
+        with patch.dict("os.environ", self.env, clear=False):
+            blocked = decide_promotion(
+                seal=seal,
+                proposal=proposal,
+                context_view=view,
+                falsifier=material,
+                artifact_root=self.app,
+                preflight_evidence=preflight,
+            )
+        self.assertEqual(blocked["decision"], "revise")
+        self.assertTrue(blocked["checks"]["acceptance_obligation_assessments_valid"])
+
+        malformed = json.loads(json.dumps(supported))
+        malformed["raw"]["acceptance_obligation_assessments"][0][
+            "scope_exclusion_assessment"
+        ]["dispositions"] = []
+        with patch.dict("os.environ", self.env, clear=False):
+            invalid = decide_promotion(
+                seal=seal,
+                proposal=proposal,
+                context_view=view,
+                falsifier=malformed,
+                artifact_root=self.app,
+                preflight_evidence=preflight,
+            )
+        self.assertEqual(invalid["decision"], "revise")
+        self.assertIn("reviewer_receipt_expression_invalid", invalid["reason_codes"])
+        self.assertFalse(invalid["candidate_revision_required"])
 
     def test_same_identity_cannot_falsify_its_own_candidate(self) -> None:
         seal, proposal, view = self._receipts()
@@ -1530,9 +1678,7 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         self.assertEqual(decision["decision"], "revise")
         self.assertTrue(decision["checks"]["contract_concern_structured"])
         self.assertEqual(decision["blocking_contract_violations"], [violation])
-        self.assertIn(
-            "validated_blocking_contract_violation", decision["reason_codes"]
-        )
+        self.assertIn("validated_blocking_contract_violation", decision["reason_codes"])
         self.assertNotIn(
             "falsifier_rejected_without_hard_evidence", decision["reason_codes"]
         )
@@ -1608,7 +1754,9 @@ class MultiRolePromotionGateTest(unittest.TestCase):
 
         stale = {**draft, "candidate_artifact_identity": "tree-sha256:stale"}
         with patch.dict("os.environ", self.env, clear=False):
-            with self.assertRaisesRegex(ValueError, "current candidate artifact identity"):
+            with self.assertRaisesRegex(
+                ValueError, "current candidate artifact identity"
+            ):
                 record_acceptance_evidence(
                     draft=stale,
                     proposal=proposal,
@@ -1653,7 +1801,9 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         self.assertNotIn("no_hard_contract_gaps", decision["reason_codes"])
         self.assertEqual(decision["hard_contract_gaps"], [gap])
 
-    def test_sealed_unavailable_population_is_recorded_without_forcing_recovery(self) -> None:
+    def test_sealed_unavailable_population_is_recorded_without_forcing_recovery(
+        self,
+    ) -> None:
         seal, proposal, view = self._receipts()
         uncertainty = {
             "kind": "quantitative_acceptance",
@@ -1688,7 +1838,9 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         self.assertEqual(artifact_identity(self.app), before)
 
     def test_context_bundle_is_bounded_and_excludes_progress(self) -> None:
-        (self.app / "progress.md").write_text("private solver trajectory\n", encoding="utf-8")
+        (self.app / "progress.md").write_text(
+            "private solver trajectory\n", encoding="utf-8"
+        )
         (self.app / "weights.bin").write_bytes(b"\x00\xff")
         view = {
             "included": [{"path": str(self.app), "kind": "directory"}],
@@ -1699,11 +1851,15 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         self.assertIn("worker.py", labels)
         self.assertIn("weights.bin", labels)
         self.assertNotIn("progress.md", labels)
-        binary = next(entry for entry in bundle["entries"] if entry["path"] == "weights.bin")
+        binary = next(
+            entry for entry in bundle["entries"] if entry["path"] == "weights.bin"
+        )
         self.assertEqual(binary["omission"], "non_text")
         self.assertLessEqual(bundle["text_bytes"], 240_000)
 
-    def test_context_view_binds_present_optional_evidence_and_records_absence(self) -> None:
+    def test_context_view_binds_present_optional_evidence_and_records_absence(
+        self,
+    ) -> None:
         acceptance = self.root / "acceptance-evidence.json"
         acceptance.write_text('{"kind":"acceptance_evidence"}\n', encoding="utf-8")
         missing = self.root / "missing-evidence.json"
@@ -1728,7 +1884,9 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         self.assertEqual(roles[str(self.task.resolve())], "required")
         self.assertEqual(roles[str(acceptance.resolve())], "optional_evidence")
 
-    def test_context_bundle_prioritizes_first_party_evidence_over_vendor_tree(self) -> None:
+    def test_context_bundle_prioritizes_first_party_evidence_over_vendor_tree(
+        self,
+    ) -> None:
         vendor = self.app / "_vendor"
         vendor.mkdir()
         for index in range(5):
@@ -1759,12 +1917,8 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             content = "payload = '" + (str(index) * 38_000) + "'\n"
             (baseline / f"support_{index}.py").write_text(content, encoding="utf-8")
             (candidate / f"support_{index}.py").write_text(content, encoding="utf-8")
-        (baseline / "worker.py").write_text(
-            "VALUE = 'baseline'\n", encoding="utf-8"
-        )
-        (candidate / "worker.py").write_text(
-            "VALUE = 'candidate'\n", encoding="utf-8"
-        )
+        (baseline / "worker.py").write_text("VALUE = 'baseline'\n", encoding="utf-8")
+        (candidate / "worker.py").write_text("VALUE = 'candidate'\n", encoding="utf-8")
         evidence = self.root / "acceptance.json"
         evidence.write_text('{"status":"passed"}\n', encoding="utf-8")
         view = {
@@ -1788,9 +1942,7 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             "excluded_paths": [],
         }
         bundle = _context_bundle(view)
-        workers = [
-            entry for entry in bundle["entries"] if entry["path"] == "worker.py"
-        ]
+        workers = [entry for entry in bundle["entries"] if entry["path"] == "worker.py"]
         self.assertEqual(len(workers), 2)
         self.assertEqual(
             {entry["context_role"] for entry in workers},
@@ -1799,9 +1951,7 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         self.assertTrue(all(entry.get("content") for entry in workers))
         self.assertTrue(bundle["truncated"])
         self.assertTrue(bundle["core_coverage"]["complete"])
-        self.assertEqual(
-            bundle["core_coverage"]["changed_first_party_entry_count"], 2
-        )
+        self.assertEqual(bundle["core_coverage"]["changed_first_party_entry_count"], 2)
         self.assertLessEqual(bundle["text_bytes"], 240_000)
 
     def test_context_bundle_projects_large_contract_seal(self) -> None:
@@ -1821,20 +1971,18 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         )
         bundle = _context_bundle(
             {
-                "included": [
-                    {"path": str(seal), "kind": "file", "role": "required"}
-                ],
+                "included": [{"path": str(seal), "kind": "file", "role": "required"}],
                 "excluded_paths": [],
             }
         )
         entry = bundle["entries"][0]
-        self.assertEqual(
-            entry["content_projection"], "contract_seal_authority_summary"
-        )
+        self.assertEqual(entry["content_projection"], "contract_seal_authority_summary")
         self.assertNotIn("x" * 100, entry["content"])
         self.assertTrue(bundle["core_coverage"]["complete"])
 
-    def test_context_bundle_marks_omitted_changed_source_as_core_incomplete(self) -> None:
+    def test_context_bundle_marks_omitted_changed_source_as_core_incomplete(
+        self,
+    ) -> None:
         baseline = self.root / "large-baseline"
         candidate = self.root / "large-candidate"
         baseline.mkdir()
