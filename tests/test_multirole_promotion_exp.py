@@ -854,6 +854,7 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         seal, proposal, view = self._receipts()
         decision = self._decide(seal, proposal, view, self._falsifier(seal, proposal, view))
         self.assertEqual(decision["decision"], "promote")
+        self.assertFalse(decision["candidate_revision_required"])
         self.assertTrue(all(decision["checks"].values()))
         with patch.dict("os.environ", self.env, clear=False):
             applied = verify_application(
@@ -1079,6 +1080,7 @@ class MultiRolePromotionGateTest(unittest.TestCase):
                 preflight_evidence=preflight,
             )
         self.assertEqual(decision["decision"], "revise")
+        self.assertTrue(decision["candidate_revision_required"])
         self.assertIn(
             "acceptance_obligations_unresolved_or_falsified",
             decision["reason_codes"],

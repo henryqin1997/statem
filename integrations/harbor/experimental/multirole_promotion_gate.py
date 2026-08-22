@@ -3313,7 +3313,9 @@ def decide_promotion(
             if not acceptance_obligation_assessments_valid
             else "semantic_review_or_candidate"
         ),
-        "candidate_revision_required": acceptance_obligation_assessments_valid,
+        "candidate_revision_required": bool(
+            decision == "revise" and acceptance_obligation_assessments_valid
+        ),
         "blocking_regressions": blocking_regressions,
         "regressions": regressions,
         "blocking_contract_violations": blocking_contract_violations,
