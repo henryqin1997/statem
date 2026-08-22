@@ -1835,3 +1835,112 @@ Evidence-develop v4p55 role-boundary control:
   expression and never proves a candidate defect. The deterministic gate remains
   fail-closed and never truncates or rewrites semantic reviewer evidence.
 """
+
+
+class EvidenceDevelopV4p56ExperimentalStatemCodex(
+    EvidenceDevelopV4p55ExperimentalStatemCodex
+):
+    """Separate promotion, diagnostic replay, and benchmark submission."""
+
+    _LOCAL_SUBMISSION_ELIGIBILITY_GATE = (
+        Path(__file__).resolve().parent
+        / "experimental"
+        / "submission_eligibility_gate.py"
+    )
+    _REMOTE_SUBMISSION_RECEIPTS = PurePosixPath(
+        "/tmp/statem-verification-checks/submission"
+    )
+    _SUBMISSION_POLICIES = {"strict_review", "deadline_best_validated"}
+    _PROGRESS_RECEIPTS = (
+        *EvidenceDevelopV4p55ExperimentalStatemCodex._PROGRESS_RECEIPTS,
+        "submission/submission-eligibility.json",
+    )
+
+    def __init__(
+        self,
+        *args: Any,
+        runbook_path: str | None = None,
+        submission_policy: str = "deadline_best_validated",
+        **kwargs: Any,
+    ):
+        if submission_policy not in self._SUBMISSION_POLICIES:
+            raise ValueError(
+                f"unsupported submission policy: {submission_policy}"
+            )
+        repo_root = Path(__file__).resolve().parents[2]
+        runbook = (
+            repo_root
+            / "examples"
+            / "frontier-bench-agent-evidence-develop-v4p56-exp.yaml"
+        )
+        self._submission_policy = submission_policy
+        super().__init__(
+            *args,
+            runbook_path=runbook_path or str(runbook),
+            **kwargs,
+        )
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p56-exp"
+
+    def _verification_check_paths(self) -> list[Path]:
+        return [
+            *super()._verification_check_paths(),
+            self._LOCAL_SUBMISSION_ELIGIBILITY_GATE,
+        ]
+
+    def _statem_env(self, run_id: str) -> dict[str, str]:
+        env = super()._statem_env(run_id)
+        env["STATEM_SUBMISSION_POLICY"] = self._submission_policy
+        return env
+
+    def _augment_instruction(
+        self,
+        instruction: str,
+        run_id: str,
+        current_context: str,
+    ) -> str:
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
+
+Evidence-develop v4p56 submission-eligibility control:
+- Promotion authorization, diagnostic replay eligibility, and benchmark
+  submission eligibility are separate host decisions. The solver and reviewer
+  do not choose the final submission target.
+- A quarantined candidate with validated negative evidence is diagnostic-only;
+  the host restores the immutable baseline before handoff. A quarantined
+  candidate with only advisory uncertainty may remain the evaluation target
+  under the deadline-best-validated policy only after candidate-bound public
+  replay passes.
+- Baseline fallback preserves the rejected candidate, receipts, and causal
+  evidence. It is a submission transaction, not a claim that the baseline is
+  semantically correct and not permission to erase or rewrite review evidence.
+"""
+
+    async def _collect_statem_artifacts(
+        self,
+        environment: BaseEnvironment,
+        context: AgentContext,
+        run_id: str,
+    ) -> None:
+        agent_statem_dir = (
+            PurePosixPath(EnvironmentPaths.agent_dir.as_posix()) / "statem"
+        )
+        try:
+            await super()._collect_statem_artifacts(environment, context, run_id)
+        finally:
+            try:
+                await self.exec_as_agent(
+                    environment,
+                    command=(
+                        f"cp -R {shlex.quote(self._REMOTE_SUBMISSION_RECEIPTS.as_posix())} "
+                        f"{shlex.quote((agent_statem_dir / 'submission').as_posix())} || true"
+                    ),
+                    env=self._statem_env(run_id),
+                )
+            except Exception:
+                pass
