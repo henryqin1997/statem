@@ -190,7 +190,7 @@ CONTRACT_LEDGER_SCHEMAS = {
 CONTRACT_LEDGER_MAX_ITEMS = 12
 CONTRACT_LEDGER_TEXT_MAX_CHARS = 600
 ACCEPTANCE_PLAN_FIELDS = {"requirements"}
-ACCEPTANCE_REQUIREMENT_FIELDS = {
+LEGACY_ACCEPTANCE_REQUIREMENT_FIELDS = {
     "requirement_id",
     "claim",
     "public_surface",
@@ -202,12 +202,17 @@ ACCEPTANCE_REQUIREMENT_FIELDS = {
     "independence_basis",
     "rationale",
 }
+ACCEPTANCE_REQUIREMENT_FIELDS = {
+    *LEGACY_ACCEPTANCE_REQUIREMENT_FIELDS,
+    "claim_scope",
+}
+ACCEPTANCE_CLAIM_SCOPES = {"bounded_acceptance", "generalization"}
 ACCEPTANCE_EVIDENCE_MODES = {
     "adapter_replay",
     "paired_review",
     "analytic_review",
 }
-ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS = {
+LEGACY_ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS = {
     "requirement_id",
     "evidence_mode",
     "status",
@@ -215,6 +220,10 @@ ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS = {
     "evidence",
     "independence_basis",
     "unresolved_reason",
+}
+ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS = {
+    *LEGACY_ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS,
+    "generalization_assessment",
 }
 ACCEPTANCE_OBLIGATION_STATUSES = {"satisfied", "unresolved", "falsified"}
 ACCEPTANCE_OBLIGATION_PROVENANCE = {
@@ -227,6 +236,44 @@ ACCEPTANCE_MODE_PROVENANCE = {
     "adapter_replay": "adapter_replay_receipt",
     "paired_review": "paired_artifact_evidence",
     "analytic_review": "independent_analytic_derivation",
+}
+GENERALIZATION_ASSESSMENT_FIELDS = {
+    "evidence_population_roles",
+    "generalization_authority",
+    "uncovered_region_dispositions",
+}
+GENERALIZATION_EVIDENCE_POPULATION_ROLES = {
+    "unclassified",
+    "training_fit",
+    "public_acceptance",
+    "held_out",
+    "generated",
+    "normative",
+    "paired_artifact",
+    "analytic",
+}
+GENERALIZATION_AUTHORITIES = {
+    "held_out_population",
+    "normative_invariant",
+    "discriminating_analytic_proof",
+    "counterexample",
+    "insufficient",
+}
+GENERALIZATION_POSITIVE_AUTHORITIES = {
+    "held_out_population",
+    "normative_invariant",
+    "discriminating_analytic_proof",
+}
+GENERALIZATION_AUTHORITY_REQUIRED_ROLE = {
+    "held_out_population": "held_out",
+    "normative_invariant": "normative",
+    "discriminating_analytic_proof": "analytic",
+}
+UNCOVERED_REGION_DISPOSITION_FIELDS = {"region", "status", "evidence"}
+UNCOVERED_REGION_DISPOSITION_STATUSES = {
+    "resolved",
+    "not_material",
+    "unresolved",
 }
 ACCEPTANCE_REQUIREMENT_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,47}$")
 ACCEPTANCE_PLAN_MAX_REQUIREMENTS = 8
@@ -394,6 +441,9 @@ def main(argv: list[str] | None = None) -> int:
                 transition_feedback=_read_json(DEFAULT_TRANSITION_FAILURE_FEEDBACK)
                 if DEFAULT_TRANSITION_FAILURE_FEEDBACK.is_file()
                 else None,
+                require_generalization_evidence_scope=(
+                    args.require_generalization_evidence_scope
+                ),
             )
         elif args.action == "review-pre-submit":
             falsifier = (
@@ -626,6 +676,9 @@ def _parser() -> argparse.ArgumentParser:
     require_preflight.add_argument("--proposal", type=Path, default=DEFAULT_PROPOSAL)
     require_preflight.add_argument(
         "--preflight-evidence", type=Path, default=DEFAULT_PREFLIGHT_EVIDENCE
+    )
+    require_preflight.add_argument(
+        "--require-generalization-evidence-scope", action="store_true"
     )
     require_preflight.add_argument("--solver-plan", type=Path)
     require_preflight.add_argument("--preflight-resolution", type=Path)
@@ -1445,6 +1498,12 @@ def preflight_task(
                     "coverage. Name the independently justified finite domain and require "
                     "exhaustive replay when feasible, including fallback, missing, unknown, "
                     "and case variants where the public surface admits them. "
+                    "Classify claim_scope as bounded_acceptance only when the claim is "
+                    "limited to that enumerated public population or artifact surface. "
+                    "Use generalization when the claim extends to unseen inputs, a wider "
+                    "population, or must distinguish plausible semantic forks. Do not "
+                    "shrink a generalization claim to the available samples merely to make "
+                    "it mechanically satisfiable. "
                     "Use requirement_id "
                     "values as unique lowercase slugs. The host repairs ASCII case "
                     "mechanically and rejects collisions after canonicalization. Use "
@@ -1495,6 +1554,11 @@ def _canonical_preflight_result_payload(raw: dict[str, Any]) -> dict[str, Any]:
     acceptance_plan, schema_repairs = _candidate_blind_acceptance_plan_with_repairs(
         raw.get("acceptance_plan")
     )
+    acceptance_plan_schema_version = (
+        1
+        if any("missing_claim_scope" in repair for repair in schema_repairs)
+        else 2
+    )
     return {
         "advisory_verdict": verdict,
         **{field: raw.get(field) for field in binding_fields},
@@ -1502,6 +1566,7 @@ def _canonical_preflight_result_payload(raw: dict[str, Any]) -> dict[str, Any]:
         "contract_ledger": _contract_ledger(raw.get("contract_ledger")),
         "review_execution_class": "contract_language",
         "acceptance_plan": acceptance_plan,
+        "acceptance_plan_schema_version": acceptance_plan_schema_version,
         "schema_repairs": schema_repairs,
     }
 
@@ -1769,6 +1834,7 @@ def require_preflight_binding(
     transition_feedback: dict[str, Any] | None = None,
     solver_plan: dict[str, Any] | None = None,
     preflight_resolution: dict[str, Any] | None = None,
+    require_generalization_evidence_scope: bool = False,
 ) -> dict[str, Any]:
     _require_receipt(proposal, "candidate_proposal")
     _require_receipt(preflight_evidence, "plan_preflight_evidence")
@@ -1784,6 +1850,14 @@ def require_preflight_binding(
         raise ValueError("candidate proposal and preflight evidence seals differ")
     if preflight_evidence.get("promotion_authority") is not False:
         raise ValueError("preflight evidence cannot carry promotion authority")
+    if (
+        require_generalization_evidence_scope
+        and preflight_evidence.get("acceptance_plan_schema_version") != 2
+    ):
+        raise ValueError(
+            "preflight evidence requires explicit bounded_acceptance or "
+            "generalization claim scope"
+        )
     if solver_plan is not None or preflight_resolution is not None:
         if solver_plan is None or preflight_resolution is None:
             raise ValueError(
@@ -2060,8 +2134,13 @@ def _candidate_blind_acceptance_plan_with_repairs(
         )
     normalized: list[dict[str, Any]] = []
     seen: set[str] = set()
+    schema_repairs: list[str] = []
     for index, item in enumerate(requirements):
-        if not isinstance(item, dict) or set(item) != ACCEPTANCE_REQUIREMENT_FIELDS:
+        item_fields = set(item) if isinstance(item, dict) else set()
+        if not isinstance(item, dict) or item_fields not in (
+            ACCEPTANCE_REQUIREMENT_FIELDS,
+            LEGACY_ACCEPTANCE_REQUIREMENT_FIELDS,
+        ):
             raise ValueError(
                 f"acceptance requirement {index} requires exactly "
                 f"{sorted(ACCEPTANCE_REQUIREMENT_FIELDS)}"
@@ -2083,6 +2162,16 @@ def _candidate_blind_acceptance_plan_with_repairs(
             raise ValueError(
                 f"acceptance requirement {requirement_id} has an invalid evidence mode"
             )
+        claim_scope = _text(item.get("claim_scope"))
+        if not claim_scope:
+            claim_scope = "bounded_acceptance"
+            schema_repairs.append(
+                f"requirements[{index}]:missing_claim_scope->bounded_acceptance"
+            )
+        if claim_scope not in ACCEPTANCE_CLAIM_SCOPES:
+            raise ValueError(
+                f"acceptance requirement {requirement_id} has an invalid claim scope"
+            )
         support_dimensions = _bounded_acceptance_plan_list(
             item.get("support_dimensions"),
             field=f"requirements[{index}].support_dimensions",
@@ -2103,6 +2192,7 @@ def _candidate_blind_acceptance_plan_with_repairs(
                     item.get("public_surface"), "public_surface"
                 ),
                 "evidence_mode": evidence_mode,
+                "claim_scope": claim_scope,
                 "support_dimensions": support_dimensions,
                 "required_strata": required_strata,
                 "selection_basis": _bounded_contract_text(
@@ -2121,7 +2211,6 @@ def _candidate_blind_acceptance_plan_with_repairs(
         raise ValueError(
             "preflight acceptance_plan requires at least one adapter_replay requirement"
         )
-    schema_repairs: list[str] = []
     if legacy_mapping_present:
         _validate_legacy_adapter_replay_mapping(
             value.get("adapter_replay_mapping"),
@@ -2185,8 +2274,20 @@ def _bounded_acceptance_plan_list(value: Any, *, field: str) -> list[str]:
 
 def _candidate_blind_acceptance_plan_task_schema() -> dict[str, Any]:
     return {
+        "schema_version": 2,
         "required_top_level_fields": sorted(ACCEPTANCE_PLAN_FIELDS),
         "requirement_fields": sorted(ACCEPTANCE_REQUIREMENT_FIELDS),
+        "claim_scopes": sorted(ACCEPTANCE_CLAIM_SCOPES),
+        "claim_scope_semantics": {
+            "bounded_acceptance": (
+                "the claim is limited to the enumerated public population or "
+                "artifact surface"
+            ),
+            "generalization": (
+                "the claim extends beyond observed examples, depends on unseen "
+                "inputs, or must distinguish plausible semantic forks"
+            ),
+        },
         "evidence_modes": sorted(ACCEPTANCE_EVIDENCE_MODES),
         "max_requirements": ACCEPTANCE_PLAN_MAX_REQUIREMENTS,
         "max_list_items": ACCEPTANCE_PLAN_MAX_LIST_ITEMS,
@@ -2200,9 +2301,20 @@ def _candidate_blind_acceptance_plan_task_schema() -> dict[str, Any]:
     }
 
 
-def _acceptance_obligation_assessment_task_schema() -> dict[str, Any]:
+def _acceptance_obligation_assessment_task_schema(
+    preflight_evidence: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    scope_schema_required = bool(
+        preflight_evidence is not None
+        and preflight_evidence.get("acceptance_plan_schema_version") == 2
+    )
     return {
-        "assessment_fields": sorted(ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS),
+        "schema_version": 2 if scope_schema_required else 1,
+        "assessment_fields": sorted(
+            ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS
+            if scope_schema_required
+            else LEGACY_ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS
+        ),
         "statuses": sorted(ACCEPTANCE_OBLIGATION_STATUSES),
         "evidence_provenance": sorted(ACCEPTANCE_OBLIGATION_PROVENANCE),
         "required_provenance_by_mode": dict(ACCEPTANCE_MODE_PROVENANCE),
@@ -2214,13 +2326,125 @@ def _acceptance_obligation_assessment_task_schema() -> dict[str, Any]:
             "unresolved_reason",
         ],
         "max_text_chars": ACCEPTANCE_OBLIGATION_TEXT_MAX_CHARS,
+        "generalization_assessment": {
+            "required_when_claim_scope": "generalization",
+            "null_when_claim_scope": "bounded_acceptance",
+            "fields": sorted(GENERALIZATION_ASSESSMENT_FIELDS),
+            "evidence_population_roles": sorted(
+                GENERALIZATION_EVIDENCE_POPULATION_ROLES
+            ),
+            "authorities": sorted(GENERALIZATION_AUTHORITIES),
+            "positive_authorities": sorted(GENERALIZATION_POSITIVE_AUTHORITIES),
+            "uncovered_region_disposition_fields": sorted(
+                UNCOVERED_REGION_DISPOSITION_FIELDS
+            ),
+            "uncovered_region_disposition_statuses": sorted(
+                UNCOVERED_REGION_DISPOSITION_STATUSES
+            ),
+            "every_predeclared_uncovered_region_required": True,
+            "training_or_public_fit_alone_is_sufficient": False,
+            "generated_population_alone_is_sufficient": False,
+        },
     }
+
+
+def _missing_generalization_assessment(
+    uncovered_regions: list[str],
+) -> dict[str, Any]:
+    return {
+        "evidence_population_roles": ["unclassified"],
+        "generalization_authority": "insufficient",
+        "uncovered_region_dispositions": [
+            {
+                "region": region,
+                "status": "unresolved",
+                "evidence": "reviewer did not disposition this predeclared region",
+            }
+            for region in uncovered_regions
+        ],
+    }
+
+
+def _generalization_assessment_state(
+    value: Any,
+    *,
+    uncovered_regions: list[str],
+    obligation_status: str,
+) -> tuple[bool, bool, dict[str, Any]]:
+    if value is None:
+        return True, False, _missing_generalization_assessment(uncovered_regions)
+    if not isinstance(value, dict) or set(value) != GENERALIZATION_ASSESSMENT_FIELDS:
+        return False, False, {}
+    raw_roles = value.get("evidence_population_roles")
+    roles = [_text(role) for role in raw_roles] if isinstance(raw_roles, list) else []
+    if (
+        not roles
+        or len(roles) > len(GENERALIZATION_EVIDENCE_POPULATION_ROLES)
+        or len(set(roles)) != len(roles)
+        or any(role not in GENERALIZATION_EVIDENCE_POPULATION_ROLES for role in roles)
+    ):
+        return False, False, {}
+    authority = _text(value.get("generalization_authority"))
+    if authority not in GENERALIZATION_AUTHORITIES:
+        return False, False, {}
+    dispositions = value.get("uncovered_region_dispositions")
+    if not isinstance(dispositions, list) or len(dispositions) != len(
+        uncovered_regions
+    ):
+        return False, False, {}
+    expected_regions = set(uncovered_regions)
+    seen_regions: set[str] = set()
+    normalized_dispositions: list[dict[str, str]] = []
+    for item in dispositions:
+        if not isinstance(item, dict) or set(item) != UNCOVERED_REGION_DISPOSITION_FIELDS:
+            return False, False, {}
+        region = _text(item.get("region"))
+        status = _text(item.get("status"))
+        evidence = _text(item.get("evidence"))
+        if (
+            region not in expected_regions
+            or region in seen_regions
+            or status not in UNCOVERED_REGION_DISPOSITION_STATUSES
+            or not evidence
+            or len(evidence) > ACCEPTANCE_OBLIGATION_TEXT_MAX_CHARS
+        ):
+            return False, False, {}
+        seen_regions.add(region)
+        normalized_dispositions.append(
+            {"region": region, "status": status, "evidence": evidence}
+        )
+    if seen_regions != expected_regions:
+        return False, False, {}
+    normalized_dispositions.sort(key=lambda item: item["region"])
+
+    positive_authority = authority in GENERALIZATION_POSITIVE_AUTHORITIES
+    required_role = GENERALIZATION_AUTHORITY_REQUIRED_ROLE.get(authority)
+    positive_supported = bool(
+        positive_authority
+        and required_role in roles
+        and all(item["status"] != "unresolved" for item in normalized_dispositions)
+    )
+    if obligation_status == "falsified":
+        scope_satisfied = authority == "counterexample"
+    elif obligation_status == "satisfied":
+        scope_satisfied = positive_supported
+    else:
+        scope_satisfied = False
+    return (
+        True,
+        scope_satisfied,
+        {
+            "evidence_population_roles": sorted(roles),
+            "generalization_authority": authority,
+            "uncovered_region_dispositions": normalized_dispositions,
+        },
+    )
 
 
 def _acceptance_obligation_assessment_state(
     value: Any,
     preflight_evidence: dict[str, Any] | None,
-) -> tuple[bool, bool, list[dict[str, str]]]:
+) -> tuple[bool, bool, list[dict[str, Any]]]:
     if preflight_evidence is None:
         return True, True, []
     _require_receipt(preflight_evidence, "plan_preflight_evidence")
@@ -2233,27 +2457,46 @@ def _acceptance_obligation_assessment_state(
     if not isinstance(value, list) or len(value) != len(requirements):
         return False, False, []
 
-    expected: dict[str, str] = {}
+    scope_schema_required = preflight_evidence.get(
+        "acceptance_plan_schema_version"
+    ) == 2
+    expected: dict[str, dict[str, Any]] = {}
     for requirement in requirements:
         if not isinstance(requirement, dict):
             return False, False, []
         requirement_id = _text(requirement.get("requirement_id"))
         evidence_mode = _text(requirement.get("evidence_mode"))
+        claim_scope = _text(requirement.get("claim_scope")) or "bounded_acceptance"
+        uncovered_regions = requirement.get("uncovered_regions")
         if (
             not requirement_id
             or evidence_mode not in ACCEPTANCE_MODE_PROVENANCE
+            or claim_scope not in ACCEPTANCE_CLAIM_SCOPES
+            or (
+                scope_schema_required
+                and not isinstance(uncovered_regions, list)
+            )
             or requirement_id in expected
         ):
             return False, False, []
-        expected[requirement_id] = evidence_mode
+        expected[requirement_id] = {
+            "evidence_mode": evidence_mode,
+            "claim_scope": claim_scope,
+            "uncovered_regions": (
+                [_text(item) for item in uncovered_regions]
+                if isinstance(uncovered_regions, list)
+                else []
+            ),
+        }
 
-    normalized: list[dict[str, str]] = []
+    normalized: list[dict[str, Any]] = []
     seen: set[str] = set()
     all_satisfied = True
     for item in value:
-        if (
-            not isinstance(item, dict)
-            or set(item) != ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS
+        item_fields = set(item) if isinstance(item, dict) else set()
+        if not isinstance(item, dict) or item_fields not in (
+            ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS,
+            LEGACY_ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS,
         ):
             return False, False, []
         requirement_id = _text(item.get("requirement_id"))
@@ -2266,7 +2509,7 @@ def _acceptance_obligation_assessment_state(
         if (
             requirement_id not in expected
             or requirement_id in seen
-            or evidence_mode != expected[requirement_id]
+            or evidence_mode != expected[requirement_id]["evidence_mode"]
             or status not in ACCEPTANCE_OBLIGATION_STATUSES
             or provenance not in ACCEPTANCE_OBLIGATION_PROVENANCE
             or not evidence
@@ -2290,17 +2533,51 @@ def _acceptance_obligation_assessment_state(
                 return False, False, []
             if status == "falsified":
                 all_satisfied = False
-        normalized.append(
-            {
-                "requirement_id": requirement_id,
-                "evidence_mode": evidence_mode,
-                "status": status,
-                "evidence_provenance": provenance,
-                "evidence": evidence,
-                "independence_basis": independence_basis,
-                "unresolved_reason": unresolved_reason,
-            }
+        claim_scope = expected[requirement_id]["claim_scope"]
+        use_scope_schema = bool(
+            scope_schema_required
+            or claim_scope == "generalization"
+            or item_fields == ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS
         )
+        generalization_assessment: dict[str, Any] | None = None
+        if claim_scope == "generalization":
+            scope_valid, scope_satisfied, generalization_assessment = (
+                _generalization_assessment_state(
+                    item.get("generalization_assessment"),
+                    uncovered_regions=expected[requirement_id]["uncovered_regions"],
+                    obligation_status=status,
+                )
+            )
+            if not scope_valid:
+                return False, False, []
+            if status == "satisfied" and not scope_satisfied:
+                status = "unresolved"
+                provenance = "insufficient"
+                independence_basis = ""
+                unresolved_reason = (
+                    "training, public-fit, generated, or undispositioned evidence "
+                    "does not close this generalization claim"
+                )
+                all_satisfied = False
+            elif status != "satisfied":
+                all_satisfied = False
+        elif item_fields == ACCEPTANCE_OBLIGATION_ASSESSMENT_FIELDS and item.get(
+            "generalization_assessment"
+        ) is not None:
+            return False, False, []
+
+        record: dict[str, Any] = {
+            "requirement_id": requirement_id,
+            "evidence_mode": evidence_mode,
+            "status": status,
+            "evidence_provenance": provenance,
+            "evidence": evidence,
+            "independence_basis": independence_basis,
+            "unresolved_reason": unresolved_reason,
+        }
+        if use_scope_schema:
+            record["generalization_assessment"] = generalization_assessment
+        normalized.append(record)
     if seen != set(expected):
         return False, False, []
     normalized.sort(key=lambda item: item["requirement_id"])
@@ -2608,7 +2885,9 @@ def falsifier_task(
                 "review_execution_class": "code_semantic_artifact",
                 "acceptance_plan": acceptance_plan,
                 "acceptance_obligation_assessment_schema": (
-                    _acceptance_obligation_assessment_task_schema()
+                    _acceptance_obligation_assessment_task_schema(
+                        preflight_evidence
+                    )
                     if acceptance_plan is not None
                     else None
                 ),
@@ -2694,7 +2973,8 @@ def falsifier_task(
                     "acceptance_obligation_assessments item for every immutable "
                     "requirement_id. Each item has exactly requirement_id, "
                     "evidence_mode, status, evidence_provenance, evidence, "
-                    "independence_basis, and unresolved_reason. Copy requirement_id "
+                    "independence_basis, unresolved_reason, and "
+                    "generalization_assessment. Copy requirement_id "
                     "and evidence_mode exactly. status is satisfied, unresolved, or "
                     "falsified. A satisfied or falsified adapter_replay requirement "
                     "requires adapter_replay_receipt provenance; paired_review "
@@ -2707,7 +2987,20 @@ def falsifier_task(
                     "absent or the public population does not actually distinguish the "
                     "plausible semantic alternatives. Every unresolved or falsified "
                     "material obligation blocks promotion and routes to revision or "
-                    "deadline-aware quarantine. "
+                    "deadline-aware quarantine. Use the bound requirement's claim_scope "
+                    "to determine whether the nested assessment is required. "
+                    "For bounded_acceptance, generalization_assessment is null. For "
+                    "generalization, it has exactly evidence_population_roles, "
+                    "generalization_authority, and uncovered_region_dispositions. "
+                    "Disposition every predeclared uncovered region exactly once as "
+                    "resolved, not_material, or unresolved with concise evidence. "
+                    "Training fit, public-fit replay, or a bounded generated population "
+                    "cannot alone satisfy a generalization claim. Satisfied requires "
+                    "held_out_population with held_out evidence, normative_invariant "
+                    "with normative evidence, or discriminating_analytic_proof with "
+                    "analytic evidence, and no unresolved region. Observationally "
+                    "equivalent semantic forks remain unresolved; successful exits and "
+                    "finite favorable samples do not turn them into analytic proof. "
                     "When context_bundle contains a candidate_acceptance_replay, independently "
                     "audit its adapter producer, snapshot-copy scope, proposal, snapshot, "
                     "acceptance, and plan bindings, declared argv checks, minimal environment, "

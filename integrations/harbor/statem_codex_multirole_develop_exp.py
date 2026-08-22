@@ -1954,3 +1954,52 @@ class EvidenceDevelopV4p57ExperimentalStatemCodex(
     @staticmethod
     def name() -> str:
         return "ziheng-yaxin-statem-codex-evidence-develop-v4p57-exp"
+
+
+class EvidenceDevelopV4p59ExperimentalStatemCodex(
+    EvidenceDevelopV4p57ExperimentalStatemCodex
+):
+    """Separate bounded acceptance from generalization evidence authority."""
+
+    def __init__(
+        self,
+        *args: Any,
+        runbook_path: str | None = None,
+        **kwargs: Any,
+    ):
+        repo_root = Path(__file__).resolve().parents[2]
+        runbook = (
+            repo_root
+            / "examples"
+            / "frontier-bench-agent-evidence-develop-v4p59-exp.yaml"
+        )
+        super().__init__(
+            *args,
+            runbook_path=runbook_path or str(runbook),
+            **kwargs,
+        )
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p59-exp"
+
+    def _augment_instruction(
+        self,
+        instruction: str,
+        run_id: str,
+        current_context: str,
+    ) -> str:
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
+
+Evidence-develop v4p59 evidence-scope control:
+- Candidate-blind acceptance obligations distinguish bounded public acceptance
+  from claims about unseen populations or unresolved semantic forks.
+- Training/public fit and bounded generated examples cannot alone authorize a
+  generalization claim. The reviewer must bind held-out, normative, or
+  discriminating analytic authority and disposition every predeclared
+  uncovered region; otherwise the host safely routes to revision or quarantine.
+"""

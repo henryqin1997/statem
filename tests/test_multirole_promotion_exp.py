@@ -419,13 +419,33 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         self.assertEqual(evidence["review_execution_class"], "contract_language")
         self.assertEqual(
             evidence["schema_repairs"],
-            ["discarded_non_authoritative_adapter_replay_mapping"],
+            [
+                "requirements[0]:missing_claim_scope->bounded_acceptance",
+                "requirements[1]:missing_claim_scope->bounded_acceptance",
+                "discarded_non_authoritative_adapter_replay_mapping",
+            ],
         )
+        self.assertEqual(evidence["acceptance_plan_schema_version"], 1)
         self.assertEqual(set(evidence["acceptance_plan"]), {"requirements"})
         self.assertEqual(
             evidence["acceptance_plan"]["requirements"][0]["uncovered_regions"],
             ["none"],
         )
+        v2_reviewer_result = json.loads(json.dumps(reviewer_result))
+        v2_plan = v2_reviewer_result["raw"]["acceptance_plan"]
+        del v2_plan["adapter_replay_mapping"]
+        for requirement in v2_plan["requirements"]:
+            requirement["claim_scope"] = "bounded_acceptance"
+        with patch.dict("os.environ", self.env, clear=False):
+            v2_evidence = record_preflight_evidence(
+                plan=plan,
+                seal=seal,
+                context_view=view,
+                review_profile=profile,
+                reviewer_result=v2_reviewer_result,
+            )
+        self.assertEqual(v2_evidence["acceptance_plan_schema_version"], 2)
+        self.assertEqual(v2_evidence["schema_repairs"], [])
         draft = {
             "target_gap": "transform returns the unmodified value",
             "hypothesis": "the implementation omits the required increment",
@@ -1125,6 +1145,184 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             "reviewer_receipt_expression_invalid",
             decision["reason_codes"],
         )
+
+    def test_generalization_scope_requires_authority_and_region_dispositions(
+        self,
+    ) -> None:
+        seal, proposal, view = self._receipts()
+        preflight = {
+            "version": 1,
+            "kind": "plan_preflight_evidence",
+            "run_id": self.run_id,
+            "node": "solve",
+            "entry_id": "solve-entry",
+            "producer": {"agent_id": "preflight-1", "role": "preflight-reviewer"},
+            "promotion_authority": False,
+            "contract_seal_sha256": proposal["contract_seal_sha256"],
+            "acceptance_plan_schema_version": 2,
+            "acceptance_plan": {
+                "requirements": [
+                    {
+                        "requirement_id": "unseen-semantics",
+                        "evidence_mode": "analytic_review",
+                        "claim_scope": "generalization",
+                        "uncovered_regions": [
+                            "unseen forms",
+                            "observationally equivalent ordering forks",
+                        ],
+                    }
+                ]
+            },
+        }
+        proposal["preflight_evidence_sha256"] = stable_sha256(preflight)
+        require_preflight_binding(
+            proposal=proposal,
+            preflight_evidence=preflight,
+            require_generalization_evidence_scope=True,
+        )
+        legacy_preflight = json.loads(json.dumps(preflight))
+        legacy_preflight["acceptance_plan_schema_version"] = 1
+        legacy_proposal = json.loads(json.dumps(proposal))
+        legacy_proposal["preflight_evidence_sha256"] = stable_sha256(
+            legacy_preflight
+        )
+        with self.assertRaisesRegex(ValueError, "explicit bounded_acceptance"):
+            require_preflight_binding(
+                proposal=legacy_proposal,
+                preflight_evidence=legacy_preflight,
+                require_generalization_evidence_scope=True,
+            )
+        falsifier = self._falsifier(seal, proposal, view)
+        assessment = {
+            "requirement_id": "unseen-semantics",
+            "evidence_mode": "analytic_review",
+            "status": "satisfied",
+            "evidence_provenance": "independent_analytic_derivation",
+            "evidence": "public examples and bounded generated forms agree",
+            "independence_basis": "reviewer inspected the bounded public population",
+            "unresolved_reason": "",
+            "generalization_assessment": {
+                "evidence_population_roles": [
+                    "public_acceptance",
+                    "generated",
+                ],
+                "generalization_authority": "insufficient",
+                "uncovered_region_dispositions": [
+                    {
+                        "region": "unseen forms",
+                        "status": "unresolved",
+                        "evidence": "no held-out labeled population is available",
+                    },
+                    {
+                        "region": "observationally equivalent ordering forks",
+                        "status": "unresolved",
+                        "evidence": "all public forms give the same observation",
+                    },
+                ],
+            },
+        }
+        falsifier["raw"]["acceptance_obligation_assessments"] = [assessment]
+
+        with patch.dict("os.environ", self.env, clear=False):
+            downgraded = decide_promotion(
+                seal=seal,
+                proposal=proposal,
+                context_view=view,
+                falsifier=falsifier,
+                artifact_root=self.app,
+                preflight_evidence=preflight,
+            )
+        self.assertEqual(downgraded["decision"], "revise")
+        self.assertTrue(
+            downgraded["checks"]["acceptance_obligation_assessments_valid"]
+        )
+        self.assertFalse(
+            downgraded["checks"]["all_acceptance_obligations_satisfied"]
+        )
+        normalized = downgraded["acceptance_obligation_assessments"][0]
+        self.assertEqual(normalized["status"], "unresolved")
+        self.assertEqual(normalized["evidence_provenance"], "insufficient")
+
+        supported = json.loads(json.dumps(falsifier))
+        supported_assessment = supported["raw"][
+            "acceptance_obligation_assessments"
+        ][0]
+        supported_assessment["generalization_assessment"].update(
+            {
+                "evidence_population_roles": ["held_out"],
+                "generalization_authority": "held_out_population",
+                "uncovered_region_dispositions": [
+                    {
+                        "region": "unseen forms",
+                        "status": "resolved",
+                        "evidence": "a preselected held-out population covers them",
+                    },
+                    {
+                        "region": "observationally equivalent ordering forks",
+                        "status": "not_material",
+                        "evidence": "the normative contract makes ordering irrelevant",
+                    },
+                ],
+            }
+        )
+        with patch.dict("os.environ", self.env, clear=False):
+            promoted = decide_promotion(
+                seal=seal,
+                proposal=proposal,
+                context_view=view,
+                falsifier=supported,
+                artifact_root=self.app,
+                preflight_evidence=preflight,
+            )
+        self.assertEqual(promoted["decision"], "promote")
+
+        missing_scope = json.loads(json.dumps(falsifier))
+        del missing_scope["raw"]["acceptance_obligation_assessments"][0][
+            "generalization_assessment"
+        ]
+        with patch.dict("os.environ", self.env, clear=False):
+            repaired = decide_promotion(
+                seal=seal,
+                proposal=proposal,
+                context_view=view,
+                falsifier=missing_scope,
+                artifact_root=self.app,
+                preflight_evidence=preflight,
+            )
+        self.assertEqual(repaired["decision"], "revise")
+        self.assertTrue(
+            repaired["checks"]["acceptance_obligation_assessments_valid"]
+        )
+        missing_normalized = repaired["acceptance_obligation_assessments"][0]
+        self.assertEqual(missing_normalized["status"], "unresolved")
+        self.assertEqual(
+            len(
+                missing_normalized["generalization_assessment"][
+                    "uncovered_region_dispositions"
+                ]
+            ),
+            2,
+        )
+
+        incomplete_regions = json.loads(json.dumps(supported))
+        incomplete_regions["raw"]["acceptance_obligation_assessments"][0][
+            "generalization_assessment"
+        ]["uncovered_region_dispositions"].pop()
+        with patch.dict("os.environ", self.env, clear=False):
+            invalid = decide_promotion(
+                seal=seal,
+                proposal=proposal,
+                context_view=view,
+                falsifier=incomplete_regions,
+                artifact_root=self.app,
+                preflight_evidence=preflight,
+            )
+        self.assertEqual(invalid["decision"], "revise")
+        self.assertIn(
+            "reviewer_receipt_expression_invalid",
+            invalid["reason_codes"],
+        )
+        self.assertFalse(invalid["candidate_revision_required"])
 
     def test_same_identity_cannot_falsify_its_own_candidate(self) -> None:
         seal, proposal, view = self._receipts()

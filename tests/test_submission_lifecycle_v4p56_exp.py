@@ -21,15 +21,51 @@ from integrations.harbor.experimental.submission_eligibility_gate import (
 from integrations.harbor.statem_codex_multirole_develop_exp import (
     EvidenceDevelopV4p56ExperimentalStatemCodex,
     EvidenceDevelopV4p57ExperimentalStatemCodex,
+    EvidenceDevelopV4p59ExperimentalStatemCodex,
 )
 from statem.core import validate_spec
 
 
 REPO = Path(__file__).resolve().parents[1]
 RUNBOOK = REPO / "examples/frontier-bench-agent-evidence-develop-v4p56-exp.yaml"
+RUNBOOK_V59 = REPO / "examples/frontier-bench-agent-evidence-develop-v4p59-exp.yaml"
 
 
 class SubmissionLifecycleV4p56Test(unittest.TestCase):
+    def test_v4p59_runbook_requires_generalization_evidence_scope(self) -> None:
+        self.assertTrue(validate_spec(str(RUNBOOK_V59), strict=True)["ok"])
+        spec = yaml.safe_load(RUNBOOK_V59.read_text(encoding="utf-8"))
+        self.assertEqual(
+            spec["name"],
+            "frontier-bench-statem-evidence-develop-v4p59-experiment",
+        )
+        solve_hooks = spec["nodes"]["solve"]["before_transfer"]
+        self.assertTrue(
+            any(
+                "--require-generalization-evidence-scope" in hook.get("run", "")
+                for hook in solve_hooks
+            )
+        )
+        result_schema = spec["nodes"]["falsify"]["multi_agent"][
+            "result_schema"
+        ]
+        self.assertIn(
+            "acceptance_obligation_assessments",
+            result_schema["required"],
+        )
+
+    def test_v4p59_adapter_binds_distinct_identity_and_runbook(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            agent = EvidenceDevelopV4p59ExperimentalStatemCodex(
+                logs_dir=Path(temp_dir),
+                model_name="gpt-5.6-sol",
+            )
+        self.assertEqual(
+            agent.name(),
+            "ziheng-yaxin-statem-codex-evidence-develop-v4p59-exp",
+        )
+        self.assertEqual(Path(agent._runbook_path), RUNBOOK_V59)
+
     def test_runbook_is_strictly_valid_and_routes_submission_explicitly(self) -> None:
         self.assertTrue(validate_spec(str(RUNBOOK), strict=True)["ok"])
         spec = yaml.safe_load(RUNBOOK.read_text(encoding="utf-8"))
