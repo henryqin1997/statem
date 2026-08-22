@@ -3,9 +3,21 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import yaml
 
+from integrations.harbor.experimental.artifact_identity import (
+    artifact_identity,
+    stable_sha256,
+)
+from integrations.harbor.experimental.filesystem_artifact_provider import (
+    apply_snapshot,
+    snapshot_artifact,
+)
+from integrations.harbor.experimental.submission_eligibility_gate import (
+    decide_submission,
+)
 from integrations.harbor.statem_codex_multirole_develop_exp import (
     EvidenceDevelopV4p56ExperimentalStatemCodex,
 )
@@ -85,6 +97,110 @@ class SubmissionLifecycleV4p56Test(unittest.TestCase):
                     model_name="gpt-5.6-sol",
                     submission_policy="unknown",
                 )
+
+    def test_negative_evidence_restores_exact_baseline_before_handoff(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            app = root / "app"
+            app.mkdir()
+            target = app / "worker.py"
+            target.write_text("def work():\n    return 1\n", encoding="utf-8")
+            baseline_identity = artifact_identity(app)
+            env = {
+                "STATEM_RUN_ID": "submission-restore",
+                "STATEM_STATE_DIR": str(root / "state"),
+                "STATEM_CURRENT": "submission_restore",
+                "STATEM_ENTRY_ID": "entry-1",
+            }
+            with patch.dict("os.environ", env, clear=False):
+                baseline = snapshot_artifact(
+                    artifact_root=app,
+                    provider_root=root / "provider",
+                    kind="baseline",
+                )
+                target.write_text("def work():\n    return 2\n", encoding="utf-8")
+                candidate = snapshot_artifact(
+                    artifact_root=app,
+                    provider_root=root / "provider",
+                    kind="candidate",
+                )
+                quarantined = apply_snapshot(
+                    artifact_root=app,
+                    snapshot=candidate,
+                    mode="quarantine",
+                )
+
+            promotion = {
+                "version": 1,
+                "kind": "promotion_authorization",
+                "run_id": "submission-restore",
+                "decision": "revise",
+                "falsifier_verdict": "inconclusive",
+                "candidate_artifact_identity": candidate["artifact_identity"],
+                "baseline_artifact_identity": baseline["artifact_identity"],
+                "checks": {"same_run": True, "candidate_bound": True},
+                "blocking_contract_violations": [{"severity": "blocking"}],
+                "blocking_regressions": [],
+                "hard_contract_gaps": [],
+                "acceptance_obligation_assessments": [
+                    {"requirement_id": "public-check", "status": "falsified"}
+                ],
+            }
+            route = {
+                "version": 1,
+                "kind": "recovering_develop_review_route",
+                "run_id": "submission-restore",
+                "promotion_decision": "revise",
+                "promotion_decision_sha256": stable_sha256(promotion),
+                "route": "quarantine",
+                "repairable_rejection": True,
+                "review_budget_exhausted": True,
+                "deadline_budget_degraded": False,
+            }
+            acceptance = {
+                "version": 1,
+                "kind": "candidate_acceptance_replay",
+                "run_id": "submission-restore",
+                "candidate_artifact_identity": candidate["artifact_identity"],
+                "execution_complete": True,
+                "all_passed": False,
+                "overall_status": "failed",
+            }
+            replay = {
+                "version": 1,
+                "kind": "recovering_develop_replay_decision",
+                "run_id": "submission-restore",
+                "status": "terminal_failure",
+                "reported_status": "terminal_failure",
+                "action": "handoff",
+            }
+            pending = decide_submission(
+                promotion_decision=promotion,
+                review_route=route,
+                acceptance_replay=acceptance,
+                replay_decision=replay,
+                provider_application=quarantined,
+            )
+            self.assertEqual(pending["selected_submission_target"], "baseline")
+            self.assertTrue(pending["fallback_required"])
+            self.assertFalse(pending["handoff_eligible"])
+
+            with patch.dict("os.environ", env, clear=False):
+                restored = apply_snapshot(
+                    artifact_root=app,
+                    snapshot=baseline,
+                    mode="restore",
+                )
+            closed = decide_submission(
+                promotion_decision=promotion,
+                review_route=route,
+                acceptance_replay=acceptance,
+                replay_decision=replay,
+                provider_application=restored,
+            )
+            self.assertEqual(artifact_identity(app), baseline_identity)
+            self.assertFalse(closed["fallback_required"])
+            self.assertTrue(closed["handoff_eligible"])
 
 
 if __name__ == "__main__":

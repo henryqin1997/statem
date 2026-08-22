@@ -87,6 +87,9 @@ This pair rejects both unsafe candidate submission and blanket quarantine
 rollback. It is regression evidence for the control only, not fresh benchmark
 score evidence.
 
-Focused validation currently passes 111 tests across submission eligibility,
+Focused validation currently passes 112 tests across submission eligibility,
 runbook lifecycle, recovery, candidate replay, and promotion. Strict runbook
-validation and Python compilation also pass.
+validation and Python compilation also pass. The suite includes a real
+filesystem transaction test that snapshots a baseline, quarantines a falsified
+candidate, requires fallback, restores the exact baseline, and only then
+authorizes handoff.
