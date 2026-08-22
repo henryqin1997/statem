@@ -1,0 +1,704 @@
+name: frontier-bench-statem-evidence-develop-v4p55-experiment
+initial: contract_audit
+
+nodes:
+  contract_audit:
+    prompt: |
+      Open one bounded recovery cycle from the immutable provider snapshot.
+      Separate hard contract sources from defeasible implementation evidence.
+      Task wording, public signatures, public consumers, normative definitions,
+      and cross-module invariants may support a hard behavior claim. Comments or
+      behavioral docstrings in modules explicitly described as broken are only
+      hypotheses unless independently corroborated.
+
+      Classify assertions, not files or bullet points. A mandatory output or
+      prohibition in the task is normative; a task-designated behavior oracle
+      is empirical authority for the behavior it exposes; current migration or
+      operations notes govern only their stated scope; stale notes and broken
+      implementation behavior remain defeasible. Formatting, ordering, and
+      repetition in the prompt do not raise a claim's credibility.
+
+      Before leaving, classify the task for the independent reviewer without
+      looking ahead to a candidate. Write exactly primary, secondary, and
+      evidence to /tmp/statem-verification-checks/multirole/review-profile-draft.json.
+      primary is one profile id from reviewer-practice-router-v1.yaml;
+      secondary is a list of at most two distinct additional profile ids; and
+      evidence is a non-empty list grounded in the task-visible workflow.
+
+      The host deterministically maps the bound primary reviewer profile to one
+      development family. Family routing limits which procedural practice and
+      lifecycle reserves apply; it never changes the visible task contract. A
+      full-cycle reserve governs another candidate cycle, while a smaller
+      revision reserve governs another review inside the current cycle. On a
+      retry cycle, inspect retry-brief.json before planning. Preserve every prior
+      acceptance obligation and append its exact validation_delta discriminator
+      to required_strata of the explicitly named target_requirement_id in the
+      new candidate-blind acceptance plan.
+
+      Also write activation-draft.json under
+      /tmp/statem-verification-checks/activation with exactly
+      recommended_route, contract_ambiguity, mutation_risk,
+      state_or_resource_risk, quantitative_acceptance,
+      public_checks_available, semantic_forks, and reasons. Routes are
+      direct_solve or evidence_develop; risk values are low, medium, or high.
+      This classification is candidate-blind. In this version the host records
+      a conservative shadow decision but deliberately keeps evidence_develop
+      active so routing and evidence-control effects can be evaluated separately.
+    in_hook:
+      - type: command
+        run: 'python3 /tmp/statem-verification-checks/filesystem_artifact_provider.py snapshot --kind baseline --artifact-root "$STATEM_ARTIFACT_ROOT" --output /tmp/statem-verification-checks/artifact-provider/baseline-snapshot.json'
+        timeout: 60
+      - type: command
+        run: 'python3 /tmp/statem-verification-checks/multirole_promotion_gate.py seal --artifact-root "$STATEM_ARTIFACT_ROOT" --contract-source /tmp/statem-verification-checks/task.txt --contract-policy repair_aware --baseline-snapshot /tmp/statem-verification-checks/artifact-provider/baseline-snapshot.json --output /tmp/statem-verification-checks/multirole/contract-seal.json'
+        timeout: 30
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/recovering_develop_guard.py open"
+        timeout: 15
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/failure_feedback_gate.py prepare"
+        timeout: 15
+    before_transfer:
+      - type: predicate
+        path: /tmp/statem-verification-checks/workspace-root.json
+        exists: true
+      - type: predicate
+        path: /tmp/statem-verification-checks/artifact-provider/baseline-snapshot.json
+        exists: true
+      - type: predicate
+        path: /tmp/statem-verification-checks/multirole/contract-seal.json
+        exists: true
+      - type: predicate
+        path: /tmp/statem-verification-checks/recovering-develop/cycle-ledger.json
+        exists: true
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py review-profile --draft /tmp/statem-verification-checks/multirole/review-profile-draft.json --catalog /tmp/statem-verification-checks/reviewer-practice-router-v1.yaml --seal /tmp/statem-verification-checks/multirole/contract-seal.json --output /tmp/statem-verification-checks/multirole/review-profile.json"
+        timeout: 30
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py solver-obligations --review-profile /tmp/statem-verification-checks/multirole/review-profile.json --review-practices /tmp/statem-verification-checks/reviewer-practices-v1.yaml --output /tmp/statem-verification-checks/multirole/solver-obligations.json"
+        timeout: 30
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/develop_family_router.py --review-profile /tmp/statem-verification-checks/multirole/review-profile.json --catalog /tmp/statem-verification-checks/develop-family-router-v1.yaml --output /tmp/statem-verification-checks/family/family-selection.json"
+        timeout: 15
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/develop_activation_gate.py --draft /tmp/statem-verification-checks/activation/activation-draft.json --task /tmp/statem-verification-checks/task.txt --seal /tmp/statem-verification-checks/multirole/contract-seal.json --mode shadow --output /tmp/statem-verification-checks/activation/activation-receipt.json"
+        timeout: 15
+      - type: predicate
+        path: /tmp/statem-verification-checks/multirole/review-profile.json
+        exists: true
+      - type: predicate
+        path: /tmp/statem-verification-checks/multirole/solver-obligations.json
+        exists: true
+      - type: predicate
+        path: /tmp/statem-verification-checks/family/family-selection.json
+        exists: true
+      - type: predicate
+        path: /tmp/statem-verification-checks/recovering-develop/retry-brief.json
+        exists: true
+      - type: predicate
+        path: /tmp/statem-verification-checks/activation/activation-receipt.json
+        exists: true
+    state_hooks:
+      - name: continue_contract_audit
+        event: stop
+        host: any
+        template: statem_autoloop
+        scope: current_entry
+        prompt: "Classify visible contract evidence, inspect the immutable baseline receipt, then move to solve."
+
+  solve:
+    prompt: |
+      Continue as the primary task agent while failures are recoverable. Treat
+      the best validated artifact as the incumbent, the active attempt as the
+      candidate, and the selected output as final; provider snapshots and
+      quarantine metadata are adapter-owned transaction details. Inspect,
+      edit, execute public probes, attribute each failure, and try the smallest
+      supported repair in this same context. A failed command is evidence, not a
+      handoff condition. Leave only for a task-visible terminal blocker, a
+      complete runnable candidate, or the benchmark reserve.
+
+      Exercise both the leading hypothesis and a plausible counter-hypothesis.
+      For named algorithms with multiple standard variants, enumerate and
+      distinguish the variants before preserving one. Do not protect a behavior
+      solely because a broken target module documents it. Keep task-visible
+      signatures stable unless the task explicitly requires a change.
+
+      Before the first mutation, read invariant, required_action, and self_check
+      for every solver obligation. These are implementation requirements, not
+      receipt decoration; reviewer-only counterexample ordering and verdict
+      calibration remain private. Then write exactly objective, steps, assumptions,
+      planned_checks, mutation_scope, success_criteria, and obligation_coverage to
+      /tmp/statem-verification-checks/multirole/solver-plan-draft.json. Except
+      assumptions, which may be empty, every list must contain at least one
+      concrete string. obligation_coverage contains exactly one ordered object
+      per id in solver-obligations.json with obligation_id, plan_sections, and
+      rationale. plan_sections may name steps, planned_checks, mutation_scope,
+      or success_criteria. This projection exposes implementation obligations;
+      reviewer counterexample priorities and verdict calibration remain private.
+      Record the plan through the deterministic gate, create a
+      preflight_reviewer context view containing only task.txt, the contract
+      seal, selected review profile, and solver plan, generate the preflight
+      task, initialize TeamRun, and detach exactly one read-only reviewer. The
+      reviewer is advisory and has no promotion authority. Continue implementing
+      in this lead context while it reviews; do not wait immediately after
+      launch.
+
+      Acceptance requirement ids are mechanical receipt keys. Emit unique
+      lowercase slugs. The host may trim and lowercase ASCII case before schema
+      validation, but rejects collisions after canonicalization and never
+      rewrites claims, evidence modes, required strata, or verdicts.
+
+      On a retry cycle, the previous failure owner and validation delta are
+      immutable host receipts. A lead_solver failure changes the artifact and
+      appends a regression check; a test_planner failure first repairs the
+      acceptance population or oracle; a contract_reviewer failure first
+      repairs authority. Adapter, host, acceptance-authority, and infrastructure
+      failures are not excuses for another task-agent candidate cycle.
+
+      Before proposing the candidate, join the entry-scoped reviewer handle.
+      Record its completed result as preflight-evidence.json, read its supported
+      findings and compact contract_ledger, and address or explicitly test
+      relevant gaps. The ledger separates hard constraints, defeasible claims,
+      conflicts requiring probes, and repair implications; do not promote every
+      prompt bullet or starter behavior to equal authority. Advance TeamRun to
+      reducing and use all-claims-table after the evidence is recorded. A worker
+      that exceeds its lifecycle budget, crosses an entry, or fails to return
+      complete coverage cannot satisfy this stage.
+
+      After recording preflight evidence, run the deterministic
+      resolve-preflight action. If advisory_verdict is ready, the host records a
+      not_required receipt and ignores any stale draft from an earlier entry. If
+      it is revise_plan, write
+      the initial draft_required receipt first and use its immutable issue ids.
+      Then write
+      preflight-resolution-draft.json with exactly revised_plan and
+      issue_resolutions. revised_plan uses the complete solver-plan draft schema
+      and must actually change every plan section named by a resolution.
+      issue_resolutions contains exactly one ordered object for each issue id
+      reported by that receipt, with issue_id, plan_section, and resolution.
+      Do not submit a candidate until preflight-resolution.json exists.
+
+      Write exactly target_gap, hypothesis, counter_hypothesis,
+      protected_behavior, protected_behavior_basis, discriminating_checks,
+      rollback_artifact_identity, and rollback_locator to
+      /tmp/statem-verification-checks/multirole/proposal-draft.json.
+      protected_behavior_basis is a non-empty list of objects with exactly
+      behavior, basis, and evidence. basis is task_source, public_signature,
+      public_consumer, normative_definition, or cross_module_invariant. Bind
+      each protected behavior exactly once. Copy rollback identity and locator
+      exactly from the baseline snapshot and contract seal. Then run the gate's
+      proposal action and snapshot the resulting candidate with the filesystem
+      provider, using the proposal as its expected receipt. The initial proposal
+      must pass --preflight-evidence, --solver-plan, and
+      --preflight-resolution so its immutable hashes bind the advisory review
+      and its resolution; revisions retain those original bindings.
+
+      After the candidate snapshot exists, write acceptance-evidence-draft.json
+      with exactly candidate_artifact_identity, confidence, independence_basis,
+      checks, and residual_risks. Copy candidate_artifact_identity exactly from
+      the current proposal. confidence is verified, supported, unresolved, or
+      falsified. checks is a non-empty list of at most 24 objects with exactly
+      claim, public_surface, method, outcome, and evidence; outcome is passed,
+      failed, or inconclusive.
+      Describe the public probe class and bounded outcome, not raw commands or
+      trajectories. residual_risks is a string list and may be empty. The state
+      hook binds this solver-recorded evidence to the proposal and immutable
+      snapshot. It is inspectable provenance, not independent review authority.
+
+      Also write acceptance-replay-plan-draft.json with exactly
+      candidate_artifact_identity, preflight_evidence_sha256, and checks. Copy
+      the current candidate identity and the exact hash of the bound
+      preflight-evidence.json. The preflight reviewer selected its acceptance
+      obligations before this candidate existed. checks contains one to four
+      objects with exactly check_id, requirement_ids, covered_strata,
+      public_surface, method, argv, cwd, timeout_seconds, and
+      expected_exit_codes. requirement_ids is a
+      non-empty list containing only adapter_replay requirement ids from the
+      candidate-blind acceptance_plan, and every such requirement must be
+      covered by at least one check. covered_strata is a mapping whose keys are
+      exactly that check's requirement_ids. Each value is a non-empty list
+      containing only required_strata predeclared for that requirement. Across
+      all checks, every required_strata value of every adapter_replay
+      requirement must be covered. Do not claim a stratum merely because a
+      neighboring case or the same requirement id was executed. paired_review and analytic_review
+      requirements remain semantic reviewer obligations and must not be forced
+      into a command-shaped proxy. check_id is a unique lowercase slug. argv is a
+      non-empty argument array, never a shell command string; cwd is relative to
+      the candidate root; timeout_seconds is 1-90 and the sum is at most 180;
+      expected_exit_codes is a non-empty integer list. Use only non-interactive
+      public checks that can run in a fresh snapshot copy with a minimal
+      environment. Do not place credentials, environment values, hidden
+      artifacts, or verifier commands in the plan. The adapter owns execution,
+      process cleanup, output digests, and candidate binding. A passing replay
+      is independent execution provenance, not automatic semantic authority.
+    multi_agent:
+      mode: fanout_search_reduce
+      max_parallel: 1
+      required: true
+      require_all_tasks_done: true
+      task_schema:
+        required:
+          - plan_sha256
+          - contract_seal_sha256
+          - context_view_sha256
+          - review_profile_sha256
+          - assignment
+          - context_bundle
+          - review_profile
+          - solver_obligations
+          - contract_ledger_schema
+          - review_execution_class
+          - acceptance_plan_schema
+        types:
+          plan_sha256: string
+          contract_seal_sha256: string
+          context_view_sha256: string
+          review_profile_sha256: string
+          assignment: string
+          context_bundle: mapping
+          review_profile: mapping
+          solver_obligations: mapping
+          contract_ledger_schema: mapping
+          review_execution_class: string
+          acceptance_plan_schema: mapping
+      result_schema:
+        required:
+          - status
+          - claims
+          - evidence
+          - coverage.complete
+          - advisory_verdict
+          - plan_sha256
+          - contract_seal_sha256
+          - context_view_sha256
+          - review_profile_sha256
+          - plan_findings
+          - checklist_gaps
+          - assumption_risks
+          - recommendations
+          - contract_ledger
+          - review_execution_class
+          - acceptance_plan
+        types:
+          status: string
+          claims: list
+          evidence: list
+          coverage: mapping
+          advisory_verdict: string
+          plan_sha256: string
+          contract_seal_sha256: string
+          context_view_sha256: string
+          review_profile_sha256: string
+          plan_findings: list
+          checklist_gaps: list
+          assumption_risks: list
+          recommendations: list
+          contract_ledger: mapping
+          review_execution_class: string
+          acceptance_plan: mapping
+      reducer:
+        strategy: all-claims-table
+    before_transfer:
+      - type: predicate
+        path: /tmp/statem-verification-checks/multirole/candidate-proposal.json
+        exists: true
+      - type: predicate
+        path: /tmp/statem-verification-checks/artifact-provider/candidate-snapshot.json
+        exists: true
+      - type: predicate
+        path: /tmp/statem-verification-checks/multirole/acceptance-evidence-draft.json
+        exists: true
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py acceptance-evidence --draft /tmp/statem-verification-checks/multirole/acceptance-evidence-draft.json --proposal /tmp/statem-verification-checks/multirole/candidate-proposal.json --candidate-snapshot /tmp/statem-verification-checks/artifact-provider/candidate-snapshot.json"
+        timeout: 60
+      - type: predicate
+        path: /tmp/statem-verification-checks/multirole/acceptance-replay-plan-draft.json
+        exists: true
+      - type: command
+        run: 'python3 /tmp/statem-verification-checks/candidate_acceptance_replay.py --plan /tmp/statem-verification-checks/multirole/acceptance-replay-plan-draft.json --proposal /tmp/statem-verification-checks/multirole/candidate-proposal.json --acceptance-evidence /tmp/statem-verification-checks/multirole/acceptance-evidence.json --preflight-evidence /tmp/statem-verification-checks/multirole/preflight-evidence.json --candidate-snapshot /tmp/statem-verification-checks/artifact-provider/candidate-snapshot.json --artifact-root "$STATEM_ARTIFACT_ROOT" --require-strata-coverage --output /tmp/statem-verification-checks/multirole/acceptance-replay.json'
+        timeout: 240
+      - type: command
+        run: "statem-teamrun-codex-workers --run-id \"$STATEM_RUN_ID\" --state-dir \"$STATEM_STATE_DIR\" --entry-id \"$STATEM_ENTRY_ID\" --handle-file /tmp/statem-verification-checks/multirole/preflight-worker.json --require-completed-handle --json"
+        timeout: 15
+      - type: predicate
+        path: /tmp/statem-verification-checks/multirole/preflight-evidence.json
+        exists: true
+      - type: predicate
+        path: /tmp/statem-verification-checks/multirole/preflight-resolution.json
+        exists: true
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py require-preflight --proposal /tmp/statem-verification-checks/multirole/candidate-proposal.json --preflight-evidence /tmp/statem-verification-checks/multirole/preflight-evidence.json --solver-plan /tmp/statem-verification-checks/multirole/solver-plan.json --preflight-resolution /tmp/statem-verification-checks/multirole/preflight-resolution.json"
+        timeout: 15
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/failure_feedback_gate.py validate-preflight"
+        timeout: 15
+    state_hooks:
+      - name: continue_solver
+        event: stop
+        host: any
+        template: statem_autoloop
+        scope: current_entry
+        prompt: "Keep the lead solver active while the single preflight reviewer runs. Before leaving, join its scoped lifecycle, record and bind its advisory evidence, reduce TeamRun, and preserve a runnable candidate snapshot."
+
+  falsify:
+    prompt: |
+      Launch exactly the scoped tool-free falsifier initialized by the in-hook.
+      It receives bounded read-only baseline and candidate projections and may
+      not repair either artifact. It may veto only a task-contract violation or
+      a candidate-caused regression with paired baseline and candidate evidence.
+      When the task names an exact public oracle, version, or normative
+      consumer, a blocking regression must compare both artifacts to that
+      reference on the same case; baseline behavior is defeasible.
+      Unsupported, extreme, or candidate-only concerns are advisory residual
+      counterevidence.
+
+      The acceptance-obligation assessment schema declares bounded_text_fields
+      and max_text_chars. Keep evidence, independence_basis, and
+      unresolved_reason within that bound before submission. The host will reject
+      an invalid receipt but will not truncate or semantically rewrite it.
+
+      After the worker submits, run `statem team advance reducing` and
+      `statem team reduce --strategy all-claims-table`. The deterministic gate
+      first canonicalizes mechanical receipt shape and trusted identity bindings,
+      then the semantic evidence gate and review-budget guard own the route.
+      Never author or rewrite reviewer semantic evidence.
+    in_hook:
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/recovering_develop_guard.py review-open"
+        timeout: 15
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py context-view --role falsifier --include /tmp/statem-verification-checks/task.txt --include /tmp/statem-verification-checks/multirole/contract-seal.json --include /tmp/statem-verification-checks/multirole/candidate-proposal.json --include /tmp/statem-verification-checks/multirole/solver-obligations.json --include /tmp/statem-verification-checks/multirole/solver-plan.json --include /tmp/statem-verification-checks/multirole/preflight-evidence.json --include /tmp/statem-verification-checks/multirole/preflight-resolution.json --include /tmp/statem-verification-checks/multirole/review-profile.json --include /tmp/statem-verification-checks/multirole/acceptance-evidence.json --include /tmp/statem-verification-checks/multirole/acceptance-replay.json --include-snapshot /tmp/statem-verification-checks/artifact-provider/baseline-snapshot.json --include-snapshot /tmp/statem-verification-checks/artifact-provider/candidate-snapshot.json"
+        timeout: 60
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py falsifier-task --preflight-evidence /tmp/statem-verification-checks/multirole/preflight-evidence.json --review-practices /tmp/statem-verification-checks/reviewer-practices-v1.yaml --review-profile /tmp/statem-verification-checks/multirole/review-profile.json --output /tmp/statem-verification-checks/multirole/falsifier-task.json"
+        timeout: 15
+      - type: command
+        run: "statem team init /tmp/statem-verification-checks/multirole/falsifier-task.json --run-id \"$STATEM_RUN_ID\" --state-dir \"$STATEM_STATE_DIR\" --agent-id \"$STATEM_AGENT_ID\" --agent-role solver"
+        timeout: 15
+    multi_agent:
+      mode: fanout_search_reduce
+      max_parallel: 1
+      required: true
+      require_all_tasks_done: true
+      task_schema:
+        required:
+          - candidate_artifact_identity
+          - contract_seal_sha256
+          - context_view_sha256
+          - assignment
+          - review_protocol
+          - review_profile
+          - review_execution_class
+        types:
+          candidate_artifact_identity: string
+          contract_seal_sha256: string
+          context_view_sha256: string
+          assignment: string
+          review_protocol: mapping
+          review_profile: mapping
+          review_execution_class: string
+      result_schema:
+        required:
+          - status
+          - claims
+          - evidence
+          - coverage.complete
+          - verdict
+          - contract_preserved
+          - regressions
+          - counterevidence
+          - hard_contract_gaps
+          - protection_assessments
+          - review_stages
+          - practice_receipts
+          - profile_receipts
+          - review_execution_class
+        types:
+          status: string
+          claims: list
+          evidence: list
+          coverage: mapping
+          verdict: string
+          candidate_artifact_identity: string
+          contract_seal_sha256: string
+          context_view_sha256: string
+          contract_preserved: boolean
+          regressions: list
+          counterevidence: list
+          hard_contract_gaps: list
+          protection_assessments: list
+          review_stages: list
+          practice_receipts: list
+          profile_receipts: list
+          review_protocol_sha256: string
+          review_profile_sha256: string
+          review_execution_class: string
+      reducer:
+        strategy: all-claims-table
+    before_transfer:
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py review-pre-submit --review-practices /tmp/statem-verification-checks/reviewer-practices-v1.yaml --review-profile /tmp/statem-verification-checks/multirole/review-profile.json"
+        timeout: 30
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py decide --falsifier-result /tmp/statem-verification-checks/multirole/canonical-falsifier-result.json --preflight-evidence /tmp/statem-verification-checks/multirole/preflight-evidence.json --baseline-snapshot /tmp/statem-verification-checks/artifact-provider/baseline-snapshot.json --candidate-snapshot /tmp/statem-verification-checks/artifact-provider/candidate-snapshot.json --review-practices /tmp/statem-verification-checks/reviewer-practices-v1.yaml --review-profile /tmp/statem-verification-checks/multirole/review-profile.json"
+        timeout: 60
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/recovering_develop_guard.py review-route --require-deadline-budget --family-selection /tmp/statem-verification-checks/family/family-selection.json --deadline /tmp/statem-verification-checks/deadline.json"
+        timeout: 15
+    state_hooks:
+      - name: continue_falsifier
+        event: stop
+        host: any
+        template: statem_autoloop
+        scope: current_entry
+        prompt: "Collect the tool-free falsifier, reduce TeamRun, and follow the evidence gate and review budget."
+
+  revise:
+    prompt: |
+      The candidate remains live because the reviewer either requested more
+      evidence or established a repairable candidate regression without proving
+      immutable contract-source or public-contract drift. Read the gate reasons
+      and falsifier evidence. Address only supported gaps, rerun discriminating
+      public probes, and keep the lead solver context. Do not broaden the
+      contract to speculative risks.
+
+      The host enters this node only when the family-specific revision reserve
+      fits the remaining benchmark deadline. If it does not fit, the reviewed
+      candidate is quarantined for final replay instead of beginning work that
+      cannot reach handoff.
+
+      Replace proposal-draft.json with the same exact field schema used in
+      solve, run the gate proposal action, and replace the candidate snapshot
+      receipt through the provider. This is the final review opportunity in the
+      current cycle. Replace acceptance-evidence-draft.json with the exact
+      current-candidate self-verification schema used in solve; the state hook
+      binds it only after the fresh proposal and snapshot are present. Replace
+      acceptance-replay-plan-draft.json with one to four bounded public checks
+      for the revised candidate, preserving the exact preflight evidence hash
+      and mapping every adapter_replay obligation to requirement_ids plus its
+      exact predeclared required_strata through covered_strata. The
+      adapter reruns the plan; do not reuse a stale receipt, change the
+      candidate-blind plan, or substitute solver prose for adapter execution.
+    before_transfer:
+      - type: predicate
+        path: /tmp/statem-verification-checks/multirole/candidate-proposal.json
+        exists: true
+      - type: predicate
+        path: /tmp/statem-verification-checks/artifact-provider/candidate-snapshot.json
+        exists: true
+      - type: predicate
+        path: /tmp/statem-verification-checks/multirole/acceptance-evidence-draft.json
+        exists: true
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py acceptance-evidence --draft /tmp/statem-verification-checks/multirole/acceptance-evidence-draft.json --proposal /tmp/statem-verification-checks/multirole/candidate-proposal.json --candidate-snapshot /tmp/statem-verification-checks/artifact-provider/candidate-snapshot.json"
+        timeout: 60
+      - type: predicate
+        path: /tmp/statem-verification-checks/multirole/acceptance-replay-plan-draft.json
+        exists: true
+      - type: command
+        run: 'python3 /tmp/statem-verification-checks/candidate_acceptance_replay.py --plan /tmp/statem-verification-checks/multirole/acceptance-replay-plan-draft.json --proposal /tmp/statem-verification-checks/multirole/candidate-proposal.json --acceptance-evidence /tmp/statem-verification-checks/multirole/acceptance-evidence.json --preflight-evidence /tmp/statem-verification-checks/multirole/preflight-evidence.json --candidate-snapshot /tmp/statem-verification-checks/artifact-provider/candidate-snapshot.json --artifact-root "$STATEM_ARTIFACT_ROOT" --require-strata-coverage --output /tmp/statem-verification-checks/multirole/acceptance-replay.json'
+        timeout: 240
+    state_hooks:
+      - name: continue_revision
+        event: stop
+        host: any
+        template: statem_autoloop
+        scope: current_entry
+        prompt: "Revise the live candidate from supported reviewer evidence, rerun probes, and bind a fresh proposal, snapshot, self-verification receipt, and adapter replay."
+
+  promote:
+    prompt: |
+      Promotion is authorized. Verify that the live artifact still equals the
+      immutable candidate snapshot. The provider records activation without
+      mutating the already-live candidate; the gate then verifies the receipt.
+    in_hook:
+      type: command
+      run: 'python3 /tmp/statem-verification-checks/filesystem_artifact_provider.py apply --mode activate --snapshot /tmp/statem-verification-checks/artifact-provider/candidate-snapshot.json --artifact-root "$STATEM_ARTIFACT_ROOT" --output /tmp/statem-verification-checks/artifact-provider/application.json'
+      timeout: 60
+    before_transfer:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py verify-application --mode promote --provider-application /tmp/statem-verification-checks/artifact-provider/application.json"
+      timeout: 30
+    state_hooks:
+      - name: continue_promotion
+        event: stop
+        host: any
+        template: statem_autoloop
+        scope: current_entry
+        prompt: "Verify provider activation and proceed to final replay."
+
+  rollback:
+    prompt: |
+      A hard provenance or transaction condition made the reviewed candidate
+      unsafe to identify or repair inside this cycle. The provider
+      transactionally restores the immutable cycle baseline and retains a
+      rescue snapshot if restoration fails. The gate verifies the restored
+      identity before replay. Review-budget exhaustion, inconclusive evidence,
+      public-contract drift, and candidate-caused semantic regressions do not
+      enter this node by themselves.
+    in_hook:
+      type: command
+      run: 'python3 /tmp/statem-verification-checks/filesystem_artifact_provider.py apply --mode restore --snapshot /tmp/statem-verification-checks/artifact-provider/baseline-snapshot.json --artifact-root "$STATEM_ARTIFACT_ROOT" --output /tmp/statem-verification-checks/artifact-provider/application.json'
+      timeout: 90
+    before_transfer:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py verify-application --mode rollback --review-route /tmp/statem-verification-checks/recovering-develop/review-route.json --provider-application /tmp/statem-verification-checks/artifact-provider/application.json"
+      timeout: 30
+    state_hooks:
+      - name: continue_rollback
+        event: stop
+        host: any
+        template: statem_autoloop
+        scope: current_entry
+        prompt: "Verify provider restoration and proceed to final replay."
+
+  quarantine:
+    prompt: |
+      Promotion is not authorized, but no hard rollback condition was proven.
+      Select the exact reviewed candidate snapshot as the isolated evaluation
+      target without claiming deployment or promotion. Preserve its evidence,
+      lineage, and rescue snapshot. The provider and gate must bind the live
+      artifact to that candidate before final replay.
+    in_hook:
+      type: command
+      run: 'python3 /tmp/statem-verification-checks/filesystem_artifact_provider.py apply --mode quarantine --snapshot /tmp/statem-verification-checks/artifact-provider/candidate-snapshot.json --artifact-root "$STATEM_ARTIFACT_ROOT" --output /tmp/statem-verification-checks/artifact-provider/application.json'
+      timeout: 90
+    before_transfer:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/multirole_promotion_gate.py verify-application --mode quarantine --review-route /tmp/statem-verification-checks/recovering-develop/review-route.json --provider-application /tmp/statem-verification-checks/artifact-provider/application.json"
+      timeout: 30
+    state_hooks:
+      - name: continue_quarantine
+        event: stop
+        host: any
+        template: statem_autoloop
+        scope: current_entry
+        prompt: "Bind the reviewed candidate as an isolated evaluation target and proceed to final replay."
+
+  final_replay:
+    prompt: |
+      Replay the selected live artifact through the strongest bounded public
+      consumer path. Check repaired behavior, protected behavior, format,
+      lifecycle, cleanup, and semantic interpretation. Do not treat a proxy or
+      stale check as sufficient evidence.
+
+      Write exactly status, evidence, residual_risk, next_gap,
+      failure_ownership, validation_delta, and hard_gap_resolutions to
+      /tmp/statem-verification-checks/recovering-develop/replay-draft.json.
+      Status is passed, recoverable_failure, or terminal_failure. A recoverable
+      failure requires one concrete next_gap; other statuses require an empty
+      next_gap. For passed, failure_ownership and validation_delta are null. For
+      either failure status, failure_ownership has exactly failure_class,
+      owner_role, observed_failure, causal_hypothesis, repair_action,
+      required_validation_update, and confidence. failure_class is one of
+      implementation_defect, acceptance_plan_gap, contract_authority_error,
+      evidence_projection_gap, orchestration_lifecycle_error,
+      sealed_uncertainty, or infrastructure_error. The corresponding owner is
+      lead_solver, test_planner, contract_reviewer, adapter, host,
+      acceptance_authority, or host. Copy observed_failure exactly from
+      evidence; for recoverable_failure copy repair_action exactly from
+      next_gap. confidence is low, medium, or high.
+
+      For a recoverable failure, validation_delta has exactly action,
+      target_requirement_id, discriminating_check,
+      success_interpretation, failure_interpretation,
+      preserves_prior_obligations, superseded_check_ids, and rationale. action
+      is append_regression, expand_population, repair_invalid_check,
+      clarify_oracle, or no_public_delta. Set preserves_prior_obligations true.
+      Supersede a check only when evidence shows the check itself is invalid;
+      never weaken a hard contract obligation. Copy rationale exactly into
+      failure_ownership.required_validation_update. target_requirement_id must
+      name exactly one existing requirement in the bound candidate-blind
+      preflight plan; it authorizes no new requirement and no semantic rewrite.
+      For terminal failure, omit target_requirement_id because no retry plan is
+      carried forward. The discriminator must be a
+      bounded task-visible public check whose outcomes distinguish the proposed
+      attribution and must not repeat an earlier cycle. The host validates class
+      ownership, schema, evidence bindings, append-only semantics, novelty,
+      family scope, cycle budget, and whether enough official time remains for
+      an entire solve-review-replay-handoff cycle. hard_gap_resolutions is a list with one object for every bound
+      hard quantitative gap you actually adjudicated, with exactly gap_sha256,
+      status, and evidence. A resolved gap requires fresh independent acceptance
+      evidence, not the adaptive exploration population that produced the
+      candidate. Missing or unresolved bound gaps turn an otherwise passing
+      replay into a concrete recoverable failure while cycle budget remains.
+    before_transfer:
+      - type: predicate
+        path: /tmp/statem-verification-checks/multirole/application-receipt.json
+        exists: true
+      - type: command
+        run: "python3 /tmp/statem-verification-checks/recovering_develop_guard.py close --require-information-gain --require-failure-closure --require-targeted-validation-delta --preflight-evidence /tmp/statem-verification-checks/multirole/preflight-evidence.json --family-selection /tmp/statem-verification-checks/family/family-selection.json --deadline /tmp/statem-verification-checks/deadline.json"
+        timeout: 30
+    state_hooks:
+      - name: continue_final_replay
+        event: stop
+        host: any
+        template: statem_autoloop
+        scope: current_entry
+        prompt: "Finish public replay and record a concrete retry gap or honest handoff."
+
+  handoff:
+    prompt: |
+      Final state. Preserve the provider-verified selected artifact and report
+      public evidence, cycle and review decisions, and residual risk. Do not
+      turn task-local findings into persistent policy.
+    in_hook:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/recovering_develop_guard.py require --allow handoff"
+      timeout: 10
+    state_hooks:
+      - name: finish_handoff
+        event: stop
+        host: any
+        template: statem_autoloop
+        scope: current_entry
+        prompt: "Return the final bounded evidence summary without starting another cycle."
+
+edges:
+  - from: contract_audit
+    to: solve
+  - from: solve
+    to: falsify
+  - from: falsify
+    to: promote
+    condition:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/recovering_develop_guard.py require-review --allow promote"
+      timeout: 10
+  - from: falsify
+    to: revise
+    condition:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/recovering_develop_guard.py require-review --allow revise"
+      timeout: 10
+  - from: falsify
+    to: rollback
+    condition:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/recovering_develop_guard.py require-review --allow rollback"
+      timeout: 10
+  - from: falsify
+    to: quarantine
+    condition:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/recovering_develop_guard.py require-review --allow quarantine"
+      timeout: 10
+  - from: revise
+    to: falsify
+  - from: promote
+    to: final_replay
+  - from: rollback
+    to: final_replay
+  - from: quarantine
+    to: final_replay
+  - from: final_replay
+    to: contract_audit
+    condition:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/recovering_develop_guard.py require --allow retry"
+      timeout: 10
+  - from: final_replay
+    to: handoff
+    condition:
+      type: command
+      run: "python3 /tmp/statem-verification-checks/recovering_develop_guard.py require --allow handoff"
+      timeout: 10

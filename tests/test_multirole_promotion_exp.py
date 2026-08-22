@@ -1045,6 +1045,12 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             ]["analytic_review"],
             "independent_analytic_derivation",
         )
+        self.assertEqual(
+            assignment["acceptance_obligation_assessment_schema"][
+                "max_text_chars"
+            ],
+            600,
+        )
         self.assertEqual(promoted["decision"], "promote")
         self.assertTrue(
             promoted["checks"]["acceptance_obligation_assessments_valid"]
@@ -1093,9 +1099,11 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             )
         self.assertEqual(decision["decision"], "revise")
         self.assertIn(
-            "acceptance_obligation_assessments_valid",
+            "reviewer_receipt_expression_invalid",
             decision["reason_codes"],
         )
+        self.assertEqual(decision["failure_owner"], "reviewer_receipt_expression")
+        self.assertFalse(decision["candidate_revision_required"])
 
         overlong_evidence = json.loads(json.dumps(falsifier))
         overlong_evidence["raw"]["acceptance_obligation_assessments"][0][
@@ -1112,7 +1120,7 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             )
         self.assertEqual(decision["decision"], "revise")
         self.assertIn(
-            "acceptance_obligation_assessments_valid",
+            "reviewer_receipt_expression_invalid",
             decision["reason_codes"],
         )
 

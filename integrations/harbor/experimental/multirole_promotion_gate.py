@@ -52,10 +52,12 @@ DEFAULT_REVIEW_PRACTICES = Path(
     "/tmp/statem-verification-checks/reviewer-practices-v1.yaml"
 )
 DEFAULT_REVIEW_PROFILE = DEFAULT_DIR / "review-profile.json"
+DEFAULT_SOLVER_OBLIGATIONS = DEFAULT_DIR / "solver-obligations.json"
 DEFAULT_SOLVER_PLAN = DEFAULT_DIR / "solver-plan.json"
 DEFAULT_PREFLIGHT_CONTEXT_VIEW = DEFAULT_DIR / "preflight-context-view.json"
 DEFAULT_PREFLIGHT_TASK = DEFAULT_DIR / "preflight-task.json"
 DEFAULT_PREFLIGHT_EVIDENCE = DEFAULT_DIR / "preflight-evidence.json"
+DEFAULT_PREFLIGHT_RESOLUTION = DEFAULT_DIR / "preflight-resolution.json"
 DEFAULT_RECOVERY_DIR = Path(
     "/tmp/statem-verification-checks/recovering-develop"
 )
@@ -143,6 +145,35 @@ SOLVER_PLAN_FIELDS = {
     "planned_checks",
     "mutation_scope",
     "success_criteria",
+}
+SOLVER_OBLIGATION_COVERAGE_FIELDS = {
+    "obligation_id",
+    "plan_sections",
+    "rationale",
+}
+SOLVER_PLAN_SECTIONS = {
+    "steps",
+    "planned_checks",
+    "mutation_scope",
+    "success_criteria",
+}
+SOLVER_FACING_COMMON_PRACTICES = {
+    "contract_authority_and_repair",
+    "source_is_not_contract",
+    "candidate_blind_obligation_closure",
+    "public_consumer_first",
+}
+SOLVER_OBLIGATION_ACTION_FIELDS = {
+    "invariant",
+    "required_action",
+    "self_check",
+}
+SOLVER_OBLIGATION_TEXT_MAX_CHARS = 600
+PREFLIGHT_RESOLUTION_FIELDS = {"revised_plan", "issue_resolutions"}
+PREFLIGHT_ISSUE_RESOLUTION_FIELDS = {
+    "issue_id",
+    "plan_section",
+    "resolution",
 }
 CONTRACT_LEDGER_FIELDS = {
     "hard_constraints",
@@ -255,6 +286,16 @@ def main(argv: list[str] | None = None) -> int:
                     if args.preflight_evidence is not None
                     else None
                 ),
+                solver_plan=(
+                    _read_json(args.solver_plan)
+                    if args.solver_plan is not None
+                    else None
+                ),
+                preflight_resolution=(
+                    _read_json(args.preflight_resolution)
+                    if args.preflight_resolution is not None
+                    else None
+                ),
             )
             _write_json(args.output, receipt)
         elif args.action == "acceptance-evidence":
@@ -269,6 +310,17 @@ def main(argv: list[str] | None = None) -> int:
                 draft=_read_json(args.draft),
                 seal=_read_json(args.seal),
                 review_profile=_read_json(args.review_profile),
+                solver_obligations=(
+                    _read_json(args.solver_obligations)
+                    if args.solver_obligations is not None
+                    else None
+                ),
+            )
+            _write_json(args.output, receipt)
+        elif args.action == "solver-obligations":
+            receipt = record_solver_obligations(
+                review_profile=_read_json(args.review_profile),
+                review_practices=_read_yaml(args.review_practices),
             )
             _write_json(args.output, receipt)
         elif args.action == "preflight-task":
@@ -277,6 +329,11 @@ def main(argv: list[str] | None = None) -> int:
                 seal=_read_json(args.seal),
                 context_view=_read_json(args.context_view),
                 review_profile=_read_json(args.review_profile),
+                solver_obligations=(
+                    _read_json(args.solver_obligations)
+                    if args.solver_obligations is not None
+                    else None
+                ),
             )
             _write_json(args.output, receipt)
         elif args.action == "preflight-evidence":
@@ -290,13 +347,40 @@ def main(argv: list[str] | None = None) -> int:
                 seal=_read_json(args.seal),
                 context_view=_read_json(args.context_view),
                 review_profile=_read_json(args.review_profile),
+                solver_obligations=(
+                    _read_json(args.solver_obligations)
+                    if args.solver_obligations is not None
+                    else None
+                ),
                 reviewer_result=reviewer_result,
+            )
+            _write_json(args.output, receipt)
+        elif args.action == "resolve-preflight":
+            receipt = record_preflight_resolution(
+                draft=(
+                    _read_json(args.draft)
+                    if args.draft is not None and args.draft.is_file()
+                    else None
+                ),
+                plan=_read_json(args.plan),
+                preflight_evidence=_read_json(args.preflight_evidence),
+                solver_obligations=_read_json(args.solver_obligations),
             )
             _write_json(args.output, receipt)
         elif args.action == "require-preflight":
             receipt = require_preflight_binding(
                 proposal=_read_json(args.proposal),
                 preflight_evidence=_read_json(args.preflight_evidence),
+                solver_plan=(
+                    _read_json(args.solver_plan)
+                    if args.solver_plan is not None
+                    else None
+                ),
+                preflight_resolution=(
+                    _read_json(args.preflight_resolution)
+                    if args.preflight_resolution is not None
+                    else None
+                ),
                 reviewer_result=_load_current_role_result("preflight-reviewer"),
                 raw_preflight_evidence=_read_json(DEFAULT_RAW_PREFLIGHT_EVIDENCE)
                 if DEFAULT_RAW_PREFLIGHT_EVIDENCE.is_file()
@@ -470,6 +554,8 @@ def _parser() -> argparse.ArgumentParser:
     proposal.add_argument("--seal", type=Path, default=DEFAULT_SEAL)
     proposal.add_argument("--artifact-root", type=Path, default=Path("/app"))
     proposal.add_argument("--preflight-evidence", type=Path)
+    proposal.add_argument("--solver-plan", type=Path)
+    proposal.add_argument("--preflight-resolution", type=Path)
     proposal.add_argument("--output", type=Path, default=DEFAULT_PROPOSAL)
 
     acceptance = subparsers.add_parser("acceptance-evidence")
@@ -484,7 +570,19 @@ def _parser() -> argparse.ArgumentParser:
     plan.add_argument("--draft", type=Path, required=True)
     plan.add_argument("--seal", type=Path, default=DEFAULT_SEAL)
     plan.add_argument("--review-profile", type=Path, default=DEFAULT_REVIEW_PROFILE)
+    plan.add_argument("--solver-obligations", type=Path)
     plan.add_argument("--output", type=Path, default=DEFAULT_SOLVER_PLAN)
+
+    obligations = subparsers.add_parser("solver-obligations")
+    obligations.add_argument(
+        "--review-profile", type=Path, default=DEFAULT_REVIEW_PROFILE
+    )
+    obligations.add_argument(
+        "--review-practices", type=Path, default=DEFAULT_REVIEW_PRACTICES
+    )
+    obligations.add_argument(
+        "--output", type=Path, default=DEFAULT_SOLVER_OBLIGATIONS
+    )
 
     preflight_task_parser = subparsers.add_parser("preflight-task")
     preflight_task_parser.add_argument("--plan", type=Path, default=DEFAULT_SOLVER_PLAN)
@@ -495,6 +593,7 @@ def _parser() -> argparse.ArgumentParser:
     preflight_task_parser.add_argument(
         "--review-profile", type=Path, default=DEFAULT_REVIEW_PROFILE
     )
+    preflight_task_parser.add_argument("--solver-obligations", type=Path)
     preflight_task_parser.add_argument("--output", type=Path, default=DEFAULT_PREFLIGHT_TASK)
 
     preflight_evidence = subparsers.add_parser("preflight-evidence")
@@ -506,14 +605,30 @@ def _parser() -> argparse.ArgumentParser:
     preflight_evidence.add_argument(
         "--review-profile", type=Path, default=DEFAULT_REVIEW_PROFILE
     )
+    preflight_evidence.add_argument("--solver-obligations", type=Path)
     preflight_evidence.add_argument("--reviewer-result", type=Path)
     preflight_evidence.add_argument("--output", type=Path, default=DEFAULT_PREFLIGHT_EVIDENCE)
+
+    resolution = subparsers.add_parser("resolve-preflight")
+    resolution.add_argument("--draft", type=Path)
+    resolution.add_argument("--plan", type=Path, default=DEFAULT_SOLVER_PLAN)
+    resolution.add_argument(
+        "--preflight-evidence", type=Path, default=DEFAULT_PREFLIGHT_EVIDENCE
+    )
+    resolution.add_argument(
+        "--solver-obligations", type=Path, default=DEFAULT_SOLVER_OBLIGATIONS
+    )
+    resolution.add_argument(
+        "--output", type=Path, default=DEFAULT_PREFLIGHT_RESOLUTION
+    )
 
     require_preflight = subparsers.add_parser("require-preflight")
     require_preflight.add_argument("--proposal", type=Path, default=DEFAULT_PROPOSAL)
     require_preflight.add_argument(
         "--preflight-evidence", type=Path, default=DEFAULT_PREFLIGHT_EVIDENCE
     )
+    require_preflight.add_argument("--solver-plan", type=Path)
+    require_preflight.add_argument("--preflight-resolution", type=Path)
 
     pre_submit = subparsers.add_parser("review-pre-submit")
     pre_submit.add_argument("--seal", type=Path, default=DEFAULT_SEAL)
@@ -648,6 +763,8 @@ def record_proposal(
     artifact_root: Path,
     previous_proposal: dict[str, Any] | None = None,
     preflight_evidence: dict[str, Any] | None = None,
+    solver_plan: dict[str, Any] | None = None,
+    preflight_resolution: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     _require_receipt(seal, "contract_seal")
     producer = _producer()
@@ -693,6 +810,8 @@ def record_proposal(
     supersedes: str | None = None
     protected_behavior_delta: dict[str, list[str]] | None = None
     preflight_evidence_sha256: str | None = None
+    solver_plan_sha256: str | None = None
+    preflight_resolution_sha256: str | None = None
     if preflight_evidence is not None:
         _require_receipt(preflight_evidence, "plan_preflight_evidence")
         preflight_producer = preflight_evidence.get("producer")
@@ -707,6 +826,18 @@ def record_proposal(
         if preflight_evidence.get("contract_seal_sha256") != stable_sha256(seal):
             raise ValueError("preflight evidence is not bound to the contract seal")
         preflight_evidence_sha256 = stable_sha256(preflight_evidence)
+        if solver_plan is not None or preflight_resolution is not None:
+            if solver_plan is None or preflight_resolution is None:
+                raise ValueError(
+                    "solver plan and preflight resolution must be supplied together"
+                )
+            _require_preflight_resolution_binding(
+                plan=solver_plan,
+                preflight_evidence=preflight_evidence,
+                resolution=preflight_resolution,
+            )
+            solver_plan_sha256 = stable_sha256(solver_plan)
+            preflight_resolution_sha256 = stable_sha256(preflight_resolution)
     if context["node"] == "revise":
         if previous_proposal is None:
             raise ValueError("revision requires the previous candidate proposal")
@@ -725,6 +856,14 @@ def record_proposal(
             preflight_evidence_sha256 = _text(
                 previous_proposal.get("preflight_evidence_sha256")
             ) or None
+        if solver_plan_sha256 is None:
+            solver_plan_sha256 = _text(
+                previous_proposal.get("solver_plan_sha256")
+            ) or None
+        if preflight_resolution_sha256 is None:
+            preflight_resolution_sha256 = _text(
+                previous_proposal.get("preflight_resolution_sha256")
+            ) or None
     return {
         "version": 1,
         "kind": "candidate_proposal",
@@ -735,6 +874,14 @@ def record_proposal(
         "candidate_artifact_identity": artifact_identity(artifact_root),
         "supersedes_proposal_sha256": supersedes,
         "preflight_evidence_sha256": preflight_evidence_sha256,
+        **(
+            {
+                "solver_plan_sha256": solver_plan_sha256,
+                "preflight_resolution_sha256": preflight_resolution_sha256,
+            }
+            if solver_plan_sha256 is not None
+            else {}
+        ),
         "protected_behavior_delta": protected_behavior_delta,
         **draft,
         "created_at": _now(),
@@ -855,21 +1002,250 @@ def _acceptance_text(value: Any, field: str) -> str:
     return text
 
 
-def record_solver_plan(
+def _solver_obligation_text(value: Any, field: str) -> str:
+    text = _text(value)
+    if not text or len(text) > SOLVER_OBLIGATION_TEXT_MAX_CHARS:
+        raise ValueError(
+            f"solver obligation {field} must contain "
+            f"1-{SOLVER_OBLIGATION_TEXT_MAX_CHARS} characters"
+        )
+    return text
+
+
+def _common_practice_solver_projection(practice: dict[str, Any]) -> dict[str, str]:
+    projection = practice.get("solver_projection")
+    if not isinstance(projection, dict) or set(projection) != SOLVER_OBLIGATION_ACTION_FIELDS:
+        raise ValueError(
+            "solver-facing common practice requires exactly invariant, "
+            "required_action, and self_check"
+        )
+    return {
+        field: _solver_obligation_text(projection.get(field), field)
+        for field in sorted(SOLVER_OBLIGATION_ACTION_FIELDS)
+    }
+
+
+def _profile_check_guidance(document: dict[str, Any], check_id: str) -> str:
+    content = _text(document.get("content"))
+    marker = f"- **`{check_id}`**:"
+    lines = content.splitlines()
+    collected: list[str] = []
+    for index, line in enumerate(lines):
+        if not line.startswith(marker):
+            continue
+        collected.append(line[len(marker) :].strip())
+        for continuation in lines[index + 1 :]:
+            if continuation.startswith("- **`"):
+                break
+            if continuation.strip():
+                collected.append(continuation.strip())
+        break
+    guidance = " ".join(item for item in collected if item)
+    if not guidance:
+        raise ValueError(f"review profile guidance is missing for check: {check_id}")
+    if len(guidance) <= SOLVER_OBLIGATION_TEXT_MAX_CHARS:
+        return guidance
+    first_sentence = re.split(r"(?<=[.!?])\s+", guidance, maxsplit=1)[0]
+    suffix = " Apply the complete bound profile check before proposal."
+    return _solver_obligation_text(first_sentence + suffix, "required_action")
+
+
+def _profile_check_solver_projection(
     *,
-    draft: dict[str, Any],
-    seal: dict[str, Any],
+    profile_id: str,
+    check_id: str,
+    document: dict[str, Any],
+) -> dict[str, str]:
+    return {
+        "invariant": _solver_obligation_text(
+            f"The task-visible public behavior covered by {profile_id}.{check_id} "
+            "must remain correct after the candidate change.",
+            "invariant",
+        ),
+        "required_action": _solver_obligation_text(
+            _profile_check_guidance(document, check_id),
+            "required_action",
+        ),
+        "self_check": _solver_obligation_text(
+            f"Exercise {profile_id}.{check_id} through a bounded public surface "
+            "and record candidate-bound evidence or an explicit residual risk.",
+            "self_check",
+        ),
+    }
+
+
+def _secondary_profile_solver_projection(
+    *,
+    profile_id: str,
+    check_ids: list[str],
+) -> dict[str, str]:
+    joined = ", ".join(check_ids)
+    return {
+        "invariant": _solver_obligation_text(
+            f"The secondary {profile_id} risk class must not be silently ignored.",
+            "invariant",
+        ),
+        "required_action": _solver_obligation_text(
+            f"Inspect the bound {profile_id} checks ({joined}) and apply every "
+            "check relevant to the candidate mutation.",
+            "required_action",
+        ),
+        "self_check": _solver_obligation_text(
+            f"Record public evidence or an explicit residual risk for the "
+            f"applicable {profile_id} checks.",
+            "self_check",
+        ),
+    }
+
+
+def record_solver_obligations(
+    *,
     review_profile: dict[str, Any],
+    review_practices: dict[str, Any],
 ) -> dict[str, Any]:
-    _require_receipt(seal, "contract_seal")
+    """Project compact implementation obligations without leaking reviewer tactics."""
+
     _require_receipt(review_profile, "review_profile_selection")
     context = _state_context()
     producer = _producer()
-    if context["node"] != "solve" or producer.get("role") != "solver":
-        raise ValueError("solver plan belongs to the solve entry and solver role")
-    if set(draft) != SOLVER_PLAN_FIELDS:
-        missing = sorted(SOLVER_PLAN_FIELDS - set(draft))
-        unknown = sorted(set(draft) - SOLVER_PLAN_FIELDS)
+    if context["node"] != "contract_audit" or producer.get("role") != "solver":
+        raise ValueError("solver obligations belong to contract_audit and solver role")
+    if review_profile.get("run_id") != context["run_id"]:
+        raise ValueError("review profile belongs to another StateM run")
+
+    practices = review_practices.get("practices")
+    if not isinstance(practices, list):
+        raise ValueError("review practices must contain a practices list")
+    obligations: list[dict[str, Any]] = []
+    by_practice = {
+        _text(item.get("id")): item
+        for item in practices
+        if isinstance(item, dict) and _text(item.get("id"))
+    }
+    for practice_id in sorted(SOLVER_FACING_COMMON_PRACTICES):
+        practice = by_practice.get(practice_id)
+        if practice is None:
+            raise ValueError(f"solver-facing practice is missing: {practice_id}")
+        obligations.append(
+            {
+                "obligation_id": f"practice:{practice_id}",
+                "source_kind": "common_practice",
+                "source_id": practice_id,
+                "source_sha256": stable_sha256(practice),
+                "solver_scope": "plan_and_self_verification",
+                **_common_practice_solver_projection(practice),
+            }
+        )
+
+    primary = _text(review_profile.get("primary"))
+    secondary = review_profile.get("secondary")
+    documents = review_profile.get("documents")
+    if not primary or not isinstance(secondary, list) or not isinstance(documents, list):
+        raise ValueError("review profile selection is incomplete")
+    profile_documents = {
+        _text(item.get("profile_id")): item
+        for item in documents
+        if isinstance(item, dict) and _text(item.get("profile_id"))
+    }
+    primary_document = profile_documents.get(primary)
+    if primary_document is None:
+        raise ValueError("primary review profile document is missing")
+    primary_checks = primary_document.get("checks")
+    if not isinstance(primary_checks, list) or not all(_text(item) for item in primary_checks):
+        raise ValueError("primary review profile checks are invalid")
+    for check_id in primary_checks:
+        obligations.append(
+            {
+                "obligation_id": f"profile:{primary}:{check_id}",
+                "source_kind": "primary_profile_check",
+                "source_id": check_id,
+                "source_sha256": primary_document["sha256"],
+                "solver_scope": "plan_and_self_verification",
+                **_profile_check_solver_projection(
+                    profile_id=primary,
+                    check_id=check_id,
+                    document=primary_document,
+                ),
+            }
+        )
+    for profile_id in secondary:
+        document = profile_documents.get(profile_id)
+        if document is None:
+            raise ValueError(f"secondary review profile document is missing: {profile_id}")
+        checks = document.get("checks")
+        if not isinstance(checks, list) or not all(_text(item) for item in checks):
+            raise ValueError(f"secondary review profile checks are invalid: {profile_id}")
+        obligations.append(
+            {
+                "obligation_id": f"profile:{profile_id}:secondary-scope",
+                "source_kind": "secondary_profile_scope",
+                "source_id": profile_id,
+                "source_sha256": document["sha256"],
+                "solver_scope": "plan_and_self_verification",
+                "included_check_ids": list(checks),
+                **_secondary_profile_solver_projection(
+                    profile_id=profile_id,
+                    check_ids=list(checks),
+                ),
+            }
+        )
+    ids = [item["obligation_id"] for item in obligations]
+    if len(ids) != len(set(ids)):
+        raise ValueError("solver obligation ids must be unique")
+    return {
+        "version": 1,
+        "kind": "solver_obligation_projection",
+        **context,
+        "producer": {
+            "agent_id": f"obligation-hook:{context['run_id']}:{context['entry_id']}",
+            "role": "stateful_hook",
+        },
+        "invoked_by": producer,
+        "review_profile_sha256": stable_sha256(review_profile),
+        "review_practices_sha256": stable_sha256(review_practices),
+        "projection_policy": "mandatory_common_plus_primary_checks_plus_secondary_scope",
+        "obligations": obligations,
+        "reviewer_private_classes": [
+            "counterexample_prioritization",
+            "causal_verdict_calibration",
+            "adversarial_probe_selection",
+        ],
+        "created_at": _now(),
+    }
+
+
+def _solver_obligation_ids(solver_obligations: dict[str, Any]) -> list[str]:
+    _require_receipt(solver_obligations, "solver_obligation_projection")
+    obligations = solver_obligations.get("obligations")
+    if not isinstance(obligations, list) or not obligations:
+        raise ValueError("solver obligation projection must be non-empty")
+    ids = [
+        _text(item.get("obligation_id"))
+        for item in obligations
+        if isinstance(item, dict)
+    ]
+    if len(ids) != len(obligations) or any(not item for item in ids):
+        raise ValueError("solver obligation projection contains an invalid obligation id")
+    if len(ids) != len(set(ids)):
+        raise ValueError("solver obligation projection contains duplicate ids")
+    for index, item in enumerate(obligations):
+        if not isinstance(item, dict):
+            raise ValueError(f"solver obligation {index} is not an object")
+        for field in SOLVER_OBLIGATION_ACTION_FIELDS:
+            _solver_obligation_text(item.get(field), field)
+    return ids
+
+
+def _validate_solver_plan_draft(
+    draft: dict[str, Any],
+    solver_obligations: dict[str, Any] | None,
+) -> None:
+    expected_fields = set(SOLVER_PLAN_FIELDS)
+    if solver_obligations is not None:
+        expected_fields.add("obligation_coverage")
+    if set(draft) != expected_fields:
+        missing = sorted(expected_fields - set(draft))
+        unknown = sorted(set(draft) - expected_fields)
         detail = []
         if missing:
             detail.append("missing " + ", ".join(missing))
@@ -884,12 +1260,71 @@ def record_solver_plan(
     assumptions = draft.get("assumptions")
     if not isinstance(assumptions, list) or not all(_text(item) for item in assumptions):
         raise ValueError("solver plan assumptions must be a string list")
+    if solver_obligations is None:
+        return
+    coverage = draft.get("obligation_coverage")
+    if not isinstance(coverage, list):
+        raise ValueError("solver plan obligation_coverage must be a list")
+    expected_ids = _solver_obligation_ids(solver_obligations)
+    covered_ids: list[str] = []
+    for index, item in enumerate(coverage):
+        if not isinstance(item, dict) or set(item) != SOLVER_OBLIGATION_COVERAGE_FIELDS:
+            raise ValueError(
+                f"solver plan obligation_coverage[{index}] has the wrong schema"
+            )
+        obligation_id = _text(item.get("obligation_id"))
+        sections = item.get("plan_sections")
+        if not isinstance(sections, list) or not sections or not all(
+            section in SOLVER_PLAN_SECTIONS for section in sections
+        ):
+            raise ValueError(
+                f"solver plan obligation_coverage[{index}] has invalid plan_sections"
+            )
+        if len(sections) != len(set(sections)):
+            raise ValueError(
+                f"solver plan obligation_coverage[{index}] repeats a plan section"
+            )
+        if not _text(item.get("rationale")):
+            raise ValueError(
+                f"solver plan obligation_coverage[{index}] rationale must be non-empty"
+            )
+        covered_ids.append(obligation_id)
+    if covered_ids != expected_ids:
+        raise ValueError(
+            "solver plan obligation_coverage must bind every projected obligation "
+            "exactly once and in projection order"
+        )
+
+
+def record_solver_plan(
+    *,
+    draft: dict[str, Any],
+    seal: dict[str, Any],
+    review_profile: dict[str, Any],
+    solver_obligations: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    _require_receipt(seal, "contract_seal")
+    _require_receipt(review_profile, "review_profile_selection")
+    context = _state_context()
+    producer = _producer()
+    if context["node"] != "solve" or producer.get("role") != "solver":
+        raise ValueError("solver plan belongs to the solve entry and solver role")
+    _validate_solver_plan_draft(draft, solver_obligations)
     if context["run_id"] != seal.get("run_id"):
         raise ValueError("solver plan and contract seal run ids differ")
     if review_profile.get("run_id") != context["run_id"]:
         raise ValueError("solver plan and review profile run ids differ")
     if review_profile.get("contract_seal_sha256") != stable_sha256(seal):
         raise ValueError("review profile is not bound to the contract seal")
+    solver_obligations_sha256: str | None = None
+    if solver_obligations is not None:
+        if solver_obligations.get("run_id") != context["run_id"]:
+            raise ValueError("solver obligations belong to another StateM run")
+        if solver_obligations.get("review_profile_sha256") != stable_sha256(
+            review_profile
+        ):
+            raise ValueError("solver obligations are not bound to the review profile")
+        solver_obligations_sha256 = stable_sha256(solver_obligations)
     return {
         "version": 1,
         "kind": "solver_plan",
@@ -897,6 +1332,11 @@ def record_solver_plan(
         "producer": producer,
         "contract_seal_sha256": stable_sha256(seal),
         "review_profile_sha256": stable_sha256(review_profile),
+        **(
+            {"solver_obligations_sha256": solver_obligations_sha256}
+            if solver_obligations_sha256 is not None
+            else {}
+        ),
         **draft,
         "created_at": _now(),
     }
@@ -908,6 +1348,7 @@ def preflight_task(
     seal: dict[str, Any],
     context_view: dict[str, Any],
     review_profile: dict[str, Any],
+    solver_obligations: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     _require_receipt(plan, "solver_plan")
     _require_receipt(seal, "contract_seal")
@@ -922,6 +1363,14 @@ def preflight_task(
         raise ValueError("solver plan is not bound to the review profile")
     if review_profile.get("contract_seal_sha256") != seal_sha256:
         raise ValueError("review profile is not bound to the contract seal")
+    if solver_obligations is not None:
+        _require_receipt(solver_obligations, "solver_obligation_projection")
+        if plan.get("solver_obligations_sha256") != stable_sha256(
+            solver_obligations
+        ):
+            raise ValueError("solver plan is not bound to the obligation projection")
+        if solver_obligations.get("review_profile_sha256") != profile_sha256:
+            raise ValueError("solver obligations are not bound to the review profile")
     if context_view.get("consumer_role") != "preflight_reviewer":
         raise ValueError("preflight context view has the wrong consumer role")
     for receipt in (seal, context_view, review_profile):
@@ -943,6 +1392,11 @@ def preflight_task(
                 "review_profile_sha256": profile_sha256,
                 "context_bundle": _context_bundle(context_view),
                 "review_profile": review_profile,
+                **(
+                    {"solver_obligations": solver_obligations}
+                    if solver_obligations is not None
+                    else {}
+                ),
                 "contract_ledger_schema": _contract_ledger_task_schema(),
                 "review_execution_class": "contract_language",
                 "acceptance_plan_schema": _candidate_blind_acceptance_plan_task_schema(),
@@ -1059,6 +1513,7 @@ def record_preflight_evidence(
     context_view: dict[str, Any],
     review_profile: dict[str, Any],
     reviewer_result: dict[str, Any],
+    solver_obligations: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     _require_receipt(plan, "solver_plan")
     _require_receipt(seal, "contract_seal")
@@ -1069,6 +1524,7 @@ def record_preflight_evidence(
         seal=seal,
         context_view=context_view,
         review_profile=review_profile,
+        solver_obligations=solver_obligations,
     )
     context = _state_context()
     if context["node"] != "solve":
@@ -1117,6 +1573,191 @@ def record_preflight_evidence(
     }
 
 
+def _preflight_plan_issues(preflight_evidence: dict[str, Any]) -> list[dict[str, str]]:
+    issues: list[dict[str, str]] = []
+    for field in ("plan_findings", "checklist_gaps", "assumption_risks"):
+        values = preflight_evidence.get(field)
+        if not isinstance(values, list):
+            raise ValueError(f"preflight evidence {field} must be a list")
+        for index, value in enumerate(values):
+            text = _text(value)
+            if not text:
+                raise ValueError(f"preflight evidence {field}[{index}] is empty")
+            payload = {"field": field, "index": index, "text": text}
+            issues.append(
+                {
+                    "issue_id": f"{field}:{stable_sha256(payload)[:16]}",
+                    "source_field": field,
+                    "text": text,
+                }
+            )
+    return issues
+
+
+def record_preflight_resolution(
+    *,
+    draft: dict[str, Any] | None,
+    plan: dict[str, Any],
+    preflight_evidence: dict[str, Any],
+    solver_obligations: dict[str, Any],
+) -> dict[str, Any]:
+    _require_receipt(plan, "solver_plan")
+    _require_receipt(preflight_evidence, "plan_preflight_evidence")
+    _require_receipt(solver_obligations, "solver_obligation_projection")
+    context = _state_context()
+    producer = _producer()
+    if context["node"] != "solve" or producer.get("role") != "solver":
+        raise ValueError("preflight resolution belongs to the solve entry and solver role")
+    for receipt in (plan, preflight_evidence, solver_obligations):
+        if receipt.get("run_id") != context["run_id"]:
+            raise ValueError("preflight resolution inputs belong to different StateM runs")
+    if preflight_evidence.get("entry_id") != context["entry_id"]:
+        raise ValueError("preflight evidence belongs to another solve entry")
+    if plan.get("solver_obligations_sha256") != stable_sha256(solver_obligations):
+        raise ValueError("solver plan is not bound to the obligation projection")
+    issues = _preflight_plan_issues(preflight_evidence)
+    verdict = preflight_evidence.get("advisory_verdict")
+    if verdict == "ready":
+        return {
+            "version": 1,
+            "kind": "preflight_plan_resolution",
+            **context,
+            "producer": {
+                "agent_id": f"resolution-hook:{context['run_id']}:{context['entry_id']}",
+                "role": "stateful_hook",
+            },
+            "invoked_by": producer,
+            "status": "not_required",
+            "original_plan_sha256": stable_sha256(plan),
+            "effective_plan_sha256": stable_sha256(plan),
+            "preflight_evidence_sha256": stable_sha256(preflight_evidence),
+            "solver_obligations_sha256": stable_sha256(solver_obligations),
+            "issues": issues,
+            "issue_ids": [item["issue_id"] for item in issues],
+            "issue_resolutions": [],
+            "revised_plan": None,
+            "created_at": _now(),
+        }
+    if verdict != "revise_plan":
+        raise ValueError("preflight evidence has an unsupported advisory verdict")
+    if draft is None:
+        return {
+            "version": 1,
+            "kind": "preflight_plan_resolution",
+            **context,
+            "producer": {
+                "agent_id": f"resolution-hook:{context['run_id']}:{context['entry_id']}",
+                "role": "stateful_hook",
+            },
+            "invoked_by": producer,
+            "status": "draft_required",
+            "original_plan_sha256": stable_sha256(plan),
+            "effective_plan_sha256": None,
+            "preflight_evidence_sha256": stable_sha256(preflight_evidence),
+            "solver_obligations_sha256": stable_sha256(solver_obligations),
+            "issues": issues,
+            "issue_ids": [item["issue_id"] for item in issues],
+            "issue_resolutions": [],
+            "revised_plan": None,
+            "created_at": _now(),
+        }
+    if set(draft) != PREFLIGHT_RESOLUTION_FIELDS:
+        raise ValueError(
+            "revise_plan requires exactly revised_plan and issue_resolutions"
+        )
+    revised_plan = draft.get("revised_plan")
+    if not isinstance(revised_plan, dict):
+        raise ValueError("preflight resolution revised_plan must be an object")
+    _validate_solver_plan_draft(revised_plan, solver_obligations)
+    original_payload = {field: plan.get(field) for field in revised_plan}
+    if revised_plan == original_payload:
+        raise ValueError("revise_plan must change at least one solver plan field")
+    resolutions = draft.get("issue_resolutions")
+    if not isinstance(resolutions, list):
+        raise ValueError("preflight resolution issue_resolutions must be a list")
+    expected_ids = [item["issue_id"] for item in issues]
+    resolved_ids: list[str] = []
+    normalized_resolutions: list[dict[str, str]] = []
+    for index, item in enumerate(resolutions):
+        if not isinstance(item, dict) or set(item) != PREFLIGHT_ISSUE_RESOLUTION_FIELDS:
+            raise ValueError(
+                f"preflight issue_resolutions[{index}] has the wrong schema"
+            )
+        issue_id = _text(item.get("issue_id"))
+        section = _text(item.get("plan_section"))
+        resolution = _text(item.get("resolution"))
+        if section not in SOLVER_PLAN_SECTIONS:
+            raise ValueError(
+                f"preflight issue_resolutions[{index}] has an invalid plan_section"
+            )
+        if revised_plan.get(section) == plan.get(section):
+            raise ValueError(
+                f"preflight issue_resolutions[{index}] names an unchanged plan section"
+            )
+        if not resolution:
+            raise ValueError(
+                f"preflight issue_resolutions[{index}] resolution must be non-empty"
+            )
+        resolved_ids.append(issue_id)
+        normalized_resolutions.append(
+            {
+                "issue_id": issue_id,
+                "plan_section": section,
+                "resolution": resolution,
+            }
+        )
+    if resolved_ids != expected_ids:
+        raise ValueError(
+            "preflight issue resolutions must address every finding, checklist gap, "
+            "and assumption risk exactly once and in receipt order"
+        )
+    return {
+        "version": 1,
+        "kind": "preflight_plan_resolution",
+        **context,
+        "producer": {
+            "agent_id": f"resolution-hook:{context['run_id']}:{context['entry_id']}",
+            "role": "stateful_hook",
+        },
+        "invoked_by": producer,
+        "status": "revised",
+        "original_plan_sha256": stable_sha256(plan),
+        "effective_plan_sha256": stable_sha256(revised_plan),
+        "preflight_evidence_sha256": stable_sha256(preflight_evidence),
+        "solver_obligations_sha256": stable_sha256(solver_obligations),
+        "issues": issues,
+        "issue_ids": expected_ids,
+        "issue_resolutions": normalized_resolutions,
+        "revised_plan": revised_plan,
+        "created_at": _now(),
+    }
+
+
+def _require_preflight_resolution_binding(
+    *,
+    plan: dict[str, Any],
+    preflight_evidence: dict[str, Any],
+    resolution: dict[str, Any],
+) -> None:
+    _require_receipt(plan, "solver_plan")
+    _require_receipt(preflight_evidence, "plan_preflight_evidence")
+    _require_receipt(resolution, "preflight_plan_resolution")
+    if resolution.get("run_id") != plan.get("run_id"):
+        raise ValueError("preflight resolution belongs to another StateM run")
+    if resolution.get("entry_id") != plan.get("entry_id"):
+        raise ValueError("preflight resolution belongs to another solve entry")
+    if resolution.get("original_plan_sha256") != stable_sha256(plan):
+        raise ValueError("preflight resolution is not bound to the solver plan")
+    if resolution.get("preflight_evidence_sha256") != stable_sha256(
+        preflight_evidence
+    ):
+        raise ValueError("preflight resolution is not bound to preflight evidence")
+    verdict = preflight_evidence.get("advisory_verdict")
+    expected_status = "revised" if verdict == "revise_plan" else "not_required"
+    if resolution.get("status") != expected_status:
+        raise ValueError("preflight resolution status does not close the advisory verdict")
+
+
 def require_preflight_binding(
     *,
     proposal: dict[str, Any],
@@ -1126,6 +1767,8 @@ def require_preflight_binding(
     repair_transaction: dict[str, Any] | None = None,
     retry_brief: dict[str, Any] | None = None,
     transition_feedback: dict[str, Any] | None = None,
+    solver_plan: dict[str, Any] | None = None,
+    preflight_resolution: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     _require_receipt(proposal, "candidate_proposal")
     _require_receipt(preflight_evidence, "plan_preflight_evidence")
@@ -1141,6 +1784,24 @@ def require_preflight_binding(
         raise ValueError("candidate proposal and preflight evidence seals differ")
     if preflight_evidence.get("promotion_authority") is not False:
         raise ValueError("preflight evidence cannot carry promotion authority")
+    if solver_plan is not None or preflight_resolution is not None:
+        if solver_plan is None or preflight_resolution is None:
+            raise ValueError(
+                "solver plan and preflight resolution must be supplied together"
+            )
+        _require_preflight_resolution_binding(
+            plan=solver_plan,
+            preflight_evidence=preflight_evidence,
+            resolution=preflight_resolution,
+        )
+        if proposal.get("solver_plan_sha256") != stable_sha256(solver_plan):
+            raise ValueError("candidate proposal is not bound to the solver plan")
+        if proposal.get("preflight_resolution_sha256") != stable_sha256(
+            preflight_resolution
+        ):
+            raise ValueError(
+                "candidate proposal is not bound to the preflight resolution"
+            )
     if reviewer_result is not None:
         try:
             _require_preflight_result_binding(preflight_evidence, reviewer_result)
@@ -1547,6 +2208,12 @@ def _acceptance_obligation_assessment_task_schema() -> dict[str, Any]:
         "required_provenance_by_mode": dict(ACCEPTANCE_MODE_PROVENANCE),
         "cardinality": "exactly_one_per_acceptance_requirement",
         "unresolved_provenance": "insufficient",
+        "bounded_text_fields": [
+            "evidence",
+            "independence_basis",
+            "unresolved_reason",
+        ],
+        "max_text_chars": ACCEPTANCE_OBLIGATION_TEXT_MAX_CHARS,
     }
 
 
@@ -2579,6 +3246,13 @@ def decide_promotion(
         for name, passed in checks.items()
         if not passed
     ]
+    if not acceptance_obligation_assessments_valid:
+        reason_codes = [
+            code
+            for code in reason_codes
+            if code != "acceptance_obligations_unresolved_or_falsified"
+        ]
+        reason_codes.append("reviewer_receipt_expression_invalid")
     if sealed_acceptance_uncertainties:
         reason_codes.append("sealed_acceptance_uncertainty_recorded")
     hard_reject = any(
@@ -2634,6 +3308,12 @@ def decide_promotion(
         "solver": proposal["producer"],
         "falsifier": producer,
         "falsifier_verdict": verdict,
+        "failure_owner": (
+            "reviewer_receipt_expression"
+            if not acceptance_obligation_assessments_valid
+            else "semantic_review_or_candidate"
+        ),
+        "candidate_revision_required": acceptance_obligation_assessments_valid,
         "blocking_regressions": blocking_regressions,
         "regressions": regressions,
         "blocking_contract_violations": blocking_contract_violations,
@@ -3125,13 +3805,20 @@ def _review_protocol(catalog: dict[str, Any]) -> dict[str, Any]:
         stage_ids.add(stage_id)
     practice_ids: set[str] = set()
     for practice in practices:
-        if not isinstance(practice, dict) or set(practice) != {
+        if not isinstance(practice, dict) or set(practice) not in ({
             "id",
             "allow_not_applicable",
             "trigger",
             "procedure",
             "required_evidence",
-        }:
+        }, {
+            "id",
+            "allow_not_applicable",
+            "trigger",
+            "procedure",
+            "required_evidence",
+            "solver_projection",
+        }):
             raise ValueError(
                 "review practice must contain id, applicability, trigger, procedure, and evidence"
             )
@@ -3145,6 +3832,9 @@ def _review_protocol(catalog: dict[str, Any]) -> dict[str, Any]:
             or not _text(practice.get("required_evidence"))
         ):
             raise ValueError("review practices must be unique and complete")
+        solver_projection = practice.get("solver_projection")
+        if solver_projection is not None:
+            _common_practice_solver_projection(practice)
         practice_ids.add(practice_id)
     protocol = {
         "version": 1,

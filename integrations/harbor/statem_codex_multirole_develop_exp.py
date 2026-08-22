@@ -1712,3 +1712,126 @@ Evidence-develop v4p53 targeted validation-delta control:
   require-preflight, and validation-delta gates; a receipt-only append is not
   evidence that the new check ran.
 """
+
+
+class EvidenceDevelopV4p54ExperimentalStatemCodex(
+    EvidenceDevelopV4p53ExperimentalStatemCodex
+):
+    """Expose solver obligations and close candidate-blind plan revision."""
+
+    def __init__(
+        self,
+        *args: Any,
+        runbook_path: str | None = None,
+        **kwargs: Any,
+    ):
+        repo_root = Path(__file__).resolve().parents[2]
+        runbook = (
+            repo_root
+            / "examples"
+            / "frontier-bench-agent-evidence-develop-v4p54-exp.yaml"
+        )
+        super().__init__(
+            *args,
+            runbook_path=runbook_path or str(runbook),
+            **kwargs,
+        )
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p54-exp"
+
+    def _augment_instruction(
+        self,
+        instruction: str,
+        run_id: str,
+        current_context: str,
+    ) -> str:
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
+
+Evidence-develop v4p54 solver-obligation and plan-resolution control:
+- The host projects mandatory common practices, primary profile checks, and
+  compact secondary profile scope into solver-obligations.json. Cover every
+  projected id exactly once in solver-plan obligation_coverage. This gives the
+  implementer the constraints it must satisfy without disclosing reviewer-only
+  counterexample priorities or verdict calibration.
+- The v4p54 plan command supersedes the earlier plan command and adds
+  `--solver-obligations
+  /tmp/statem-verification-checks/multirole/solver-obligations.json`. Include
+  solver-obligations.json in the preflight context view, and add the same
+  `--solver-obligations` argument to both preflight-task and
+  preflight-evidence actions.
+- If candidate-blind preflight returns revise_plan, it is not merely advisory
+  prose. Before proposal, write a bounded preflight-resolution-draft.json that
+  revises at least one named plan section and addresses every immutable issue
+  id. The host validates and records preflight-resolution.json. The candidate
+  proposal must bind both the original plan and that resolution receipt.
+- A ready preflight needs no solver-authored resolution draft; the host records
+  a not_required receipt. Final semantic review remains independent and retains
+  sole evidence-based promotion recommendation authority.
+- Record the receipt with `multirole_promotion_gate.py resolve-preflight
+  --draft /tmp/statem-verification-checks/multirole/preflight-resolution-draft.json
+  --plan /tmp/statem-verification-checks/multirole/solver-plan.json
+  --preflight-evidence
+  /tmp/statem-verification-checks/multirole/preflight-evidence.json
+  --solver-obligations
+  /tmp/statem-verification-checks/multirole/solver-obligations.json`. The draft
+  path may be absent only for a ready verdict. Pass solver-plan.json and
+  preflight-resolution.json to both proposal and require-preflight actions.
+"""
+
+
+class EvidenceDevelopV4p55ExperimentalStatemCodex(
+    EvidenceDevelopV4p54ExperimentalStatemCodex
+):
+    """Make solver practices actionable and attribute reviewer receipt failures."""
+
+    def __init__(
+        self,
+        *args: Any,
+        runbook_path: str | None = None,
+        **kwargs: Any,
+    ):
+        repo_root = Path(__file__).resolve().parents[2]
+        runbook = (
+            repo_root
+            / "examples"
+            / "frontier-bench-agent-evidence-develop-v4p55-exp.yaml"
+        )
+        super().__init__(
+            *args,
+            runbook_path=runbook_path or str(runbook),
+            **kwargs,
+        )
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p55-exp"
+
+    def _augment_instruction(
+        self,
+        instruction: str,
+        run_id: str,
+        current_context: str,
+    ) -> str:
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
+
+Evidence-develop v4p55 role-boundary control:
+- Every solver obligation now carries invariant, required_action, and self_check.
+  Use these fields as implementation and self-verification requirements; binding
+  an id without performing its action is incomplete. Reviewer-only
+  counterexample ordering, adversarial probe selection, and verdict calibration
+  remain excluded.
+- The final reviewer assignment declares the exact bound for every assessment
+  text field. A mechanically invalid assessment is owned by reviewer receipt
+  expression and never proves a candidate defect. The deterministic gate remains
+  fail-closed and never truncates or rewrites semantic reviewer evidence.
+"""

@@ -21,6 +21,10 @@ practices:
     trigger: Always.
     procedure: Classify assertions rather than files. Treat explicit task requirements, public signatures and consumers, normative definitions, and cross-module invariants as possible hard authority; treat comments, docstrings, starter behavior, and stale operational notes in an explicitly broken target as defeasible until independently corroborated. Resolve code-document conflicts with discriminating public probes and preserve the correct public abstraction rather than literal defective text. Distinguish paired candidate-caused regressions from direct hard-contract violations that may also exist in a broken or absent baseline.
     required_evidence: For every blocking contract claim, record its allowed authority basis and evidence; list conflicting defeasible claims separately with the probe or repair implication that resolves them. Put every supported direct candidate contract failure in contract_violations rather than leaving it only in summary or counterevidence.
+    solver_projection:
+      invariant: Task-visible requirements, public signatures and consumers, normative definitions, and cross-module invariants outrank uncorroborated behavior in an explicitly broken implementation.
+      required_action: Classify claims at assertion granularity, resolve code-document conflicts with a discriminating public probe, and repair toward the supported public abstraction.
+      self_check: For each changed behavior, record its authority basis, the competing defeasible claim, and the public evidence that selects the repair.
 
   - id: profile_selection_adequacy
     allow_not_applicable: false
@@ -33,6 +37,10 @@ practices:
     trigger: Always.
     procedure: Treat comments and behavioral docs in broken targets as hypotheses until corroborated by task-visible evidence.
     required_evidence: Identify the basis used for every protected behavior.
+    solver_projection:
+      invariant: A comment, docstring, starter implementation, or stale operational note is not a hard contract without independent task-visible corroboration.
+      required_action: Treat implementation-local behavioral claims as hypotheses and test them against task wording, public consumers, normative definitions, or cross-module invariants.
+      self_check: Bind every protected behavior to an allowed authority basis and leave unsupported source-only behavior unprotected.
 
   - id: named_variant_discrimination
     allow_not_applicable: true
@@ -57,6 +65,10 @@ practices:
     trigger: Always.
     procedure: Assess every immutable candidate-blind acceptance requirement exactly once using evidence compatible with its declared mode. Adapter replay requires the bound adapter receipt, paired review requires independent baseline/candidate artifact evidence, and analytic review requires an independent derivation from the bounded public sources. Solver-recorded values, candidate prose, or an unrelated passing output check cannot close a semantic obligation.
     required_evidence: Return one requirement-id-bound assessment per acceptance obligation. Mark absent, mode-incompatible, non-discriminating, or insufficiently independent evidence unresolved so promotion routes to revision or deadline-aware quarantine.
+    solver_projection:
+      invariant: Every candidate-blind acceptance requirement remains immutable after candidate work begins and can be closed only by evidence compatible with its declared mode.
+      required_action: Preserve every requirement id and stratum, provide executable adapter-replay checks where required, and never substitute solver prose for independent evidence.
+      self_check: Confirm exact requirement and stratum coverage, candidate identity binding, and explicit residual risk for every obligation before review.
 
   - id: no_unjustified_range_or_clamp
     allow_not_applicable: true
@@ -81,6 +93,10 @@ practices:
     trigger: Always.
     procedure: Prefer the strongest bounded public consumer path over internal proxies or implementation-local assertions.
     required_evidence: Name the public surface or explain why only a derived check is available.
+    solver_projection:
+      invariant: The candidate must work through the strongest task-visible public consumer path, not only an implementation-local proxy.
+      required_action: Identify and exercise the public entry point, wrapper, format, lifecycle, or consumer that actually observes the repaired behavior.
+      self_check: Name the public surface and record a bounded end-to-end observation, or explain the residual gap when only a derived check is available.
 
   - id: quantitative_acceptance_gap
     allow_not_applicable: true
