@@ -421,7 +421,9 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             evidence["schema_repairs"],
             [
                 "requirements[0]:missing_claim_scope->bounded_acceptance",
+                "requirements[0]:missing_coverage_complete->true",
                 "requirements[1]:missing_claim_scope->bounded_acceptance",
+                "requirements[1]:missing_coverage_complete->true",
                 "discarded_non_authoritative_adapter_replay_mapping",
             ],
         )
@@ -445,7 +447,29 @@ class MultiRolePromotionGateTest(unittest.TestCase):
                 reviewer_result=v2_reviewer_result,
             )
         self.assertEqual(v2_evidence["acceptance_plan_schema_version"], 2)
-        self.assertEqual(v2_evidence["schema_repairs"], [])
+        self.assertEqual(
+            v2_evidence["schema_repairs"],
+            [
+                "requirements[0]:missing_coverage_complete->true",
+                "requirements[1]:missing_coverage_complete->true",
+            ],
+        )
+        v3_reviewer_result = json.loads(json.dumps(v2_reviewer_result))
+        for requirement in v3_reviewer_result["raw"]["acceptance_plan"][
+            "requirements"
+        ]:
+            requirement["coverage_complete"] = True
+            requirement["uncovered_regions"] = []
+        with patch.dict("os.environ", self.env, clear=False):
+            v3_evidence = record_preflight_evidence(
+                plan=plan,
+                seal=seal,
+                context_view=view,
+                review_profile=profile,
+                reviewer_result=v3_reviewer_result,
+            )
+        self.assertEqual(v3_evidence["acceptance_plan_schema_version"], 3)
+        self.assertEqual(v3_evidence["schema_repairs"], [])
         draft = {
             "target_gap": "transform returns the unmodified value",
             "hypothesis": "the implementation omits the required increment",
@@ -1323,6 +1347,93 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             invalid["reason_codes"],
         )
         self.assertFalse(invalid["candidate_revision_required"])
+
+    def test_claim_boundary_closure_rejects_under_scoped_bounded_claims(
+        self,
+    ) -> None:
+        seal, proposal, _ = self._receipts()
+        base_requirement = {
+            "requirement_id": "frontier-coverage",
+            "evidence_mode": "adapter_replay",
+            "claim_scope": "bounded_acceptance",
+            "coverage_complete": False,
+            "uncovered_regions": ["larger populations", "concurrent schedules"],
+        }
+        preflight = {
+            "version": 1,
+            "kind": "plan_preflight_evidence",
+            "run_id": self.run_id,
+            "node": "solve",
+            "entry_id": "solve-entry",
+            "producer": {"agent_id": "preflight-1", "role": "preflight-reviewer"},
+            "promotion_authority": False,
+            "contract_seal_sha256": proposal["contract_seal_sha256"],
+            "acceptance_plan_schema_version": 3,
+            "acceptance_plan": {"requirements": [base_requirement]},
+        }
+        proposal["preflight_evidence_sha256"] = stable_sha256(preflight)
+
+        with self.assertRaisesRegex(ValueError, "cannot be bounded"):
+            require_preflight_binding(
+                proposal=proposal,
+                preflight_evidence=preflight,
+                require_generalization_evidence_scope=True,
+                require_claim_boundary_closure=True,
+            )
+
+        contradictory = json.loads(json.dumps(preflight))
+        contradictory["acceptance_plan"]["requirements"][0][
+            "coverage_complete"
+        ] = True
+        contradictory_proposal = json.loads(json.dumps(proposal))
+        contradictory_proposal["preflight_evidence_sha256"] = stable_sha256(
+            contradictory
+        )
+        with self.assertRaisesRegex(ValueError, "while naming uncovered"):
+            require_preflight_binding(
+                proposal=contradictory_proposal,
+                preflight_evidence=contradictory,
+                require_claim_boundary_closure=True,
+            )
+
+        closed = json.loads(json.dumps(preflight))
+        closed_requirement = closed["acceptance_plan"]["requirements"][0]
+        closed_requirement["coverage_complete"] = True
+        closed_requirement["uncovered_regions"] = []
+        closed_proposal = json.loads(json.dumps(proposal))
+        closed_proposal["preflight_evidence_sha256"] = stable_sha256(closed)
+        require_preflight_binding(
+            proposal=closed_proposal,
+            preflight_evidence=closed,
+            require_generalization_evidence_scope=True,
+            require_claim_boundary_closure=True,
+        )
+
+        generalization = json.loads(json.dumps(preflight))
+        generalization["acceptance_plan"]["requirements"][0][
+            "claim_scope"
+        ] = "generalization"
+        generalization_proposal = json.loads(json.dumps(proposal))
+        generalization_proposal["preflight_evidence_sha256"] = stable_sha256(
+            generalization
+        )
+        require_preflight_binding(
+            proposal=generalization_proposal,
+            preflight_evidence=generalization,
+            require_generalization_evidence_scope=True,
+            require_claim_boundary_closure=True,
+        )
+
+        legacy = json.loads(json.dumps(preflight))
+        legacy["acceptance_plan_schema_version"] = 2
+        legacy_proposal = json.loads(json.dumps(proposal))
+        legacy_proposal["preflight_evidence_sha256"] = stable_sha256(legacy)
+        with self.assertRaisesRegex(ValueError, "explicit claim-boundary closure"):
+            require_preflight_binding(
+                proposal=legacy_proposal,
+                preflight_evidence=legacy,
+                require_claim_boundary_closure=True,
+            )
 
     def test_same_identity_cannot_falsify_its_own_candidate(self) -> None:
         seal, proposal, view = self._receipts()

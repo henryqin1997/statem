@@ -2003,3 +2003,51 @@ Evidence-develop v4p59 evidence-scope control:
   discriminating analytic authority and disposition every predeclared
   uncovered region; otherwise the host safely routes to revision or quarantine.
 """
+
+
+class EvidenceDevelopV4p60ExperimentalStatemCodex(
+    EvidenceDevelopV4p59ExperimentalStatemCodex
+):
+    """Require mechanically coherent boundaries for bounded claims."""
+
+    def __init__(
+        self,
+        *args: Any,
+        runbook_path: str | None = None,
+        **kwargs: Any,
+    ):
+        repo_root = Path(__file__).resolve().parents[2]
+        runbook = (
+            repo_root
+            / "examples"
+            / "frontier-bench-agent-evidence-develop-v4p60-exp.yaml"
+        )
+        super().__init__(
+            *args,
+            runbook_path=runbook_path or str(runbook),
+            **kwargs,
+        )
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p60-exp"
+
+    def _augment_instruction(
+        self,
+        instruction: str,
+        run_id: str,
+        current_context: str,
+    ) -> str:
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
+
+Evidence-develop v4p60 claim-boundary control:
+- A bounded acceptance claim is host-valid only when its declared population is
+  closed, coverage_complete is true, and uncovered_regions is empty.
+- Any named uncovered region requires an open generalization obligation and the
+  independent authority/disposition checks inherited from v4p59. Contradictory
+  boundary fields block before candidate evaluation.
+"""

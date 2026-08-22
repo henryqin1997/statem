@@ -202,9 +202,13 @@ LEGACY_ACCEPTANCE_REQUIREMENT_FIELDS = {
     "independence_basis",
     "rationale",
 }
-ACCEPTANCE_REQUIREMENT_FIELDS = {
+V2_ACCEPTANCE_REQUIREMENT_FIELDS = {
     *LEGACY_ACCEPTANCE_REQUIREMENT_FIELDS,
     "claim_scope",
+}
+ACCEPTANCE_REQUIREMENT_FIELDS = {
+    *V2_ACCEPTANCE_REQUIREMENT_FIELDS,
+    "coverage_complete",
 }
 ACCEPTANCE_CLAIM_SCOPES = {"bounded_acceptance", "generalization"}
 ACCEPTANCE_EVIDENCE_MODES = {
@@ -444,6 +448,9 @@ def main(argv: list[str] | None = None) -> int:
                 require_generalization_evidence_scope=(
                     args.require_generalization_evidence_scope
                 ),
+                require_claim_boundary_closure=(
+                    args.require_claim_boundary_closure
+                ),
             )
         elif args.action == "review-pre-submit":
             falsifier = (
@@ -679,6 +686,9 @@ def _parser() -> argparse.ArgumentParser:
     )
     require_preflight.add_argument(
         "--require-generalization-evidence-scope", action="store_true"
+    )
+    require_preflight.add_argument(
+        "--require-claim-boundary-closure", action="store_true"
     )
     require_preflight.add_argument("--solver-plan", type=Path)
     require_preflight.add_argument("--preflight-resolution", type=Path)
@@ -1491,9 +1501,9 @@ def preflight_task(
                     "by each requirement's evidence_mode, public_surface, and required_strata. "
                     "For every requirement, selection_basis must state how the support "
                     "population was selected before candidate work, and uncovered_regions "
-                    "must name every known uncovered category, range, state, or path; use a "
-                    "single explicit none entry only when the bounded public domain is "
-                    "actually exhausted. For finite categorical oracle inputs, do not use "
+                    "must name every known uncovered category, range, state, or path; use "
+                    "an empty list only when the bounded public domain is actually "
+                    "exhausted. For finite categorical oracle inputs, do not use "
                     "observed examples or a generic phrase such as eligible categories as "
                     "coverage. Name the independently justified finite domain and require "
                     "exhaustive replay when feasible, including fallback, missing, unknown, "
@@ -1503,7 +1513,12 @@ def preflight_task(
                     "Use generalization when the claim extends to unseen inputs, a wider "
                     "population, or must distinguish plausible semantic forks. Do not "
                     "shrink a generalization claim to the available samples merely to make "
-                    "it mechanically satisfiable. "
+                    "it mechanically satisfiable. Set coverage_complete=true only when "
+                    "the bounded claim surface is closed and uncovered_regions is empty. "
+                    "If any known category, range, state, path, consumer, schedule, or "
+                    "semantic fork remains uncovered, set coverage_complete=false, list "
+                    "every such region, and use generalization rather than "
+                    "bounded_acceptance. The host rejects contradictory boundary claims. "
                     "Use requirement_id "
                     "values as unique lowercase slugs. The host repairs ASCII case "
                     "mechanically and rejects collisions after canonicalization. Use "
@@ -1554,11 +1569,12 @@ def _canonical_preflight_result_payload(raw: dict[str, Any]) -> dict[str, Any]:
     acceptance_plan, schema_repairs = _candidate_blind_acceptance_plan_with_repairs(
         raw.get("acceptance_plan")
     )
-    acceptance_plan_schema_version = (
-        1
-        if any("missing_claim_scope" in repair for repair in schema_repairs)
-        else 2
-    )
+    if any("missing_claim_scope" in repair for repair in schema_repairs):
+        acceptance_plan_schema_version = 1
+    elif any("missing_coverage_complete" in repair for repair in schema_repairs):
+        acceptance_plan_schema_version = 2
+    else:
+        acceptance_plan_schema_version = 3
     return {
         "advisory_verdict": verdict,
         **{field: raw.get(field) for field in binding_fields},
@@ -1823,6 +1839,49 @@ def _require_preflight_resolution_binding(
         raise ValueError("preflight resolution status does not close the advisory verdict")
 
 
+def _require_claim_boundary_closure(
+    preflight_evidence: dict[str, Any],
+) -> None:
+    plan = preflight_evidence.get("acceptance_plan")
+    requirements = plan.get("requirements") if isinstance(plan, dict) else None
+    if not isinstance(requirements, list) or not requirements:
+        raise ValueError("claim-boundary closure requires acceptance requirements")
+    for requirement in requirements:
+        if not isinstance(requirement, dict):
+            raise ValueError("claim-boundary closure has an invalid requirement")
+        requirement_id = _text(requirement.get("requirement_id"))
+        claim_scope = _text(requirement.get("claim_scope"))
+        coverage_complete = requirement.get("coverage_complete")
+        uncovered_regions = requirement.get("uncovered_regions")
+        if not requirement_id or claim_scope not in ACCEPTANCE_CLAIM_SCOPES:
+            raise ValueError("claim-boundary closure has an invalid requirement")
+        if not isinstance(coverage_complete, bool):
+            raise ValueError(
+                f"acceptance requirement {requirement_id} lacks boundary closure"
+            )
+        if not isinstance(uncovered_regions, list) or any(
+            not _text(region) for region in uncovered_regions
+        ):
+            raise ValueError(
+                f"acceptance requirement {requirement_id} has invalid uncovered regions"
+            )
+        if coverage_complete and uncovered_regions:
+            raise ValueError(
+                f"acceptance requirement {requirement_id} claims complete coverage "
+                "while naming uncovered regions"
+            )
+        if not coverage_complete and not uncovered_regions:
+            raise ValueError(
+                f"acceptance requirement {requirement_id} claims incomplete coverage "
+                "without naming uncovered regions"
+            )
+        if claim_scope == "bounded_acceptance" and not coverage_complete:
+            raise ValueError(
+                f"acceptance requirement {requirement_id} cannot be bounded while "
+                "coverage is incomplete"
+            )
+
+
 def require_preflight_binding(
     *,
     proposal: dict[str, Any],
@@ -1835,6 +1894,7 @@ def require_preflight_binding(
     solver_plan: dict[str, Any] | None = None,
     preflight_resolution: dict[str, Any] | None = None,
     require_generalization_evidence_scope: bool = False,
+    require_claim_boundary_closure: bool = False,
 ) -> dict[str, Any]:
     _require_receipt(proposal, "candidate_proposal")
     _require_receipt(preflight_evidence, "plan_preflight_evidence")
@@ -1852,12 +1912,18 @@ def require_preflight_binding(
         raise ValueError("preflight evidence cannot carry promotion authority")
     if (
         require_generalization_evidence_scope
-        and preflight_evidence.get("acceptance_plan_schema_version") != 2
+        and int(preflight_evidence.get("acceptance_plan_schema_version") or 0) < 2
     ):
         raise ValueError(
             "preflight evidence requires explicit bounded_acceptance or "
             "generalization claim scope"
         )
+    if require_claim_boundary_closure:
+        if preflight_evidence.get("acceptance_plan_schema_version") != 3:
+            raise ValueError(
+                "preflight evidence requires explicit claim-boundary closure"
+            )
+        _require_claim_boundary_closure(preflight_evidence)
     if solver_plan is not None or preflight_resolution is not None:
         if solver_plan is None or preflight_resolution is None:
             raise ValueError(
@@ -2139,6 +2205,7 @@ def _candidate_blind_acceptance_plan_with_repairs(
         item_fields = set(item) if isinstance(item, dict) else set()
         if not isinstance(item, dict) or item_fields not in (
             ACCEPTANCE_REQUIREMENT_FIELDS,
+            V2_ACCEPTANCE_REQUIREMENT_FIELDS,
             LEGACY_ACCEPTANCE_REQUIREMENT_FIELDS,
         ):
             raise ValueError(
@@ -2183,7 +2250,23 @@ def _candidate_blind_acceptance_plan_with_repairs(
         uncovered_regions = _bounded_acceptance_plan_list(
             item.get("uncovered_regions"),
             field=f"requirements[{index}].uncovered_regions",
+            allow_empty=True,
         )
+        coverage_complete = item.get("coverage_complete")
+        if item_fields == ACCEPTANCE_REQUIREMENT_FIELDS:
+            if not isinstance(coverage_complete, bool):
+                raise ValueError(
+                    f"acceptance requirement {requirement_id} requires boolean "
+                    "coverage_complete"
+                )
+        else:
+            coverage_complete = len(uncovered_regions) == 1 and (
+                uncovered_regions[0].strip().lower() == "none"
+            )
+            schema_repairs.append(
+                f"requirements[{index}]:missing_coverage_complete"
+                f"->{str(coverage_complete).lower()}"
+            )
         normalized.append(
             {
                 "requirement_id": requirement_id,
@@ -2193,6 +2276,7 @@ def _candidate_blind_acceptance_plan_with_repairs(
                 ),
                 "evidence_mode": evidence_mode,
                 "claim_scope": claim_scope,
+                "coverage_complete": coverage_complete,
                 "support_dimensions": support_dimensions,
                 "required_strata": required_strata,
                 "selection_basis": _bounded_contract_text(
@@ -2256,15 +2340,21 @@ def _validate_legacy_adapter_replay_mapping(
         )
 
 
-def _bounded_acceptance_plan_list(value: Any, *, field: str) -> list[str]:
+def _bounded_acceptance_plan_list(
+    value: Any,
+    *,
+    field: str,
+    allow_empty: bool = False,
+) -> list[str]:
     if (
         not isinstance(value, list)
-        or not value
+        or (not value and not allow_empty)
         or len(value) > ACCEPTANCE_PLAN_MAX_LIST_ITEMS
     ):
+        minimum = 0 if allow_empty else 1
         raise ValueError(
             f"preflight acceptance_plan {field} requires "
-            f"1-{ACCEPTANCE_PLAN_MAX_LIST_ITEMS} strings"
+            f"{minimum}-{ACCEPTANCE_PLAN_MAX_LIST_ITEMS} strings"
         )
     return [
         _bounded_contract_text(item, field)
@@ -2274,7 +2364,7 @@ def _bounded_acceptance_plan_list(value: Any, *, field: str) -> list[str]:
 
 def _candidate_blind_acceptance_plan_task_schema() -> dict[str, Any]:
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "required_top_level_fields": sorted(ACCEPTANCE_PLAN_FIELDS),
         "requirement_fields": sorted(ACCEPTANCE_REQUIREMENT_FIELDS),
         "claim_scopes": sorted(ACCEPTANCE_CLAIM_SCOPES),
@@ -2287,6 +2377,12 @@ def _candidate_blind_acceptance_plan_task_schema() -> dict[str, Any]:
                 "the claim extends beyond observed examples, depends on unseen "
                 "inputs, or must distinguish plausible semantic forks"
             ),
+        },
+        "claim_boundary_semantics": {
+            "coverage_complete_type": "boolean",
+            "bounded_acceptance_requires_coverage_complete": True,
+            "coverage_complete_requires_empty_uncovered_regions": True,
+            "coverage_incomplete_requires_named_uncovered_regions": True,
         },
         "evidence_modes": sorted(ACCEPTANCE_EVIDENCE_MODES),
         "max_requirements": ACCEPTANCE_PLAN_MAX_REQUIREMENTS,
@@ -2306,7 +2402,7 @@ def _acceptance_obligation_assessment_task_schema(
 ) -> dict[str, Any]:
     scope_schema_required = bool(
         preflight_evidence is not None
-        and preflight_evidence.get("acceptance_plan_schema_version") == 2
+        and int(preflight_evidence.get("acceptance_plan_schema_version") or 0) >= 2
     )
     return {
         "schema_version": 2 if scope_schema_required else 1,
@@ -2457,9 +2553,9 @@ def _acceptance_obligation_assessment_state(
     if not isinstance(value, list) or len(value) != len(requirements):
         return False, False, []
 
-    scope_schema_required = preflight_evidence.get(
-        "acceptance_plan_schema_version"
-    ) == 2
+    scope_schema_required = int(
+        preflight_evidence.get("acceptance_plan_schema_version") or 0
+    ) >= 2
     expected: dict[str, dict[str, Any]] = {}
     for requirement in requirements:
         if not isinstance(requirement, dict):
