@@ -38,6 +38,9 @@ DEFAULT_DEADLINE = Path("/tmp/statem-verification-checks/deadline.json")
 DEFAULT_FAMILY_SELECTION = Path(
     "/tmp/statem-verification-checks/family/family-selection.json"
 )
+DEFAULT_PREFLIGHT_EVIDENCE = Path(
+    "/tmp/statem-verification-checks/multirole/preflight-evidence.json"
+)
 REPLAY_STATUSES = {"passed", "recoverable_failure", "terminal_failure"}
 REVIEW_ROUTES = {"promote", "revise", "quarantine", "rollback"}
 HARD_GAP_FIELDS = {
@@ -90,6 +93,7 @@ VALIDATION_DELTA_FIELDS = {
     "superseded_check_ids",
     "rationale",
 }
+TARGETED_VALIDATION_DELTA_FIELD = "target_requirement_id"
 VALIDATION_ACTIONS = {
     "append_regression",
     "expand_population",
@@ -134,10 +138,18 @@ def main(argv: list[str] | None = None) -> int:
                 artifact_root=args.artifact_root,
                 require_information_gain=args.require_information_gain,
                 require_failure_closure=args.require_failure_closure,
+                require_targeted_validation_delta=(
+                    args.require_targeted_validation_delta
+                ),
                 deadline_path=args.deadline,
                 family_selection=(
                     _read_json(args.family_selection)
                     if args.require_failure_closure
+                    else None
+                ),
+                preflight_evidence=(
+                    _read_json(args.preflight_evidence)
+                    if args.require_targeted_validation_delta
                     else None
                 ),
             )
@@ -219,9 +231,20 @@ def _parser() -> argparse.ArgumentParser:
             "delta before considering another candidate cycle"
         ),
     )
+    close_parser.add_argument(
+        "--require-targeted-validation-delta",
+        action="store_true",
+        help=(
+            "require every recoverable retry delta to name the existing "
+            "candidate-blind requirement that will receive its discriminator"
+        ),
+    )
     close_parser.add_argument("--deadline", type=Path, default=DEFAULT_DEADLINE)
     close_parser.add_argument(
         "--family-selection", type=Path, default=DEFAULT_FAMILY_SELECTION
+    )
+    close_parser.add_argument(
+        "--preflight-evidence", type=Path, default=DEFAULT_PREFLIGHT_EVIDENCE
     )
 
     require_parser = subparsers.add_parser("require")
@@ -380,7 +403,12 @@ def route_review(
             promotion_decision_sha256=decision_sha256,
         )
 
-    repairable_rejection = _repairable_rejection(promotion_decision)
+    acceptance_recovery_gaps = _validated_acceptance_recovery_gaps(
+        promotion_decision
+    )
+    repairable_rejection = _repairable_rejection(
+        promotion_decision
+    ) or bool(acceptance_recovery_gaps)
     hard_contract_gaps = _validated_hard_contract_gaps(promotion_decision)
     route = "revise" if repairable_rejection else decision
     budget_exhausted = False
@@ -424,8 +452,11 @@ def route_review(
     review["revision_deadline_feasible"] = revision_deadline_feasible
     review["revision_deadline_reason"] = revision_deadline_reason
     review["deadline_budget_degraded"] = deadline_budget_degraded
-    review["requires_recovery_cycle"] = bool(hard_contract_gaps)
+    review["requires_recovery_cycle"] = bool(
+        hard_contract_gaps or acceptance_recovery_gaps
+    )
     review["hard_contract_gaps"] = hard_contract_gaps
+    review["acceptance_recovery_gaps"] = acceptance_recovery_gaps
     review["artifact_disposition"] = {
         "promote": "candidate_active",
         "revise": "candidate_live",
@@ -487,6 +518,10 @@ def _review_route_receipt(
         "hard_contract_gap_sha256s": [
             stable_sha256(item) for item in review.get("hard_contract_gaps") or []
         ],
+        "acceptance_recovery_gap_sha256s": [
+            stable_sha256(item)
+            for item in review.get("acceptance_recovery_gaps") or []
+        ],
         "remaining_reviews": ledger["max_reviews"] - len(cycle.get("reviews") or []),
         "ledger_sha256": stable_sha256(ledger),
     }
@@ -532,6 +567,61 @@ def _validated_hard_contract_gaps(decision: dict[str, Any]) -> list[dict[str, An
     return normalized
 
 
+def _validated_acceptance_recovery_gaps(
+    decision: dict[str, Any],
+) -> list[dict[str, Any]]:
+    reasons = decision.get("reason_codes")
+    assessments = decision.get("acceptance_obligation_assessments")
+    declared = (
+        decision.get("decision") == "revise"
+        and isinstance(reasons, list)
+        and "acceptance_obligations_unresolved_or_falsified" in reasons
+    )
+    if not declared or not isinstance(assessments, list):
+        return []
+
+    normalized: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in assessments:
+        if not isinstance(item, dict):
+            continue
+        status = _text(item.get("status"))
+        evidence_mode = _text(item.get("evidence_mode"))
+        requirement_id = _text(item.get("requirement_id"))
+        evidence = _text(item.get("evidence"))
+        unresolved_reason = _text(item.get("unresolved_reason"))
+        independence_basis = _text(item.get("independence_basis"))
+        if (
+            status not in {"unresolved", "falsified"}
+            or evidence_mode != "adapter_replay"
+            or not requirement_id
+            or not evidence
+            or not unresolved_reason
+            or not independence_basis
+            or requirement_id in seen
+        ):
+            continue
+        seen.add(requirement_id)
+        normalized.append(
+            {
+                "kind": "acceptance_obligation_gap",
+                "claim": f"close candidate-blind obligation {requirement_id}",
+                "contract_basis": independence_basis,
+                "evidence_status": status,
+                "evidence_role": evidence_mode,
+                "population_access": "observed_public",
+                "population_id": requirement_id,
+                "observed_evidence": evidence,
+                "required_evidence": unresolved_reason,
+                "repair_action": (
+                    "add a bounded independent adapter replay for acceptance "
+                    f"obligation {requirement_id}"
+                ),
+            }
+        )
+    return normalized
+
+
 def close_cycle(
     *,
     ledger_path: Path,
@@ -540,8 +630,10 @@ def close_cycle(
     artifact_root: Path,
     require_information_gain: bool = False,
     require_failure_closure: bool = False,
+    require_targeted_validation_delta: bool = False,
     deadline_path: Path | None = None,
     family_selection: dict[str, Any] | None = None,
+    preflight_evidence: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     ledger = _read_json(ledger_path)
     _validate_ledger(ledger)
@@ -555,6 +647,7 @@ def close_cycle(
         replay_draft,
         require_information_gain=require_information_gain,
         require_failure_closure=require_failure_closure,
+        require_targeted_validation_delta=require_targeted_validation_delta,
     )
 
     observed = artifact_identity(artifact_root)
@@ -585,9 +678,9 @@ def close_cycle(
             context=context,
         )
 
-    hard_contract_gaps = _latest_hard_contract_gaps(cycle)
+    recovery_gaps = _latest_recovery_gaps(cycle)
     unresolved_gap_sha256s = _unresolved_hard_gap_sha256s(
-        hard_contract_gaps,
+        recovery_gaps,
         replay_draft.get("hard_gap_resolutions") or [],
     )
     reported_status = replay_draft["status"]
@@ -597,7 +690,7 @@ def close_cycle(
         effective_status = "recoverable_failure"
         unresolved = next(
             item
-            for item in hard_contract_gaps
+            for item in recovery_gaps
             if stable_sha256(item) == unresolved_gap_sha256s[0]
         )
         next_gap = str(unresolved["repair_action"]).strip()
@@ -608,7 +701,13 @@ def close_cycle(
         else None
     )
     validation_delta = (
-        _normalize_validation_delta(replay_draft.get("validation_delta"))
+        _normalize_validation_delta(
+            replay_draft.get("validation_delta"),
+            require_target_requirement=(
+                require_targeted_validation_delta
+                and replay_draft.get("status") == "recoverable_failure"
+            ),
+        )
         if replay_draft.get("validation_delta") is not None
         else None
     )
@@ -625,7 +724,7 @@ def close_cycle(
     ):
         unresolved = next(
             item
-            for item in hard_contract_gaps
+            for item in recovery_gaps
             if stable_sha256(item) == unresolved_gap_sha256s[0]
         )
         retry_case = _hard_gap_information_gain_case(
@@ -640,12 +739,13 @@ def close_cycle(
     ):
         unresolved = next(
             item
-            for item in hard_contract_gaps
+            for item in recovery_gaps
             if stable_sha256(item) == unresolved_gap_sha256s[0]
         )
         failure_ownership, validation_delta = _hard_gap_failure_closure(
             unresolved,
             failure_evidence=replay_draft["evidence"][0],
+            require_target_requirement=require_targeted_validation_delta,
         )
     if require_failure_closure and effective_status != "passed":
         if failure_ownership is None or validation_delta is None:
@@ -667,6 +767,14 @@ def close_cycle(
                 failure_ownership=failure_ownership,
                 validation_delta=validation_delta,
             )
+            if (
+                require_targeted_validation_delta
+                and failure_ownership["owner_role"] in RETRY_OWNERS
+            ):
+                _validate_target_requirement(
+                    preflight_evidence=preflight_evidence,
+                    validation_delta=validation_delta,
+                )
 
     information_gain_authorized = True
     information_gain_reason = "not_required"
@@ -753,7 +861,17 @@ def close_cycle(
     cycle["deadline_feasible"] = deadline_feasible
     cycle["deadline_reason"] = deadline_reason
     cycle["hard_gap_resolutions"] = list(replay_draft.get("hard_gap_resolutions") or [])
-    cycle["unresolved_hard_gap_sha256s"] = unresolved_gap_sha256s
+    cycle["unresolved_recovery_gap_sha256s"] = unresolved_gap_sha256s
+    hard_gap_sha256s = {
+        stable_sha256(item)
+        for item in recovery_gaps
+        if item.get("kind") != "acceptance_obligation_gap"
+    }
+    cycle["unresolved_hard_gap_sha256s"] = [
+        identity
+        for identity in unresolved_gap_sha256s
+        if identity in hard_gap_sha256s
+    ]
     cycle["closed_at"] = _now()
 
     can_retry = (
@@ -807,6 +925,10 @@ def _replay_decision_receipt(
         "selected_artifact_identity": cycle["selected_artifact_identity"],
         "unresolved_hard_gap_sha256s": cycle.get(
             "unresolved_hard_gap_sha256s", []
+        ),
+        "unresolved_recovery_gap_sha256s": cycle.get(
+            "unresolved_recovery_gap_sha256s",
+            cycle.get("unresolved_hard_gap_sha256s", []),
         ),
         "information_gain_required": cycle.get("information_gain_required", False),
         "information_gain_authorized": cycle.get(
@@ -889,6 +1011,7 @@ def _validate_replay_draft(
     *,
     require_information_gain: bool = False,
     require_failure_closure: bool = False,
+    require_targeted_validation_delta: bool = False,
 ) -> None:
     required = {"status", "evidence", "residual_risk", "next_gap"}
     allowed = required | {"hard_gap_resolutions"}
@@ -931,7 +1054,13 @@ def _validate_replay_draft(
                 raise ValueError("passed replay cannot claim failure ownership or validation delta")
         else:
             _normalize_failure_ownership(ownership)
-            _normalize_validation_delta(delta)
+            _normalize_validation_delta(
+                delta,
+                require_target_requirement=(
+                    require_targeted_validation_delta
+                    and draft["status"] == "recoverable_failure"
+                ),
+            )
     resolutions = draft.get("hard_gap_resolutions") or []
     if not isinstance(resolutions, list):
         raise ValueError("hard_gap_resolutions must be a list")
@@ -1000,11 +1129,27 @@ def _normalize_failure_ownership(value: Any) -> dict[str, Any]:
     return normalized
 
 
-def _normalize_validation_delta(value: Any) -> dict[str, Any]:
-    if not isinstance(value, dict) or set(value) != VALIDATION_DELTA_FIELDS:
+def _normalize_validation_delta(
+    value: Any,
+    *,
+    require_target_requirement: bool = False,
+) -> dict[str, Any]:
+    fields = set(value) if isinstance(value, dict) else set()
+    allowed_fields = VALIDATION_DELTA_FIELDS | {TARGETED_VALIDATION_DELTA_FIELD}
+    expected_fields = (
+        allowed_fields if require_target_requirement else VALIDATION_DELTA_FIELDS
+    )
+    if (
+        not isinstance(value, dict)
+        or fields != expected_fields
+    ):
         raise ValueError(
-            "validation_delta requires exactly "
-            + ", ".join(sorted(VALIDATION_DELTA_FIELDS))
+            "validation_delta requires exactly the base fields"
+            + (
+                " plus target_requirement_id"
+                if require_target_requirement
+                else " without target_requirement_id"
+            )
         )
     action = _text(value.get("action"))
     if action not in VALIDATION_ACTIONS:
@@ -1021,6 +1166,16 @@ def _normalize_validation_delta(value: Any) -> dict[str, Any]:
         "preserves_prior_obligations": value["preserves_prior_obligations"],
         "superseded_check_ids": [_text(item) for item in superseded],
     }
+    if TARGETED_VALIDATION_DELTA_FIELD in value:
+        target_requirement_id = _text(value.get(TARGETED_VALIDATION_DELTA_FIELD))
+        if (
+            not target_requirement_id
+            or len(target_requirement_id) > INFORMATION_GAIN_TEXT_MAX_CHARS
+        ):
+            raise ValueError(
+                "validation_delta target_requirement_id must be bounded non-empty text"
+            )
+        normalized[TARGETED_VALIDATION_DELTA_FIELD] = target_requirement_id
     for field in sorted(
         VALIDATION_DELTA_FIELDS
         - {"action", "preserves_prior_obligations", "superseded_check_ids"}
@@ -1030,6 +1185,47 @@ def _normalize_validation_delta(value: Any) -> dict[str, Any]:
             raise ValueError(f"validation_delta {field} must be bounded non-empty text")
         normalized[field] = text
     return normalized
+
+
+def _validate_target_requirement(
+    *,
+    preflight_evidence: dict[str, Any] | None,
+    validation_delta: dict[str, Any],
+) -> None:
+    if (
+        not isinstance(preflight_evidence, dict)
+        or preflight_evidence.get("version") != 1
+        or preflight_evidence.get("kind") != "plan_preflight_evidence"
+    ):
+        raise ValueError(
+            "targeted validation delta requires version-1 preflight evidence"
+        )
+    target = _text(validation_delta.get(TARGETED_VALIDATION_DELTA_FIELD))
+    if not target:
+        raise ValueError("recoverable validation delta requires target_requirement_id")
+    plan = preflight_evidence.get("acceptance_plan")
+    requirements = plan.get("requirements") if isinstance(plan, dict) else None
+    if not isinstance(requirements, list):
+        raise ValueError("preflight evidence is missing candidate-blind requirements")
+    requirement_ids = [_preflight_requirement_id(item) for item in requirements]
+    if len(set(requirement_ids)) != len(requirement_ids):
+        raise ValueError("preflight evidence has duplicate requirement identities")
+    if target not in requirement_ids:
+        raise ValueError(
+            "validation delta target_requirement_id is not in the bound preflight plan"
+        )
+
+
+def _preflight_requirement_id(value: Any) -> str:
+    if not isinstance(value, dict):
+        raise ValueError("candidate-blind requirements must be JSON objects")
+    identifier = _text(value.get("requirement_id"))
+    if not identifier:
+        raise ValueError("candidate-blind requirement_id is required")
+    strata = value.get("required_strata")
+    if not isinstance(strata, list) or not all(_text(item) for item in strata):
+        raise ValueError("candidate-blind required_strata must be a string list")
+    return identifier
 
 
 def _normalize_family_selection(value: Any) -> dict[str, Any]:
@@ -1105,6 +1301,7 @@ def _hard_gap_failure_closure(
     gap: dict[str, Any],
     *,
     failure_evidence: str,
+    require_target_requirement: bool = False,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     is_public = gap.get("population_access") == "observed_public"
     failure_class = "acceptance_plan_gap" if is_public else "sealed_uncertainty"
@@ -1134,7 +1331,12 @@ def _hard_gap_failure_closure(
         "superseded_check_ids": [],
         "rationale": validation_rationale,
     }
-    return _normalize_failure_ownership(ownership), _normalize_validation_delta(delta)
+    if is_public and require_target_requirement:
+        delta[TARGETED_VALIDATION_DELTA_FIELD] = _text(gap.get("population_id"))
+    return _normalize_failure_ownership(ownership), _normalize_validation_delta(
+        delta,
+        require_target_requirement=(is_public and require_target_requirement),
+    )
 
 
 def _authorize_information_gain(
@@ -1193,16 +1395,21 @@ def _hard_gap_information_gain_case(
 
 
 def _latest_hard_contract_gaps(cycle: dict[str, Any]) -> list[dict[str, Any]]:
+    return _latest_recovery_gaps(cycle)
+
+
+def _latest_recovery_gaps(cycle: dict[str, Any]) -> list[dict[str, Any]]:
     reviews = cycle.get("reviews") or []
     if not reviews:
         return []
     latest = reviews[-1]
     if not latest.get("requires_recovery_cycle"):
         return []
-    gaps = latest.get("hard_contract_gaps")
-    if not isinstance(gaps, list):
-        raise ValueError("review recovery requirement lost its hard contract gaps")
-    return [dict(item) for item in gaps]
+    hard_gaps = latest.get("hard_contract_gaps") or []
+    acceptance_gaps = latest.get("acceptance_recovery_gaps") or []
+    if not isinstance(hard_gaps, list) or not isinstance(acceptance_gaps, list):
+        raise ValueError("review recovery requirement lost its structured gaps")
+    return [dict(item) for item in [*hard_gaps, *acceptance_gaps]]
 
 
 def _unresolved_hard_gap_sha256s(

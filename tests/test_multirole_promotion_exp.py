@@ -16,12 +16,14 @@ from integrations.harbor.experimental.artifact_identity import (
     stable_sha256,
 )
 from integrations.harbor.experimental.multirole_promotion_gate import (
+    _read_yaml,
     _context_bundle,
     canonicalize_falsifier_result,
     decide_promotion,
     falsifier_task,
     main as promotion_gate_main,
     preflight_task,
+    record_review_profile,
     record_acceptance_evidence,
     record_context_view,
     record_preflight_evidence,
@@ -283,6 +285,22 @@ class MultiRolePromotionGateTest(unittest.TestCase):
         self.assertEqual(
             assignment["acceptance_plan_schema"]["candidate_visibility"], "none"
         )
+        self.assertEqual(
+            assignment["acceptance_plan_schema"]["required_top_level_fields"],
+            ["requirements"],
+        )
+        self.assertIn(
+            "selection_basis",
+            assignment["acceptance_plan_schema"]["requirement_fields"],
+        )
+        self.assertIn(
+            "uncovered_regions",
+            assignment["acceptance_plan_schema"]["requirement_fields"],
+        )
+        self.assertNotIn(
+            "adapter_replay_mapping_required",
+            assignment["acceptance_plan_schema"],
+        )
         raw = {
             "status": "completed",
             "summary": "the plan covers the visible contract",
@@ -310,6 +328,8 @@ class MultiRolePromotionGateTest(unittest.TestCase):
                         "evidence_mode": "adapter_replay",
                         "support_dimensions": ["input sign and zero boundary"],
                         "required_strata": ["negative", "zero", "positive"],
+                        "selection_basis": "the public numeric domain and zero boundary",
+                        "uncovered_regions": ["none"],
                         "independence_basis": "selected before a candidate exists",
                         "rationale": "the stated behavior differs at these boundaries",
                     },
@@ -320,10 +340,19 @@ class MultiRolePromotionGateTest(unittest.TestCase):
                         "evidence_mode": "paired_review",
                         "support_dimensions": ["parameter and return contract"],
                         "required_strata": ["baseline", "candidate"],
+                        "selection_basis": "the public callable signature",
+                        "uncovered_regions": ["none"],
                         "independence_basis": "paired baseline and candidate inspection",
                         "rationale": "signature drift is a protected-interface concern",
                     },
-                ]
+                ],
+                "adapter_replay_mapping": [
+                    {
+                        "requirement_id": "PUBLIC-BOUNDARIES",
+                        "public_surface": "the public transform callable",
+                        "replay_observation": "observe negative, zero, and positive",
+                    }
+                ],
             },
             "contract_ledger": {
                 "hard_constraints": [
@@ -388,6 +417,15 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             "signature-preservation",
         )
         self.assertEqual(evidence["review_execution_class"], "contract_language")
+        self.assertEqual(
+            evidence["schema_repairs"],
+            ["discarded_non_authoritative_adapter_replay_mapping"],
+        )
+        self.assertEqual(set(evidence["acceptance_plan"]), {"requirements"})
+        self.assertEqual(
+            evidence["acceptance_plan"]["requirements"][0]["uncovered_regions"],
+            ["none"],
+        )
         draft = {
             "target_gap": "transform returns the unmodified value",
             "hypothesis": "the implementation omits the required increment",
@@ -412,6 +450,188 @@ class MultiRolePromotionGateTest(unittest.TestCase):
             preflight_evidence=evidence,
             reviewer_result=reviewer_result,
         )
+
+        raw_evidence = json.loads(json.dumps(evidence))
+        derived_evidence = json.loads(json.dumps(raw_evidence))
+        appended_check = "replay the retained public boundary packet"
+        derived_evidence["acceptance_plan"]["requirements"][0][
+            "required_strata"
+        ].append(appended_check)
+        derived_proposal = json.loads(json.dumps(proposal))
+        derived_proposal["preflight_evidence_sha256"] = stable_sha256(
+            derived_evidence
+        )
+        brief = {
+            "version": 1,
+            "kind": "failure_feedback_retry_brief",
+            "required": True,
+            "reason": "authorized_retry",
+            "failure_closure_sha256": "f" * 64,
+            "failure_ownership": {
+                "failure_class": "acceptance_plan_gap",
+                "owner_role": "test_planner",
+                "observed_failure": "the boundary packet was absent",
+                "causal_hypothesis": "the plan omitted a public discriminator",
+                "repair_action": "append the retained boundary packet",
+                "required_validation_update": "bind the retained packet",
+                "confidence": "high",
+            },
+            "validation_delta": {
+                "action": "append_regression",
+                "discriminating_check": appended_check,
+                "success_interpretation": "the public boundary behavior matches",
+                "failure_interpretation": "the candidate still violates the boundary",
+                "preserves_prior_obligations": True,
+                "superseded_check_ids": [],
+                "rationale": "bind the retained packet",
+            },
+            "created_at": "2026-08-14T00:01:00Z",
+        }
+        transition_feedback = {
+            "version": 1,
+            "kind": "transition_failure_feedback",
+            "entry_id": raw_evidence["entry_id"],
+            "current_state": raw_evidence["node"],
+            "target_state": "falsify",
+            "stage": "before_transfer",
+            "blocker_fingerprint": "a" * 64,
+            "repeat_count": 1,
+            "repair_budget_exhausted": False,
+            "failed_checks": [
+                {
+                    "failure_class": "acceptance_plan_gap",
+                    "repair_owner": "test_planner",
+                    "summary": "the exact retry discriminator is absent",
+                }
+            ],
+        }
+        transaction = {
+            "version": 1,
+            "kind": "canonical_preflight_repair_transaction",
+            "status": "committed",
+            "required": True,
+            "append_only": True,
+            "requirement_id": "public-boundaries",
+            "failure_closure_sha256": brief["failure_closure_sha256"],
+            "validation_delta_sha256": stable_sha256(brief["validation_delta"]),
+            "brief_sha256": stable_sha256(brief),
+            "transition_feedback_sha256": stable_sha256(transition_feedback),
+            "blocker_fingerprint": transition_feedback["blocker_fingerprint"],
+            "original_preflight_sha256": stable_sha256(raw_evidence),
+            "draft_preflight_sha256": stable_sha256(derived_evidence),
+            "canonical_preflight_sha256": stable_sha256(derived_evidence),
+            "created_at": "2026-08-14T00:02:00Z",
+        }
+        transaction["receipt_sha256"] = stable_sha256(transaction)
+        require_preflight_binding(
+            proposal=derived_proposal,
+            preflight_evidence=derived_evidence,
+            reviewer_result=reviewer_result,
+            raw_preflight_evidence=raw_evidence,
+            repair_transaction=transaction,
+            retry_brief=brief,
+            transition_feedback=transition_feedback,
+        )
+        derived_paths = {
+            name: self.root / f"derived-{name}.json"
+            for name in (
+                "proposal",
+                "preflight",
+                "raw",
+                "transaction",
+                "brief",
+                "feedback",
+            )
+        }
+        for name, payload in (
+            ("proposal", derived_proposal),
+            ("preflight", derived_evidence),
+            ("raw", raw_evidence),
+            ("transaction", transaction),
+            ("brief", brief),
+            ("feedback", transition_feedback),
+        ):
+            derived_paths[name].write_text(json.dumps(payload), encoding="utf-8")
+        with (
+            patch(
+                "integrations.harbor.experimental.multirole_promotion_gate."
+                "DEFAULT_RAW_PREFLIGHT_EVIDENCE",
+                derived_paths["raw"],
+            ),
+            patch(
+                "integrations.harbor.experimental.multirole_promotion_gate."
+                "DEFAULT_PREFLIGHT_REPAIR_TRANSACTION",
+                derived_paths["transaction"],
+            ),
+            patch(
+                "integrations.harbor.experimental.multirole_promotion_gate."
+                "DEFAULT_RETRY_BRIEF",
+                derived_paths["brief"],
+            ),
+            patch(
+                "integrations.harbor.experimental.multirole_promotion_gate."
+                "DEFAULT_TRANSITION_FAILURE_FEEDBACK",
+                derived_paths["feedback"],
+            ),
+            patch(
+                "integrations.harbor.experimental.multirole_promotion_gate."
+                "_load_current_role_result",
+                return_value=reviewer_result,
+            ),
+            redirect_stdout(io.StringIO()),
+        ):
+            self.assertEqual(
+                promotion_gate_main(
+                    [
+                        "require-preflight",
+                        "--proposal",
+                        str(derived_paths["proposal"]),
+                        "--preflight-evidence",
+                        str(derived_paths["preflight"]),
+                    ]
+                ),
+                0,
+            )
+
+        with self.assertRaisesRegex(ValueError, "immutable TeamRun payload"):
+            require_preflight_binding(
+                proposal=derived_proposal,
+                preflight_evidence=derived_evidence,
+                reviewer_result=reviewer_result,
+            )
+
+        rewritten_evidence = json.loads(json.dumps(derived_evidence))
+        rewritten_evidence["acceptance_plan"]["requirements"][0][
+            "claim"
+        ] = "a rewritten claim"
+        rewritten_proposal = json.loads(json.dumps(derived_proposal))
+        rewritten_proposal["preflight_evidence_sha256"] = stable_sha256(
+            rewritten_evidence
+        )
+        forged_transaction = json.loads(json.dumps(transaction))
+        forged_transaction["draft_preflight_sha256"] = stable_sha256(
+            rewritten_evidence
+        )
+        forged_transaction["canonical_preflight_sha256"] = stable_sha256(
+            rewritten_evidence
+        )
+        forged_transaction["receipt_sha256"] = stable_sha256(
+            {
+                key: value
+                for key, value in forged_transaction.items()
+                if key != "receipt_sha256"
+            }
+        )
+        with self.assertRaisesRegex(ValueError, "outside the authorized append"):
+            require_preflight_binding(
+                proposal=rewritten_proposal,
+                preflight_evidence=rewritten_evidence,
+                reviewer_result=reviewer_result,
+                raw_preflight_evidence=raw_evidence,
+                repair_transaction=forged_transaction,
+                retry_brief=brief,
+                transition_feedback=transition_feedback,
+            )
         changed_result = json.loads(json.dumps(reviewer_result))
         changed_result["raw"]["contract_ledger"]["hard_constraints"][0][
             "claim"
@@ -452,6 +672,19 @@ class MultiRolePromotionGateTest(unittest.TestCase):
                     review_profile=profile,
                     reviewer_result=collision_result,
                 )
+        invalid_mapping_result = json.loads(json.dumps(reviewer_result))
+        invalid_mapping_result["raw"]["acceptance_plan"][
+            "adapter_replay_mapping"
+        ][0]["requirement_id"] = "an-unknown-requirement"
+        with patch.dict("os.environ", self.env, clear=False):
+            with self.assertRaisesRegex(ValueError, "differs from canonical"):
+                record_preflight_evidence(
+                    plan=plan,
+                    seal=seal,
+                    context_view=view,
+                    review_profile=profile,
+                    reviewer_result=invalid_mapping_result,
+                )
         tampered = dict(evidence)
         tampered["recommendations"] = ["different advice"]
         with self.assertRaisesRegex(ValueError, "not bound"):
@@ -464,6 +697,53 @@ class MultiRolePromotionGateTest(unittest.TestCase):
                 preflight_evidence=evidence,
                 reviewer_result=forged_result,
             )
+
+    def test_quarantined_ordered_transformation_review_is_not_exposed(self) -> None:
+        self._state("contract_audit", "contract-entry")
+        with patch.dict("os.environ", self.env, clear=False):
+            seal = seal_contract(artifact_root=self.app, contract_sources=[self.task])
+        catalog = _read_yaml(REPO / "examples/reviewer-practice-router-v1.yaml")
+        with patch.dict("os.environ", self.env, clear=False):
+            parsing = record_review_profile(
+                draft={
+                    "primary": "parsing-transformation",
+                    "secondary": [],
+                    "evidence": ["the public output composes named transformation stages"],
+                },
+                catalog=catalog,
+                catalog_root=REPO / "examples",
+                seal=seal,
+            )
+            numerical = record_review_profile(
+                draft={
+                    "primary": "numerical-statistical",
+                    "secondary": [],
+                    "evidence": ["the public output is a numerical estimate"],
+                },
+                catalog=catalog,
+                catalog_root=REPO / "examples",
+                seal=seal,
+            )
+
+        parsing_document = next(
+            item
+            for item in parsing["documents"]
+            if item["profile_id"] == "parsing-transformation"
+        )
+        numerical_document = next(
+            item
+            for item in numerical["documents"]
+            if item["profile_id"] == "numerical-statistical"
+        )
+        self.assertNotIn(
+            "ordered_transformation_composition", parsing_document["checks"]
+        )
+        self.assertNotIn(
+            "ordered_transformation_composition", parsing_document["content"]
+        )
+        self.assertNotIn(
+            "ordered_transformation_composition", numerical_document["checks"]
+        )
 
     def test_review_pre_submit_repairs_only_mechanical_fields(self) -> None:
         seal, proposal, view = self._receipts()

@@ -62,6 +62,7 @@ def main(argv: list[str] | None = None) -> int:
             receipt = export_provider_bundle(
                 provider_root=args.provider_root,
                 destination=args.destination,
+                receipt_only=args.receipt_only,
             )
             if args.output is not None:
                 _write_json(args.output, receipt)
@@ -99,6 +100,7 @@ def _parser() -> argparse.ArgumentParser:
     export_parser = subparsers.add_parser("export")
     export_parser.add_argument("--provider-root", type=Path, default=DEFAULT_DIR)
     export_parser.add_argument("--destination", type=Path, required=True)
+    export_parser.add_argument("--receipt-only", action="store_true")
     export_parser.add_argument("--output", type=Path)
     return parser
 
@@ -256,7 +258,10 @@ def apply_snapshot(
 
 
 def export_provider_bundle(
-    *, provider_root: Path, destination: Path
+    *,
+    provider_root: Path,
+    destination: Path,
+    receipt_only: bool = False,
 ) -> dict[str, Any]:
     provider_root = provider_root.expanduser().resolve()
     destination = destination.expanduser().resolve()
@@ -267,7 +272,21 @@ def export_provider_bundle(
     destination.mkdir(parents=True, exist_ok=True)
 
     file_count = 0
-    for source in sorted(provider_root.rglob("*")):
+    if receipt_only:
+        export_sources = []
+        for path in sorted(provider_root.glob("*.json")):
+            try:
+                kind = _text(_read_json(path).get("kind"))
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                continue
+            if kind in {
+                "filesystem_artifact_snapshot",
+                "filesystem_artifact_application",
+            }:
+                export_sources.append(path)
+    else:
+        export_sources = sorted(provider_root.rglob("*"))
+    for source in export_sources:
         relative = source.relative_to(provider_root)
         target = destination / relative
         if source.is_symlink():
@@ -288,7 +307,7 @@ def export_provider_bundle(
             target.chmod(0o755 if source.stat().st_mode & 0o111 else 0o644)
             file_count += 1
 
-    verified_snapshots: list[dict[str, str]] = []
+    verified_snapshots: list[dict[str, Any]] = []
     for receipt_path in sorted(provider_root.glob("*snapshot.json")):
         receipt = _read_json(receipt_path)
         _require_receipt(receipt, "filesystem_artifact_snapshot")
@@ -297,8 +316,8 @@ def export_provider_bundle(
             relative = source_snapshot.relative_to(provider_root)
         except ValueError as exc:
             raise ValueError("snapshot locator escapes the provider root") from exc
-        exported_snapshot = destination / relative
-        observed = artifact_identity(exported_snapshot)
+        observed_root = source_snapshot if receipt_only else destination / relative
+        observed = artifact_identity(observed_root)
         expected = _text(receipt.get("snapshot_identity"))
         if observed != expected:
             raise ValueError("exported snapshot identity does not match its receipt")
@@ -306,7 +325,8 @@ def export_provider_bundle(
             {
                 "snapshot_kind": _text(receipt.get("snapshot_kind")),
                 "artifact_identity": observed,
-                "relative_path": relative.as_posix(),
+                "relative_path": None if receipt_only else relative.as_posix(),
+                "content_exported": not receipt_only,
             }
         )
 
@@ -317,6 +337,7 @@ def export_provider_bundle(
         "kind": "filesystem_artifact_provider_export",
         "provider_root": str(provider_root),
         "destination": str(destination),
+        "receipt_only": receipt_only,
         "regular_file_count": file_count,
         "verified_snapshots": verified_snapshots,
         "created_at": _now(),

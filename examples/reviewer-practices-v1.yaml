@@ -40,6 +40,12 @@ practices:
     procedure: Enumerate at least two plausible variants and exercise a case on which their observable results differ.
     required_evidence: Record the alternatives, discriminating case, and observed result; do not rely on the selected implementation's own documentation.
 
+  - id: finite_categorical_domain_coverage
+    allow_not_applicable: true
+    trigger: A public oracle, scorer, parser, protocol, or model accepts a finite or compactly enumerable categorical input whose production domain is not exhausted by the visible sample.
+    procedure: Derive the candidate-blind category domain from an explicit schema, normative code space, bounded alphabet or format, or another task-visible public basis. Exercise the full domain when feasible, or record a deterministic partition and every uncovered region. Retain exceptional categories and establish fallback equivalence separately from observed examples. Include missing, unknown, case, and normalization variants only when the public surface admits them.
+    required_evidence: Record the selection basis, enumerated or partitioned domain, exceptional categories, fallback class, required variants, and uncovered regions. Random category sampling and the categories in one visible packet are insufficient.
+
   - id: objective_order_authority
     allow_not_applicable: true
     trigger: The visible contract names multiple objectives, priorities, scores, tie-breaks, safety constraints, or optimization components without uniquely fixing their ordering or aggregation.

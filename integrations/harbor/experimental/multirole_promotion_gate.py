@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import os
 import re
@@ -55,6 +56,17 @@ DEFAULT_SOLVER_PLAN = DEFAULT_DIR / "solver-plan.json"
 DEFAULT_PREFLIGHT_CONTEXT_VIEW = DEFAULT_DIR / "preflight-context-view.json"
 DEFAULT_PREFLIGHT_TASK = DEFAULT_DIR / "preflight-task.json"
 DEFAULT_PREFLIGHT_EVIDENCE = DEFAULT_DIR / "preflight-evidence.json"
+DEFAULT_RECOVERY_DIR = Path(
+    "/tmp/statem-verification-checks/recovering-develop"
+)
+DEFAULT_RAW_PREFLIGHT_EVIDENCE = DEFAULT_RECOVERY_DIR / "preflight-evidence.raw.json"
+DEFAULT_PREFLIGHT_REPAIR_TRANSACTION = (
+    DEFAULT_RECOVERY_DIR / "preflight-repair-transaction.json"
+)
+DEFAULT_RETRY_BRIEF = DEFAULT_RECOVERY_DIR / "retry-brief.json"
+DEFAULT_TRANSITION_FAILURE_FEEDBACK = (
+    DEFAULT_RECOVERY_DIR / "transition-failure-feedback.json"
+)
 DEFAULT_ACCEPTANCE_EVIDENCE = DEFAULT_DIR / "acceptance-evidence.json"
 DEFAULT_CANONICAL_FALSIFIER_RESULT = DEFAULT_DIR / "canonical-falsifier-result.json"
 DEFAULT_REVIEW_PROFILE_CATALOG = Path(
@@ -154,6 +166,8 @@ ACCEPTANCE_REQUIREMENT_FIELDS = {
     "evidence_mode",
     "support_dimensions",
     "required_strata",
+    "selection_basis",
+    "uncovered_regions",
     "independence_basis",
     "rationale",
 }
@@ -284,6 +298,18 @@ def main(argv: list[str] | None = None) -> int:
                 proposal=_read_json(args.proposal),
                 preflight_evidence=_read_json(args.preflight_evidence),
                 reviewer_result=_load_current_role_result("preflight-reviewer"),
+                raw_preflight_evidence=_read_json(DEFAULT_RAW_PREFLIGHT_EVIDENCE)
+                if DEFAULT_RAW_PREFLIGHT_EVIDENCE.is_file()
+                else None,
+                repair_transaction=_read_json(DEFAULT_PREFLIGHT_REPAIR_TRANSACTION)
+                if DEFAULT_PREFLIGHT_REPAIR_TRANSACTION.is_file()
+                else None,
+                retry_brief=_read_json(DEFAULT_RETRY_BRIEF)
+                if DEFAULT_RETRY_BRIEF.is_file()
+                else None,
+                transition_feedback=_read_json(DEFAULT_TRANSITION_FAILURE_FEEDBACK)
+                if DEFAULT_TRANSITION_FAILURE_FEEDBACK.is_file()
+                else None,
             )
         elif args.action == "review-pre-submit":
             falsifier = (
@@ -952,7 +978,20 @@ def preflight_task(
                     "must be selected before any candidate exists and must follow "
                     "acceptance_plan_schema. It defines task-visible claims, support "
                     "dimensions and strata, and independence requirements; it must not "
-                    "name candidate implementation details or commands. Use requirement_id "
+                    "name candidate implementation details or commands. Return exactly one "
+                    "acceptance_plan top-level key, requirements; do not return an "
+                    "adapter_replay_mapping field because replay ownership is represented "
+                    "by each requirement's evidence_mode, public_surface, and required_strata. "
+                    "For every requirement, selection_basis must state how the support "
+                    "population was selected before candidate work, and uncovered_regions "
+                    "must name every known uncovered category, range, state, or path; use a "
+                    "single explicit none entry only when the bounded public domain is "
+                    "actually exhausted. For finite categorical oracle inputs, do not use "
+                    "observed examples or a generic phrase such as eligible categories as "
+                    "coverage. Name the independently justified finite domain and require "
+                    "exhaustive replay when feasible, including fallback, missing, unknown, "
+                    "and case variants where the public surface admits them. "
+                    "Use requirement_id "
                     "values as unique lowercase slugs. The host repairs ASCII case "
                     "mechanically and rejects collisions after canonicalization. Use "
                     "adapter_replay only for obligations that a bounded public command can execute; use "
@@ -999,15 +1038,17 @@ def _canonical_preflight_result_payload(raw: dict[str, Any]) -> dict[str, Any]:
             raise ValueError(f"preflight reviewer {field} must be a string list")
     if raw.get("review_execution_class") != "contract_language":
         raise ValueError("preflight reviewer execution class must be contract_language")
+    acceptance_plan, schema_repairs = _candidate_blind_acceptance_plan_with_repairs(
+        raw.get("acceptance_plan")
+    )
     return {
         "advisory_verdict": verdict,
         **{field: raw.get(field) for field in binding_fields},
         **{field: list(raw[field]) for field in finding_fields},
         "contract_ledger": _contract_ledger(raw.get("contract_ledger")),
         "review_execution_class": "contract_language",
-        "acceptance_plan": _candidate_blind_acceptance_plan(
-            raw.get("acceptance_plan")
-        ),
+        "acceptance_plan": acceptance_plan,
+        "schema_repairs": schema_repairs,
     }
 
 
@@ -1081,6 +1122,10 @@ def require_preflight_binding(
     proposal: dict[str, Any],
     preflight_evidence: dict[str, Any],
     reviewer_result: dict[str, Any] | None = None,
+    raw_preflight_evidence: dict[str, Any] | None = None,
+    repair_transaction: dict[str, Any] | None = None,
+    retry_brief: dict[str, Any] | None = None,
+    transition_feedback: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     _require_receipt(proposal, "candidate_proposal")
     _require_receipt(preflight_evidence, "plan_preflight_evidence")
@@ -1097,7 +1142,25 @@ def require_preflight_binding(
     if preflight_evidence.get("promotion_authority") is not False:
         raise ValueError("preflight evidence cannot carry promotion authority")
     if reviewer_result is not None:
-        _require_preflight_result_binding(preflight_evidence, reviewer_result)
+        try:
+            _require_preflight_result_binding(preflight_evidence, reviewer_result)
+        except ValueError:
+            derivation = (
+                raw_preflight_evidence,
+                repair_transaction,
+                retry_brief,
+                transition_feedback,
+            )
+            if any(item is None for item in derivation):
+                raise
+            _require_derived_preflight_binding(
+                evidence=preflight_evidence,
+                reviewer_result=reviewer_result,
+                raw_evidence=raw_preflight_evidence,
+                transaction=repair_transaction,
+                brief=retry_brief,
+                transition_feedback=transition_feedback,
+            )
     return preflight_evidence
 
 
@@ -1126,6 +1189,143 @@ def _require_preflight_result_binding(
     submitted_at = reviewer_result.get("submitted_at")
     if submitted_at and evidence.get("created_at") != submitted_at:
         raise ValueError("preflight evidence timestamp differs from TeamRun submission")
+
+
+def _require_derived_preflight_binding(
+    *,
+    evidence: dict[str, Any],
+    reviewer_result: dict[str, Any],
+    raw_evidence: dict[str, Any],
+    transaction: dict[str, Any],
+    brief: dict[str, Any],
+    transition_feedback: dict[str, Any],
+) -> None:
+    _require_preflight_result_binding(raw_evidence, reviewer_result)
+    if (
+        brief.get("version") != 1
+        or brief.get("kind") != "failure_feedback_retry_brief"
+        or brief.get("required") is not True
+    ):
+        raise ValueError("derived preflight binding requires an authorized retry brief")
+    ownership = brief.get("failure_ownership")
+    delta = brief.get("validation_delta")
+    check = _text(delta.get("discriminating_check")) if isinstance(delta, dict) else ""
+    if (
+        not isinstance(ownership, dict)
+        or ownership.get("owner_role") != "test_planner"
+        or ownership.get("failure_class") != "acceptance_plan_gap"
+        or not check
+    ):
+        raise ValueError(
+            "derived preflight binding requires a planner-owned acceptance-plan gap"
+        )
+    if (
+        transition_feedback.get("version") != 1
+        or transition_feedback.get("kind") != "transition_failure_feedback"
+        or transition_feedback.get("entry_id") != raw_evidence.get("entry_id")
+        or transition_feedback.get("current_state") != raw_evidence.get("node")
+    ):
+        raise ValueError("derived preflight transition feedback is not entry-bound")
+    failed_checks = transition_feedback.get("failed_checks")
+    if not isinstance(failed_checks, list) or not any(
+        isinstance(item, dict)
+        and item.get("repair_owner") == "test_planner"
+        and item.get("failure_class") == "acceptance_plan_gap"
+        for item in failed_checks
+    ):
+        raise ValueError(
+            "derived preflight binding requires planner-owned transition feedback"
+        )
+    blocker_fingerprint = _text(transition_feedback.get("blocker_fingerprint"))
+    if not re.fullmatch(r"[0-9a-f]{64}", blocker_fingerprint):
+        raise ValueError("derived preflight blocker fingerprint is invalid")
+
+    transaction_fields = {
+        "version",
+        "kind",
+        "status",
+        "required",
+        "append_only",
+        "requirement_id",
+        "failure_closure_sha256",
+        "validation_delta_sha256",
+        "brief_sha256",
+        "transition_feedback_sha256",
+        "blocker_fingerprint",
+        "original_preflight_sha256",
+        "draft_preflight_sha256",
+        "canonical_preflight_sha256",
+        "created_at",
+        "receipt_sha256",
+    }
+    if set(transaction) != transaction_fields or (
+        transaction.get("version") != 1
+        or transaction.get("kind") != "canonical_preflight_repair_transaction"
+        or transaction.get("status") not in {"committed", "already_committed"}
+        or transaction.get("required") is not True
+        or transaction.get("append_only") is not True
+    ):
+        raise ValueError("derived preflight repair transaction is invalid")
+    expected_receipt_sha = stable_sha256(
+        {key: value for key, value in transaction.items() if key != "receipt_sha256"}
+    )
+    expected_bindings = {
+        "brief_sha256": stable_sha256(brief),
+        "transition_feedback_sha256": stable_sha256(transition_feedback),
+        "blocker_fingerprint": blocker_fingerprint,
+        "original_preflight_sha256": stable_sha256(raw_evidence),
+        "draft_preflight_sha256": stable_sha256(evidence),
+        "canonical_preflight_sha256": stable_sha256(evidence),
+        "validation_delta_sha256": stable_sha256(delta),
+        "failure_closure_sha256": _text(brief.get("failure_closure_sha256")),
+        "receipt_sha256": expected_receipt_sha,
+    }
+    for field, expected in expected_bindings.items():
+        if transaction.get(field) != expected:
+            raise ValueError(f"derived preflight transaction {field} is not bound")
+    target_requirement_id = _text(delta.get("target_requirement_id"))
+    if (
+        target_requirement_id
+        and transaction.get("requirement_id") != target_requirement_id
+    ):
+        raise ValueError(
+            "derived preflight transaction is not bound to target_requirement_id"
+        )
+
+    raw_plan = raw_evidence.get("acceptance_plan")
+    derived_plan = evidence.get("acceptance_plan")
+    raw_requirements = raw_plan.get("requirements") if isinstance(raw_plan, dict) else None
+    derived_requirements = (
+        derived_plan.get("requirements") if isinstance(derived_plan, dict) else None
+    )
+    if not isinstance(raw_requirements, list) or not isinstance(
+        derived_requirements, list
+    ) or len(raw_requirements) != len(derived_requirements):
+        raise ValueError("derived preflight requirements do not preserve the raw plan")
+
+    normalized = copy.deepcopy(evidence)
+    normalized_requirements = normalized["acceptance_plan"]["requirements"]
+    changed_requirement = ""
+    for index, (before, after) in enumerate(zip(raw_requirements, derived_requirements)):
+        if not isinstance(before, dict) or not isinstance(after, dict):
+            raise TypeError("derived preflight requirements must be objects")
+        requirement_id = _text(before.get("requirement_id"))
+        if not requirement_id or after.get("requirement_id") != requirement_id:
+            raise ValueError("derived preflight requirement identity changed")
+        before_strata = before.get("required_strata")
+        after_strata = after.get("required_strata")
+        if not isinstance(before_strata, list) or not isinstance(after_strata, list):
+            raise TypeError("derived preflight required_strata must be arrays")
+        if after_strata == before_strata:
+            continue
+        if changed_requirement or check in before_strata or after_strata != [*before_strata, check]:
+            raise ValueError("derived preflight must append exactly one authorized check")
+        changed_requirement = requirement_id
+        normalized_requirements[index]["required_strata"] = copy.deepcopy(before_strata)
+    if not changed_requirement or transaction.get("requirement_id") != changed_requirement:
+        raise ValueError("derived preflight transaction requirement is not bound")
+    if normalized != raw_evidence:
+        raise ValueError("derived preflight changed evidence outside the authorized append")
 
 
 def _contract_ledger(value: Any) -> dict[str, list[dict[str, str]]]:
@@ -1171,7 +1371,21 @@ def _contract_ledger_task_schema() -> dict[str, Any]:
 
 
 def _candidate_blind_acceptance_plan(value: Any) -> dict[str, Any]:
-    if not isinstance(value, dict) or set(value) != ACCEPTANCE_PLAN_FIELDS:
+    plan, _ = _candidate_blind_acceptance_plan_with_repairs(value)
+    return plan
+
+
+def _candidate_blind_acceptance_plan_with_repairs(
+    value: Any,
+) -> tuple[dict[str, Any], list[str]]:
+    if not isinstance(value, dict):
+        raise ValueError("preflight acceptance_plan requires exactly requirements")
+    fields = set(value)
+    legacy_mapping_present = fields == {
+        *ACCEPTANCE_PLAN_FIELDS,
+        "adapter_replay_mapping",
+    }
+    if fields != ACCEPTANCE_PLAN_FIELDS and not legacy_mapping_present:
         raise ValueError("preflight acceptance_plan requires exactly requirements")
     requirements = value.get("requirements")
     if (
@@ -1216,6 +1430,10 @@ def _candidate_blind_acceptance_plan(value: Any) -> dict[str, Any]:
             item.get("required_strata"),
             field=f"requirements[{index}].required_strata",
         )
+        uncovered_regions = _bounded_acceptance_plan_list(
+            item.get("uncovered_regions"),
+            field=f"requirements[{index}].uncovered_regions",
+        )
         normalized.append(
             {
                 "requirement_id": requirement_id,
@@ -1226,6 +1444,10 @@ def _candidate_blind_acceptance_plan(value: Any) -> dict[str, Any]:
                 "evidence_mode": evidence_mode,
                 "support_dimensions": support_dimensions,
                 "required_strata": required_strata,
+                "selection_basis": _bounded_contract_text(
+                    item.get("selection_basis"), "selection_basis"
+                ),
+                "uncovered_regions": uncovered_regions,
                 "independence_basis": _bounded_contract_text(
                     item.get("independence_basis"), "independence_basis"
                 ),
@@ -1238,7 +1460,50 @@ def _candidate_blind_acceptance_plan(value: Any) -> dict[str, Any]:
         raise ValueError(
             "preflight acceptance_plan requires at least one adapter_replay requirement"
         )
-    return {"requirements": normalized}
+    schema_repairs: list[str] = []
+    if legacy_mapping_present:
+        _validate_legacy_adapter_replay_mapping(
+            value.get("adapter_replay_mapping"),
+            requirements=normalized,
+        )
+        schema_repairs.append(
+            "discarded_non_authoritative_adapter_replay_mapping"
+        )
+    return {"requirements": normalized}, schema_repairs
+
+
+def _validate_legacy_adapter_replay_mapping(
+    value: Any,
+    *,
+    requirements: list[dict[str, Any]],
+) -> None:
+    expected = {
+        item["requirement_id"]
+        for item in requirements
+        if item["evidence_mode"] == "adapter_replay"
+    }
+    if not isinstance(value, list) or len(value) != len(expected):
+        raise ValueError(
+            "legacy adapter_replay_mapping must cover every adapter_replay requirement"
+        )
+    observed: set[str] = set()
+    for item in value:
+        if not isinstance(item, dict) or set(item) != {
+            "requirement_id",
+            "public_surface",
+            "replay_observation",
+        }:
+            raise ValueError("legacy adapter_replay_mapping has an invalid item schema")
+        requirement_id = _text(item.get("requirement_id")).lower()
+        _bounded_contract_text(item.get("public_surface"), "public_surface")
+        _bounded_contract_text(item.get("replay_observation"), "replay_observation")
+        if requirement_id in observed:
+            raise ValueError("legacy adapter_replay_mapping has duplicate requirements")
+        observed.add(requirement_id)
+    if observed != expected:
+        raise ValueError(
+            "legacy adapter_replay_mapping differs from canonical requirements"
+        )
 
 
 def _bounded_acceptance_plan_list(value: Any, *, field: str) -> list[str]:
@@ -1268,7 +1533,8 @@ def _candidate_blind_acceptance_plan_task_schema() -> dict[str, Any]:
         "candidate_visibility": "none",
         "requirement_id_pattern": ACCEPTANCE_REQUIREMENT_ID.pattern,
         "requirement_id_canonicalization": "trim_then_lowercase",
-        "adapter_replay_mapping_required": True,
+        "adapter_replay_requirement_required": True,
+        "adapter_replay_mapping": "forbidden_non_authoritative_legacy_field",
         "minimum_adapter_replay_requirements": 1,
     }
 

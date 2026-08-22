@@ -78,6 +78,7 @@ profiles:
       - state_identity_and_shards
       - metric_and_population_semantics
       - boundary_shapes_and_replay
+      - categorical_domain_and_fallback
       - public_consumer_load_path
   - id: performance-resources
     file: performance-resources.md

@@ -15,6 +15,19 @@ from integrations.harbor.statem_codex import TeamRunStatemCodex
 class MultiRoleDevelopExperimentalStatemCodex(TeamRunStatemCodex):
     """Minimal solver/falsifier StateM experiment with deterministic promotion."""
 
+    _DEFAULT_REMOTE_WORKSPACE_ROOT = PurePosixPath("/app")
+    _REMOTE_WORKSPACE_RECEIPT = PurePosixPath(
+        "/tmp/statem-verification-checks/workspace-root.json"
+    )
+    _RESERVED_REMOTE_WORKSPACE_ROOTS = {
+        "/",
+        "/harbor",
+        "/logs",
+        "/solution",
+        "/tests",
+        "/tmp",
+    }
+
     _LOCAL_ARTIFACT_IDENTITY = (
         Path(__file__).resolve().parent / "experimental" / "artifact_identity.py"
     )
@@ -87,6 +100,42 @@ class MultiRoleDevelopExperimentalStatemCodex(TeamRunStatemCodex):
         env["STATEM_AGENT_ROLE"] = "solver"
         return env
 
+    def _workspace_root(self) -> PurePosixPath:
+        root = getattr(
+            self,
+            "_remote_workspace_root",
+            self._DEFAULT_REMOTE_WORKSPACE_ROOT,
+        )
+        return root if isinstance(root, PurePosixPath) else PurePosixPath(str(root))
+
+    async def _bind_remote_workspace_root(
+        self,
+        environment: BaseEnvironment,
+    ) -> PurePosixPath:
+        result = await self.exec_as_agent(environment, command="pwd -P")
+        lines = [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
+        if len(lines) != 1 or not lines[0].startswith("/"):
+            raise RuntimeError("could not bind one absolute default task workspace")
+        root = PurePosixPath(lines[0])
+        if root.as_posix() in self._RESERVED_REMOTE_WORKSPACE_ROOTS:
+            raise RuntimeError(
+                f"refusing unsafe default task workspace: {root.as_posix()}"
+            )
+        self._remote_workspace_root = root
+        receipt = {
+            "version": 1,
+            "kind": "task_workspace_binding",
+            "path": root.as_posix(),
+            "source": "agent_default_workdir",
+            "validated": True,
+        }
+        await self._write_remote_text(
+            environment,
+            self._REMOTE_WORKSPACE_RECEIPT.as_posix(),
+            json.dumps(receipt, indent=2, sort_keys=True) + "\n",
+        )
+        return root
+
     def _augment_instruction(
         self,
         instruction: str,
@@ -94,6 +143,7 @@ class MultiRoleDevelopExperimentalStatemCodex(TeamRunStatemCodex):
         current_context: str,
     ) -> str:
         state_dir = self._REMOTE_STATE_DIR.as_posix()
+        workspace_root = shlex.quote(self._workspace_root().as_posix())
         timeout = self._reviewer_timeout_seconds
         return_slack = min(90, max(30, timeout // 6))
         wall_timeout = timeout + return_slack
@@ -114,7 +164,7 @@ Required protocol:
 - In falsify, use the already initialized one-task TeamRun. Launch exactly one
   fresh falsifier with:
   `statem-teamrun-codex-workers --run-id {run_id} --state-dir {state_dir}
-  --entry-id <current-entry-id> --cwd /app --max-workers 1 --max-rounds 1
+  --entry-id <current-entry-id> --cwd {workspace_root} --max-workers 1 --max-rounds 1
   --timeout {timeout} --wall-timeout {wall_timeout} --return-slack {return_slack}
   --lease-seconds {lease_seconds} --agent-prefix falsifier --agent-role
   falsifier --execution-profile read-only-review --model
@@ -197,6 +247,7 @@ class RecoveringMultiRoleDevelopExperimentalStatemCodex(
             runbook_path=runbook_path or str(runbook),
             **kwargs,
         )
+        self._latest_targeted_preflight_repair_status = ""
 
     @staticmethod
     def name() -> str:
@@ -258,6 +309,8 @@ class EvidenceDevelopV4ExperimentalStatemCodex(
     RecoveringMultiRoleDevelopExperimentalStatemCodex
 ):
     """Evidence-gated recovery with provider-owned filesystem transactions."""
+
+    _RECEIPT_ONLY_PROVIDER_EXPORT = False
 
     _LOCAL_ARTIFACT_PROVIDER = (
         Path(__file__).resolve().parent
@@ -373,6 +426,7 @@ class EvidenceDevelopV4ExperimentalStatemCodex(
     ) -> str:
         base = super()._augment_instruction(instruction, run_id, current_context)
         state_dir = self._REMOTE_STATE_DIR.as_posix()
+        workspace_root = shlex.quote(self._workspace_root().as_posix())
         preflight_timeout = self._preflight_reviewer_timeout_seconds
         preflight_slack = min(60, max(30, preflight_timeout // 8))
         preflight_wall = preflight_timeout + preflight_slack
@@ -389,7 +443,7 @@ Evidence-develop v4 controls:
 - In solve and revise, after writing proposal-draft.json, run the proposal gate,
   then snapshot the candidate with:
   `python3 {self._REMOTE_ARTIFACT_PROVIDER.as_posix()} snapshot --kind candidate
-  --artifact-root /app --expected-receipt
+  --artifact-root {workspace_root} --expected-receipt
   /tmp/statem-verification-checks/multirole/candidate-proposal.json --output
   /tmp/statem-verification-checks/artifact-provider/candidate-snapshot.json`.
 - Before leaving solve or revise, record bounded public self-verification in
@@ -433,7 +487,7 @@ Evidence-develop v4 controls:
 - Read the current solve entry id from `statem cur --json`, then launch exactly
   one overlapping reviewer with `statem-teamrun-codex-workers --run-id
   {run_id} --state-dir {state_dir} --entry-id <current-solve-entry-id> --cwd
-  /app --max-workers 1 --max-rounds 1 --timeout {preflight_timeout}
+  {workspace_root} --max-workers 1 --max-rounds 1 --timeout {preflight_timeout}
   --wall-timeout {preflight_wall} --return-slack {preflight_slack}
   --lease-seconds {preflight_lease} --deadline-reserve-seconds 180 --agent-prefix
   preflight --agent-role preflight-reviewer --execution-profile
@@ -482,7 +536,7 @@ Evidence-develop v4 controls:
   candidate. Roll back only when the reviewed artifact can no longer be safely
   identified or repaired inside the cycle. The review guard permits at most two
   reviews in a cycle.
-- Never manually copy or restore /app. Follow only provider activation/restore
+- Never manually copy or restore {workspace_root}. Follow only provider activation/restore
   hooks and their verified receipts.
 """
 
@@ -512,6 +566,9 @@ Evidence-develop v4 controls:
             PurePosixPath(EnvironmentPaths.agent_dir.as_posix()) / "statem"
         )
         provider_export = agent_statem_dir / "artifact-provider"
+        receipt_only = (
+            " --receipt-only" if self._RECEIPT_ONLY_PROVIDER_EXPORT else ""
+        )
         await self.exec_as_agent(
             environment,
             command=(
@@ -519,6 +576,7 @@ Evidence-develop v4 controls:
                 "export "
                 f"--provider-root {shlex.quote(self._REMOTE_PROVIDER_RECEIPTS.as_posix())} "
                 f"--destination {shlex.quote(provider_export.as_posix())} "
+                f"{receipt_only} "
                 f"--output {shlex.quote((agent_statem_dir / 'artifact-provider-export.json').as_posix())}"
             ),
             env=self._statem_env(run_id),
@@ -737,6 +795,7 @@ Evidence-develop v4p32 controls:
         current: dict[str, Any],
     ) -> tuple[str, ...]:
         base = await super()._session_progress_identity(environment, run_id, current)
+        workspace_root = self._workspace_root().as_posix()
         receipt_paths = [
             f"/tmp/statem-verification-checks/{relative}"
             for relative in self._PROGRESS_RECEIPTS
@@ -749,7 +808,7 @@ Evidence-develop v4p32 controls:
                 "from artifact_identity import artifact_progress_identity, file_sha256, stable_sha256",
                 f"paths = {receipt_paths!r}",
                 "receipts = {path: file_sha256(Path(path)) if Path(path).is_file() else None for path in paths}",
-                "print(stable_sha256({'artifact': artifact_progress_identity(Path('/app')), 'receipts': receipts}))",
+                f"print(stable_sha256({{'artifact': artifact_progress_identity(Path({workspace_root!r})), 'receipts': receipts}}))",
             ]
         )
         try:
@@ -1338,4 +1397,318 @@ Evidence-develop v4p44 lifecycle control:
 - The extra slot is unavailable before a blocked transition and does not reset
   candidate, review, or blocker-fingerprint budgets. A repeated unchanged
   block still fails closed.
+"""
+
+class EvidenceDevelopV4p45ExperimentalStatemCodex(
+    EvidenceDevelopV4p44ExperimentalStatemCodex
+):
+    """Atomically commit an authorized append-only preflight repair."""
+
+    _PROGRESS_RECEIPTS = (
+        *EvidenceDevelopV4p44ExperimentalStatemCodex._PROGRESS_RECEIPTS,
+        "recovering-develop/preflight-evidence.raw.json",
+        "recovering-develop/preflight-evidence-repair-draft.json",
+        "recovering-develop/preflight-repair-transaction.json",
+    )
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p45-exp"
+
+    def _augment_instruction(
+        self,
+        instruction: str,
+        run_id: str,
+        current_context: str,
+    ) -> str:
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
+
+Evidence-develop v4p45 preflight repair transaction:
+- When bounded transition feedback assigns an acceptance-plan gap to the test
+  planner, preserve multirole/preflight-evidence.json as immutable reviewer
+  evidence. Copy it to recovering-develop/preflight-evidence-repair-draft.json
+  and append the retry brief's exact discriminating_check to required_strata
+  of exactly one existing requirement. Do not change any other field, order,
+  identity, claim, evidence mode, public surface, rationale, independence
+  basis, or support dimension.
+- Commit only through `failure_feedback_gate.py commit-preflight-repair` with
+  the retry brief, entry-scoped transition feedback, canonical preflight,
+  repair draft, immutable raw-backup, and transaction-receipt paths. The host
+  requires a test-planner acceptance-plan-gap owner, validates the append-only
+  delta, and atomically replaces canonical evidence; invalid drafts leave it
+  unchanged.
+  Run `python3 /tmp/statem-verification-checks/failure_feedback_gate.py
+  commit-preflight-repair --brief
+  /tmp/statem-verification-checks/recovering-develop/retry-brief.json
+  --canonical-preflight
+  /tmp/statem-verification-checks/multirole/preflight-evidence.json
+  --repair-draft
+  /tmp/statem-verification-checks/recovering-develop/preflight-evidence-repair-draft.json
+  --raw-backup
+  /tmp/statem-verification-checks/recovering-develop/preflight-evidence.raw.json
+  --transition-feedback
+  /tmp/statem-verification-checks/recovering-develop/transition-failure-feedback.json
+  --output
+  /tmp/statem-verification-checks/recovering-develop/preflight-repair-transaction.json`.
+- After a committed transaction, rerun the existing validate-preflight gate
+  against the canonical path before retrying the blocked transition. Do not
+  spend another candidate or review cycle on this planner-owned repair.
+"""
+
+
+class EvidenceDevelopV4p46ExperimentalStatemCodex(
+    EvidenceDevelopV4p45ExperimentalStatemCodex
+):
+    """Bind the v4p46 host schema repair to an unambiguous agent identity."""
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p46-exp"
+
+
+class EvidenceDevelopV4p47ExperimentalStatemCodex(
+    EvidenceDevelopV4p46ExperimentalStatemCodex
+):
+    """Bind append-only derived preflight evidence to its raw TeamRun source."""
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p47-exp"
+
+
+class EvidenceDevelopV4p48ExperimentalStatemCodex(
+    EvidenceDevelopV4p47ExperimentalStatemCodex
+):
+    """Quarantine ordered-composition review behind a distinct identity."""
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p48-exp"
+
+
+class EvidenceDevelopV4p49ExperimentalStatemCodex(
+    EvidenceDevelopV4p48ExperimentalStatemCodex
+):
+    """Close public adapter-obligation gaps through bounded recovery."""
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p49-exp"
+
+
+class EvidenceDevelopV4p50ExperimentalStatemCodex(
+    EvidenceDevelopV4p49ExperimentalStatemCodex
+):
+    """Physically exclude quarantined reviewer-practice candidates."""
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p50-exp"
+
+
+class EvidenceDevelopV4p51ExperimentalStatemCodex(
+    EvidenceDevelopV4p50ExperimentalStatemCodex
+):
+    """Bind candidate-blind support coverage to explicit selection and gaps."""
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p51-exp"
+
+    def _augment_instruction(
+        self,
+        instruction: str,
+        run_id: str,
+        current_context: str,
+    ) -> str:
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
+
+Evidence-develop v4p51 support-coverage control:
+- Candidate-blind acceptance requirements bind their pre-candidate population
+  selection basis and known uncovered regions. Do not present observed values,
+  random samples, or a generic category label as exhaustive support.
+- When a public oracle accepts a finite or compactly enumerable categorical
+  domain, exercise that domain exhaustively when feasible and retain
+  exceptional categories plus the fallback class. Missing or unknown regions
+  remain explicit review obligations rather than silently disappearing into a
+  larger numeric population.
+"""
+
+
+class EvidenceDevelopV4p52ExperimentalStatemCodex(
+    EvidenceDevelopV4p51ExperimentalStatemCodex
+):
+    """Bind filesystem transactions to the validated task workspace."""
+
+    _RECEIPT_ONLY_PROVIDER_EXPORT = True
+
+    def __init__(
+        self,
+        *args: Any,
+        runbook_path: str | None = None,
+        **kwargs: Any,
+    ):
+        repo_root = Path(__file__).resolve().parents[2]
+        runbook = (
+            repo_root
+            / "examples"
+            / "frontier-bench-agent-evidence-develop-v4p52-exp.yaml"
+        )
+        super().__init__(
+            *args,
+            runbook_path=runbook_path or str(runbook),
+            **kwargs,
+        )
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p52-exp"
+
+    def _statem_env(self, run_id: str) -> dict[str, str]:
+        env = super()._statem_env(run_id)
+        env["STATEM_ARTIFACT_ROOT"] = self._workspace_root().as_posix()
+        return env
+
+    async def run(
+        self,
+        instruction: str,
+        environment: BaseEnvironment,
+        context: AgentContext,
+    ) -> None:
+        await self._bind_remote_workspace_root(environment)
+        await super().run(instruction, environment, context)
+
+
+class EvidenceDevelopV4p53ExperimentalStatemCodex(
+    EvidenceDevelopV4p52ExperimentalStatemCodex
+):
+    """Mechanically carry a retry discriminator into its named requirement."""
+
+    def __init__(
+        self,
+        *args: Any,
+        runbook_path: str | None = None,
+        **kwargs: Any,
+    ):
+        repo_root = Path(__file__).resolve().parents[2]
+        runbook = (
+            repo_root
+            / "examples"
+            / "frontier-bench-agent-evidence-develop-v4p53-exp.yaml"
+        )
+        super().__init__(
+            *args,
+            runbook_path=runbook_path or str(runbook),
+            **kwargs,
+        )
+
+    @staticmethod
+    def name() -> str:
+        return "ziheng-yaxin-statem-codex-evidence-develop-v4p53-exp"
+
+    async def _attempt_targeted_preflight_repair(
+        self,
+        environment: BaseEnvironment,
+        run_id: str,
+    ) -> None:
+        self._latest_targeted_preflight_repair_status = ""
+        if (
+            getattr(self, "_latest_transition_failure_owner", "")
+            != "test_planner"
+            or not getattr(self, "_latest_transition_failure_fingerprint", "")
+        ):
+            return
+        try:
+            result = await self.exec_as_agent(
+                environment,
+                command=(
+                    "python3 /tmp/statem-verification-checks/"
+                    "failure_feedback_gate.py commit-targeted-preflight-repair"
+                ),
+                env=self._statem_env(run_id),
+            )
+            payload = json.loads((result.stdout or "").strip())
+            if (
+                not isinstance(payload, dict)
+                or payload.get("kind")
+                != "canonical_preflight_repair_transaction"
+                or payload.get("status") not in {"committed", "already_committed"}
+            ):
+                raise ValueError("targeted repair command returned an invalid receipt")
+            self._latest_targeted_preflight_repair_status = str(payload["status"])
+        except Exception:
+            self._latest_targeted_preflight_repair_status = "failed"
+
+    async def _session_progress_identity(
+        self,
+        environment: BaseEnvironment,
+        run_id: str,
+        current: dict[str, Any],
+    ) -> tuple[str, ...]:
+        identity = await super()._session_progress_identity(
+            environment,
+            run_id,
+            current,
+        )
+        await self._attempt_targeted_preflight_repair(environment, run_id)
+        return identity
+
+    def _session_resume_prompt(self, current: dict[str, Any]) -> str:
+        prompt = super()._session_resume_prompt(current)
+        status = getattr(self, "_latest_targeted_preflight_repair_status", "")
+        if status in {"committed", "already_committed"}:
+            return (
+                prompt
+                + " The host mechanically committed the targeted append-only "
+                "preflight repair. Update any adapter-replay plan needed to "
+                "execute the newly effective stratum, then rerun the ordinary "
+                "gates; do not rewrite reviewer evidence."
+            )
+        if status == "failed":
+            return (
+                prompt
+                + " The host declined the targeted preflight transaction. "
+                "Inspect the bounded retry brief and transition receipt; fix "
+                "only an explicit target or evidence conflict and do not infer "
+                "a replacement requirement."
+            )
+        return prompt
+
+    def _augment_instruction(
+        self,
+        instruction: str,
+        run_id: str,
+        current_context: str,
+    ) -> str:
+        return super()._augment_instruction(
+            instruction,
+            run_id,
+            current_context,
+        ) + """
+
+Evidence-develop v4p53 targeted validation-delta control:
+- Every recoverable validation delta names exactly one existing candidate-blind
+  acceptance requirement as target_requirement_id. The host validates that
+  identity against the bound preflight receipt before authorizing another
+  cycle; it never infers a target from prose.
+- If transition feedback proves that the retry discriminator is absent and
+  assigns the gap to test_planner, the host automatically invokes
+  `failure_feedback_gate.py commit-targeted-preflight-repair`. It derives the
+  append-only draft itself, preserves immutable raw TeamRun evidence, appends only the exact
+  discriminator to the named requirement, and commits atomically. Missing,
+  unknown, duplicate, conflicting, or already-mutated evidence remains a hard
+  failure. Do not author or copy a repair draft.
+- After the transaction, update the candidate acceptance replay plan when the
+  targeted requirement uses adapter_replay, so every effective required
+  stratum is actually executed. Rerun the ordinary acceptance replay,
+  require-preflight, and validation-delta gates; a receipt-only append is not
+  evidence that the new check ran.
 """

@@ -518,6 +518,146 @@ class RecoveringDevelopGuardTest(unittest.TestCase):
         self.assertEqual(accepted["action"], "handoff")
         self.assertEqual(accepted["unresolved_hard_gap_sha256s"], [])
 
+    def test_unresolved_public_adapter_obligation_forces_bounded_recovery(self) -> None:
+        self._state("contract_audit", "contract-1")
+        with patch.dict("os.environ", self.env, clear=False):
+            open_cycle(
+                ledger_path=self.ledger,
+                seal=self._seal("contract-1"),
+                max_cycles=2,
+                max_reviews=1,
+            )
+
+        self._state("falsify", "falsify-1")
+        decision = {
+            "version": 1,
+            "kind": "promotion_authorization",
+            "run_id": self.run_id,
+            "node": "falsify",
+            "entry_id": "falsify-1",
+            "decision": "revise",
+            "reason_codes": [
+                "acceptance_obligations_unresolved_or_falsified",
+            ],
+            "acceptance_obligation_assessments": [
+                {
+                    "requirement_id": "bounded_execution",
+                    "status": "unresolved",
+                    "evidence_mode": "adapter_replay",
+                    "evidence": "the successful path completed inside the limit",
+                    "unresolved_reason": (
+                        "the timeout and cleanup path was never independently replayed"
+                    ),
+                    "independence_basis": (
+                        "the adapter owns the timeout and cleanup observation"
+                    ),
+                },
+                {
+                    "requirement_id": "sealed_reference_ratio",
+                    "status": "unresolved",
+                    "evidence_mode": "paired_review",
+                    "evidence": "no immutable reference measurements exist",
+                    "unresolved_reason": "the reference population remains sealed",
+                    "independence_basis": "paired measurements require sealed fixtures",
+                },
+            ],
+        }
+        with patch.dict("os.environ", self.env, clear=False):
+            open_review(ledger_path=self.ledger)
+            route = route_review(
+                ledger_path=self.ledger,
+                promotion_decision=decision,
+            )
+        self.assertEqual(route["route"], "quarantine")
+        self.assertTrue(route["repairable_rejection"])
+        self.assertTrue(route["requires_recovery_cycle"])
+        self.assertEqual(route["hard_contract_gap_sha256s"], [])
+        self.assertEqual(len(route["acceptance_recovery_gap_sha256s"]), 1)
+        acceptance_gap_sha256 = route["acceptance_recovery_gap_sha256s"][0]
+
+        self._state("final_replay", "replay-1")
+        with patch.dict("os.environ", self.env, clear=False):
+            retry = close_cycle(
+                ledger_path=self.ledger,
+                replay_draft={
+                    "status": "passed",
+                    "evidence": ["the existing bounded replay passed"],
+                    "residual_risk": [],
+                    "next_gap": "",
+                    "hard_gap_resolutions": [],
+                    "failure_ownership": None,
+                    "validation_delta": None,
+                },
+                application=self._application("quarantine-1"),
+                artifact_root=self.app,
+                require_information_gain=True,
+                require_failure_closure=True,
+                family_selection={
+                    "version": 1,
+                    "kind": "develop_family_selection",
+                    "family_id": "algorithm-performance",
+                    "retry_reserve_seconds": 1800,
+                    "revision_reserve_seconds": 900,
+                },
+            )
+        self.assertEqual(retry["reported_status"], "passed")
+        self.assertEqual(retry["status"], "recoverable_failure")
+        self.assertEqual(retry["action"], "retry")
+        self.assertEqual(retry["unresolved_hard_gap_sha256s"], [])
+        self.assertEqual(
+            retry["unresolved_recovery_gap_sha256s"],
+            [acceptance_gap_sha256],
+        )
+        self.assertEqual(
+            retry["failure_ownership"]["failure_class"],
+            "acceptance_plan_gap",
+        )
+        self.assertEqual(retry["failure_ownership"]["owner_role"], "test_planner")
+        self.assertTrue(retry["information_gain_authorized"])
+
+    def test_unresolved_paired_review_obligation_does_not_force_recovery(self) -> None:
+        self._state("contract_audit", "contract-1")
+        with patch.dict("os.environ", self.env, clear=False):
+            open_cycle(
+                ledger_path=self.ledger,
+                seal=self._seal("contract-1"),
+                max_cycles=2,
+                max_reviews=1,
+            )
+
+        self._state("falsify", "falsify-1")
+        decision = {
+            "version": 1,
+            "kind": "promotion_authorization",
+            "run_id": self.run_id,
+            "node": "falsify",
+            "entry_id": "falsify-1",
+            "decision": "revise",
+            "reason_codes": [
+                "acceptance_obligations_unresolved_or_falsified",
+            ],
+            "acceptance_obligation_assessments": [
+                {
+                    "requirement_id": "sealed_reference_ratio",
+                    "status": "unresolved",
+                    "evidence_mode": "paired_review",
+                    "evidence": "no immutable reference measurements exist",
+                    "unresolved_reason": "the reference population remains sealed",
+                    "independence_basis": "paired measurements require sealed fixtures",
+                },
+            ],
+        }
+        with patch.dict("os.environ", self.env, clear=False):
+            open_review(ledger_path=self.ledger)
+            route = route_review(
+                ledger_path=self.ledger,
+                promotion_decision=decision,
+            )
+        self.assertEqual(route["route"], "quarantine")
+        self.assertFalse(route["repairable_rejection"])
+        self.assertFalse(route["requires_recovery_cycle"])
+        self.assertEqual(route["acceptance_recovery_gap_sha256s"], [])
+
     def test_repairable_regression_revises_before_quarantine(self) -> None:
         self._state("contract_audit", "contract-1")
         with patch.dict("os.environ", self.env, clear=False):
@@ -690,6 +830,31 @@ class RecoveringDevelopGuardTest(unittest.TestCase):
         self.assertIn("harvest or\n  export boundary", content)
         self.assertIn("without inventing expected domain\n  decisions", content)
         self.assertIn("separate failure owners", content)
+
+    def test_ml_profile_requires_finite_categorical_domain_coverage(self) -> None:
+        catalog = yaml.safe_load(
+            (REPO / "examples/reviewer-practice-router-v1.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+        profile = next(
+            item for item in catalog["profiles"] if item["id"] == "ml-model-artifacts"
+        )
+        self.assertIn("categorical_domain_and_fallback", profile["checks"])
+        content = (REPO / "examples/reviewer/ml-model-artifacts.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("derive the domain independently", content)
+        self.assertIn("exercise it exhaustively", content)
+        self.assertIn("not category coverage", content)
+
+        practices = yaml.safe_load(
+            (REPO / "examples/reviewer-practices-v1.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+        practice_ids = {item["id"] for item in practices["practices"]}
+        self.assertIn("finite_categorical_domain_coverage", practice_ids)
 
     def test_performance_profile_requires_population_margin_and_consumer_replay(self) -> None:
         catalog = yaml.safe_load(
@@ -1021,6 +1186,47 @@ class FilesystemArtifactProviderTest(unittest.TestCase):
         self.assertTrue(exported_snapshot.stat().st_mode & 0o200)
         self.assertGreater(receipt["regular_file_count"], 0)
         self.assertEqual(len(receipt["verified_snapshots"]), 1)
+
+    def test_provider_receipt_only_export_omits_snapshot_contents(self) -> None:
+        target = self.app / "worker.py"
+        target.write_text("def work():\n    return 1\n", encoding="utf-8")
+        private_input = self.app / "private-input.bin"
+        private_input.write_bytes(b"not-for-public-export")
+        with patch.dict("os.environ", self.env, clear=False):
+            baseline = snapshot_artifact(
+                artifact_root=self.app,
+                provider_root=self.provider / "snapshots",
+                kind="baseline",
+            )
+        (self.provider / "provider-private.txt").write_text(
+            "not a receipt", encoding="utf-8"
+        )
+        (self.provider / "unrelated.json").write_text(
+            json.dumps({"kind": "unrelated_private_record"}), encoding="utf-8"
+        )
+        (self.provider / "baseline-snapshot.json").write_text(
+            json.dumps(baseline), encoding="utf-8"
+        )
+        exported = self.root / "receipt-only-provider"
+
+        receipt = export_provider_bundle(
+            provider_root=self.provider,
+            destination=exported,
+            receipt_only=True,
+        )
+
+        relative = Path(baseline["snapshot_path"]).relative_to(
+            self.provider.resolve()
+        )
+        self.assertFalse((exported / relative).exists())
+        self.assertTrue((exported / "baseline-snapshot.json").is_file())
+        exported_names = {path.name for path in exported.rglob("*")}
+        self.assertNotIn(private_input.name, exported_names)
+        self.assertNotIn("provider-private.txt", exported_names)
+        self.assertNotIn("unrelated.json", exported_names)
+        self.assertTrue(receipt["receipt_only"])
+        self.assertFalse(receipt["verified_snapshots"][0]["content_exported"])
+        self.assertIsNone(receipt["verified_snapshots"][0]["relative_path"])
 
     def test_repair_aware_contract_keeps_signatures_but_not_buggy_docs(self) -> None:
         sealed = {

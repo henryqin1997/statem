@@ -14,6 +14,12 @@
 - **`boundary_shapes_and_replay`**: Exercise empty, singleton, uneven-shard, mixed-precision, non-contiguous,
   missing-field, and resume/replay cases. Check random seed ownership without
   mistaking one deterministic seed for distributional validation.
+- **`categorical_domain_and_fallback`**: When an oracle, scorer, parser, or model accepts a finite or compactly
+  enumerable categorical keyspace, derive the domain independently of the
+  visible sample and exercise it exhaustively when feasible. Retain exceptional
+  categories, fallback equivalence classes, missing and unknown values, and
+  case or normalization variants admitted by the public surface. A random
+  population or the categories observed in one packet is not category coverage.
 - **`public_consumer_load_path`**: Compare the public consumer's load or evaluation path on baseline and
   candidate; file existence and successful deserialization alone are not
   sufficient evidence.
