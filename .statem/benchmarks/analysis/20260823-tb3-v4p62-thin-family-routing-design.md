@@ -87,3 +87,14 @@ thin/direct and v4p61 evidence. It must preserve raw reward and protocol
 identity while materially reducing cost or wall-time overhead. A failed
 negative-transfer sentinel blocks admission. Nested reviewer execution remains
 dormant unless the inline reviewer repeatedly misses a specified family check.
+
+## First comparison outcome
+
+The adapted known-positive MVCC sentinel completed with raw reward `1.0`,
+protocol-valid `handoff`, no error or retry, and an actual
+`solve -> verify -> solve -> verify -> self_review -> handoff` revision path.
+It cost `$1.0312304` and finished in about 12m42s with a 10-file source
+manifest, versus `$11.610926`, about 48m04s, and 37 files for v4p61. The result
+admits v4p62's thin architecture as the development baseline. The individual
+stateful-lifecycle practice remains a shadow-default family candidate pending
+one transfer cell and one weak-signal false-positive sentinel.

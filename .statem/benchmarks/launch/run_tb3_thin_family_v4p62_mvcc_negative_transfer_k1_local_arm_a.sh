@@ -4,6 +4,7 @@ set -euo pipefail
 export PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 export DOCKER_CONFIG="/private/tmp/statem-public-docker-config"
 export PYTHONPATH="/private/tmp/statem-tb3-v4p62-thin"
+export STATEM_HARBOR_BIN="/Users/qinziheng/workspace/statem/.venv/bin/harbor"
 
 cd /private/tmp/statem-tb3-v4p62-thin
 

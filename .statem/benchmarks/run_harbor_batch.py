@@ -12,7 +12,9 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-HARBOR_BIN = REPO_ROOT / ".venv" / "bin" / "harbor"
+HARBOR_BIN = Path(
+    os.environ.get("STATEM_HARBOR_BIN", REPO_ROOT / ".venv" / "bin" / "harbor")
+).expanduser().resolve()
 DEFAULT_AGENT_TIMEOUT_SECONDS = 750
 DEFAULT_HARBOR_AGENT_TIMEOUT_SECONDS = 900
 DEFAULT_ENV_FILE = REPO_ROOT / ".statem" / "benchmarks" / "daytona.env"
