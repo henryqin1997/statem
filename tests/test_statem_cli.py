@@ -2623,6 +2623,464 @@ edges:
             )
             self.assertEqual(moved["current"], "handoff")
 
+    def test_nested_runbook_returns_to_same_parent_entry_without_repeating_side_effects(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            state_dir = root / ".statem"
+            child = root / "child.yaml"
+            parent = root / "parent.yaml"
+            child.write_text(
+                """
+name: child
+initial: work
+nodes:
+  work:
+    prompt: Complete the focused family procedure.
+  done:
+    prompt: Return to the caller.
+edges:
+  - from: work
+    to: done
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            parent.write_text(
+                """
+name: parent
+initial: solve
+nodes:
+  solve:
+    in_hook:
+      - type: runbook
+        runbook: child.yaml
+        return_states:
+          - done
+        role: family-reviewer
+      - type: command
+        run: printf ready >> parent-ready.txt
+  handoff:
+    prompt: Finished.
+edges:
+  - from: solve
+    to: handoff
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            validated = json.loads(
+                self.run_statem("validate", str(parent), "--strict", "--json").stdout
+            )
+            self.assertTrue(validated["ok"])
+            started = json.loads(
+                self.run_statem(
+                    "start",
+                    str(parent),
+                    "--run-id",
+                    "nested",
+                    "--state-dir",
+                    str(state_dir),
+                    "--json",
+                ).stdout
+            )
+            self.assertEqual(started["spec_name"], "child")
+            self.assertEqual(started["current"], "work")
+            self.assertEqual(started["runbook_depth"], 1)
+            parent_entry = started["runbook_stack"][0]["parent_entry_id"]
+            self.assertFalse((root / "parent-ready.txt").exists())
+
+            resumed = json.loads(
+                self.run_statem(
+                    "start",
+                    str(parent),
+                    "--run-id",
+                    "nested",
+                    "--state-dir",
+                    str(state_dir),
+                    "--json",
+                ).stdout
+            )
+            self.assertEqual(resumed["spec_name"], "child")
+            self.assertEqual(resumed["runbook_depth"], 1)
+            prompt_payload = json.loads(
+                self.run_statem(
+                    "prompt",
+                    "--run-id",
+                    "nested",
+                    "--state-dir",
+                    str(state_dir),
+                    "--json",
+                ).stdout
+            )
+            self.assertEqual(prompt_payload["spec"], str(parent.resolve()))
+            self.assertEqual(prompt_payload["active_spec"], str(child.resolve()))
+            self.assertIn("statem return", prompt_payload["prompt"])
+
+            blocked = self.run_statem(
+                "return",
+                "--run-id",
+                "nested",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+                check=False,
+            )
+            self.assertEqual(blocked.returncode, 2)
+            self.assertEqual(json.loads(blocked.stdout)["details"]["allowed_return_states"], ["done"])
+
+            self.run_statem(
+                "goto",
+                "done",
+                "--run-id",
+                "nested",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+            )
+            returned = json.loads(
+                self.run_statem(
+                    "return",
+                    "--run-id",
+                    "nested",
+                    "--state-dir",
+                    str(state_dir),
+                    "--json",
+                ).stdout
+            )
+            self.assertEqual(returned["spec_name"], "parent")
+            self.assertEqual(returned["current"], "solve")
+            self.assertEqual(returned["current_entry_id"], parent_entry)
+            self.assertEqual(returned["runbook_depth"], 0)
+            self.assertEqual((root / "parent-ready.txt").read_text(encoding="utf-8"), "ready")
+
+            resumed_parent = json.loads(
+                self.run_statem(
+                    "start",
+                    str(parent),
+                    "--run-id",
+                    "nested",
+                    "--state-dir",
+                    str(state_dir),
+                    "--json",
+                ).stdout
+            )
+            self.assertEqual(resumed_parent["runbook_depth"], 0)
+            self.assertEqual((root / "parent-ready.txt").read_text(encoding="utf-8"), "readyready")
+            state = json.loads(
+                (state_dir / "runs" / "nested" / "state.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(len(state["runbook_call_receipts"]), 1)
+
+    def test_nested_runbook_before_transfer_resumes_same_edge_attempt(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            state_dir = root / ".statem"
+            child = root / "gate.yaml"
+            parent = root / "parent.yaml"
+            child.write_text(
+                """
+name: transfer-gate
+initial: inspect
+nodes:
+  inspect: Inspect the family-specific boundary.
+  accepted: Return to the transfer.
+edges:
+  - from: inspect
+    to: accepted
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            parent.write_text(
+                """
+name: parent-transfer
+initial: solve
+nodes:
+  solve:
+    before_transfer:
+      - type: runbook
+        runbook: gate.yaml
+        return_states:
+          - accepted
+      - type: command
+        run: printf checked >> transfer.log
+  done: Done.
+edges:
+  - from: solve
+    to: done
+    max_attempts: 1
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            self.run_statem(
+                "start",
+                str(parent),
+                "--run-id",
+                "transfer",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+            )
+            entered = json.loads(
+                self.run_statem(
+                    "goto",
+                    "done",
+                    "--run-id",
+                    "transfer",
+                    "--state-dir",
+                    str(state_dir),
+                    "--json",
+                ).stdout
+            )
+            self.assertEqual(entered["spec_name"], "transfer-gate")
+            self.assertEqual(entered["current"], "inspect")
+            self.run_statem(
+                "goto",
+                "accepted",
+                "--run-id",
+                "transfer",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+            )
+            returned = json.loads(
+                self.run_statem(
+                    "return",
+                    "--run-id",
+                    "transfer",
+                    "--state-dir",
+                    str(state_dir),
+                    "--json",
+                ).stdout
+            )
+            self.assertEqual(returned["from"], "solve")
+            self.assertEqual(returned["to"], "done")
+            self.assertEqual((root / "transfer.log").read_text(encoding="utf-8"), "checked")
+            state = json.loads(
+                (state_dir / "runs" / "transfer" / "state.json").read_text(encoding="utf-8")
+            )
+            attempts = state["edge_attempts"]
+            parent_entry = next(iter(attempts))
+            self.assertEqual(attempts[parent_entry]["solve"]["done"], 1)
+
+    def test_nested_runbook_selector_can_skip_or_route_without_loading_all_practices(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            state_dir = root / ".statem"
+            selector = root / "route.json"
+            child = root / "family.yaml"
+            parent = root / "parent.yaml"
+            child.write_text(
+                """
+name: family-procedure
+initial: inspect
+nodes:
+  inspect: Run only the selected family procedure.
+  done: Return.
+edges:
+  - from: inspect
+    to: done
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            parent.write_text(
+                """
+name: routed-parent
+initial: solve
+nodes:
+  solve:
+    in_hook:
+      - type: runbook
+        selector:
+          path: route.json
+          json_path: family
+        routes:
+          boundary: family.yaml
+        default: skip
+        return_states:
+          - done
+      - type: command
+        run: printf thin >> thin.log
+edges: []
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            self.assertTrue(
+                json.loads(
+                    self.run_statem("validate", str(parent), "--strict", "--json").stdout
+                )["ok"]
+            )
+
+            selector.write_text('{"family":"ordinary"}\n', encoding="utf-8")
+            skipped = json.loads(
+                self.run_statem(
+                    "start",
+                    str(parent),
+                    "--run-id",
+                    "skip",
+                    "--state-dir",
+                    str(state_dir),
+                    "--json",
+                ).stdout
+            )
+            self.assertEqual(skipped["spec_name"], "routed-parent")
+            self.assertEqual(skipped["runbook_depth"], 0)
+            self.assertEqual((root / "thin.log").read_text(encoding="utf-8"), "thin")
+
+            selector.write_text('{"family":"boundary"}\n', encoding="utf-8")
+            stable_skip = json.loads(
+                self.run_statem(
+                    "start",
+                    str(parent),
+                    "--run-id",
+                    "skip",
+                    "--state-dir",
+                    str(state_dir),
+                    "--json",
+                ).stdout
+            )
+            self.assertEqual(stable_skip["spec_name"], "routed-parent")
+            self.assertEqual(stable_skip["runbook_depth"], 0)
+            self.assertEqual((root / "thin.log").read_text(encoding="utf-8"), "thinthin")
+
+            routed = json.loads(
+                self.run_statem(
+                    "start",
+                    str(parent),
+                    "--run-id",
+                    "route",
+                    "--state-dir",
+                    str(state_dir),
+                    "--json",
+                ).stdout
+            )
+            self.assertEqual(routed["spec_name"], "family-procedure")
+            self.assertEqual(routed["runbook_depth"], 1)
+            self.assertFalse(routed["runbook_return"]["can_return"])
+
+    def test_nested_runbook_source_binding_and_hook_order_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            state_dir = root / ".statem"
+            child = root / "child.yaml"
+            parent = root / "parent.yaml"
+            child.write_text(
+                """
+name: child
+initial: work
+nodes:
+  work: Work.
+  done:
+    prompt: Done.
+    out_hook:
+      type: command
+      run: printf exited >> child-exit.log
+edges:
+  - from: work
+    to: done
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            parent.write_text(
+                """
+name: invalid-parent
+initial: solve
+nodes:
+  solve:
+    in_hook:
+      - type: message
+        text: This side effect would precede the call.
+      - type: runbook
+        runbook: child.yaml
+        return_states:
+          - done
+edges: []
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            invalid = self.run_statem("validate", str(parent), "--json", check=False)
+            self.assertEqual(invalid.returncode, 1)
+            self.assertIn("must be the first hook item", json.loads(invalid.stdout)["error"])
+
+            parent.write_text(
+                """
+name: bound-parent
+initial: solve
+nodes:
+  solve:
+    in_hook:
+      type: runbook
+      runbook: child.yaml
+      return_states:
+        - done
+edges: []
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            self.run_statem(
+                "start",
+                str(parent),
+                "--run-id",
+                "bound",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+            )
+            child_source = child.read_text(encoding="utf-8")
+            child.write_text(child_source + "# drift\n", encoding="utf-8")
+            blocked = self.run_statem(
+                "cur",
+                "--run-id",
+                "bound",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+                check=False,
+            )
+            self.assertEqual(blocked.returncode, 2)
+            self.assertIn("source changed", json.loads(blocked.stdout)["error"])
+
+            child.write_text(child_source, encoding="utf-8")
+            self.run_statem(
+                "start",
+                str(parent),
+                "--run-id",
+                "parent-bound",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+            )
+            parent.write_text(parent.read_text(encoding="utf-8") + "# parent drift\n", encoding="utf-8")
+            self.run_statem(
+                "goto",
+                "done",
+                "--run-id",
+                "parent-bound",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+            )
+            parent_blocked = self.run_statem(
+                "return",
+                "--run-id",
+                "parent-bound",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+                check=False,
+            )
+            self.assertEqual(parent_blocked.returncode, 2)
+            self.assertIn("Parent runbook source changed", json.loads(parent_blocked.stdout)["error"])
+            self.assertFalse((root / "child-exit.log").exists())
+
     def test_teamrun_worker_loop_wall_timeout_bounds_launcher(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

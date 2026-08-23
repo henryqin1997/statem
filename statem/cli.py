@@ -98,6 +98,13 @@ def _build_parser() -> argparse.ArgumentParser:
     save.add_argument("--skip-hooks", action="store_true", help="persist runtime state without running out_hook")
     save.set_defaults(handler=_cmd_save)
 
+    return_cmd = subparsers.add_parser(
+        "return",
+        parents=[common],
+        help="return from a nested runbook after reaching an allowed return state",
+    )
+    return_cmd.set_defaults(handler=_cmd_return)
+
     history = subparsers.add_parser("history", parents=[common], help="show run history")
     history.add_argument("--limit", "--tail", dest="limit", type=int, help="show only the last N events")
     history.set_defaults(handler=_cmd_history)
@@ -273,6 +280,10 @@ def _cmd_save(args: argparse.Namespace, options: RunOptions) -> dict[str, Any]:
     return StatemRuntime(options).save(skip_hooks=args.skip_hooks)
 
 
+def _cmd_return(args: argparse.Namespace, options: RunOptions) -> dict[str, Any]:
+    return StatemRuntime(options).return_runbook()
+
+
 def _cmd_history(args: argparse.Namespace, options: RunOptions) -> dict[str, Any]:
     return StatemRuntime(options).history(limit=args.limit)
 
@@ -395,6 +406,13 @@ def _print_payload(command: str, payload: dict[str, Any]) -> None:
         _print_goto(payload)
     elif command == "save":
         _print_save(payload)
+    elif command == "return":
+        if "from" in payload and "to" in payload:
+            _print_goto(payload)
+        elif "spec_name" in payload:
+            _print_cur(payload)
+        else:
+            _print_save(payload)
     elif command == "history":
         _print_history(payload)
     elif command in {"prompt", "compact-prompt"}:
@@ -425,6 +443,14 @@ def _print_cur(payload: dict[str, Any]) -> None:
         print(f"TeamRun: {team.get('mode')} required={team.get('required')}")
     if payload.get("state_hooks"):
         print("State hooks: " + ", ".join(str(hook.get("name")) for hook in payload["state_hooks"]))
+    if payload.get("runbook_return"):
+        nested = payload["runbook_return"]
+        allowed = ", ".join(str(value) for value in nested.get("return_states", []))
+        print(
+            "Nested return: "
+            f"can_return={bool(nested.get('can_return'))} allowed=[{allowed}] "
+            f"parent={nested.get('parent_node')}"
+        )
     if payload.get("prompt"):
         print("\nPrompt:")
         print(payload["prompt"])
@@ -619,6 +645,9 @@ def _summary_text(item: dict[str, Any]) -> str:
         return ", ".join(bits)
     if item_type == "checklist":
         return "checklist: " + ", ".join(str(value) for value in item.get("items", []))
+    if item_type == "runbook":
+        target = item.get("runbook") or item.get("selector")
+        return f"runbook: {target!r} return_states={item.get('return_states', [])!r}"
     return f"{item_type}: {item.get('text')}"
 
 

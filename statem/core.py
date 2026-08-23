@@ -29,13 +29,26 @@ class TransitionBlocked(StatemError):
     exit_code = 2
 
 
+class RunbookReturnBlocked(StatemError):
+    exit_code = 2
+
+
 DYNAMIC_PURPOSE = "dynamic_before_transfer"
 TEAM_PURPOSE = "multi_agent"
 STATE_HOOKS_KEY = "state_hooks"
 STATE_HOOK_PURPOSE = "state_hook"
 GATING_PURPOSES = {"condition", "before_transfer", DYNAMIC_PURPOSE}
 HOOK_KEYS = {"in_hook", "before_transfer", "out_hook", "condition", "hook"}
-CHECK_TYPES = {"message", "manual", "checklist", "command", "predicate", "llm_review"}
+CHECK_TYPES = {
+    "message",
+    "manual",
+    "checklist",
+    "command",
+    "predicate",
+    "llm_review",
+    "runbook",
+}
+DYNAMIC_CHECK_TYPES = CHECK_TYPES - {"runbook"}
 DYNAMIC_CHECKS_SCHEMA_HINT = (
     "Accepted dynamic checks file shape: "
     "{'basis': {'implementation_summary': 'what changed and why these checks fit'}, "
@@ -153,7 +166,21 @@ STRICT_CHECK_KEYS = {
         "accept_regex",
         "reject_regex",
     },
+    "runbook": STRICT_CHECK_COMMON_KEYS
+    | {
+        "runbook",
+        "path",
+        "selector",
+        "routes",
+        "default",
+        "return_states",
+        "role",
+    },
 }
+
+STRICT_RUNBOOK_SELECTOR_KEYS = {"path", "json_path"}
+RUNBOOK_CALL_PURPOSES = {"in_hook", "before_transfer", "out_hook"}
+MAX_RUNBOOK_DEPTH = 4
 
 
 @dataclass
@@ -243,6 +270,15 @@ class StatemSpec:
             errors.extend(_validate_items(node.get("in_hook"), "in_hook", f"node {name} in_hook"))
             errors.extend(_validate_items(node.get("before_transfer"), "before_transfer", f"node {name} before_transfer"))
             errors.extend(_validate_items(node.get("out_hook"), "out_hook", f"node {name} out_hook"))
+            for purpose in RUNBOOK_CALL_PURPOSES:
+                errors.extend(
+                    _validate_runbook_items(
+                        node.get(purpose),
+                        purpose,
+                        f"node {name} {purpose}",
+                        self.path,
+                    )
+                )
             errors.extend(_validate_dynamic_config(node.get(DYNAMIC_PURPOSE), f"node {name} {DYNAMIC_PURPOSE}"))
             from .team import validate_team_config
 
@@ -267,14 +303,14 @@ class StatemRuntime:
         self.state_dir = options.state_dir.expanduser().resolve()
 
     def start(self, spec_path: str, *, fresh: bool = False) -> dict[str, Any]:
-        spec = StatemSpec.load(spec_path)
+        root_spec = StatemSpec.load(spec_path)
         self.state_dir.mkdir(parents=True, exist_ok=True)
         (self.state_dir / "runs").mkdir(parents=True, exist_ok=True)
 
         requested_run_id = _clean_run_id(self.options.run_id) if self.options.run_id else None
         run_id = requested_run_id
         if run_id is None and not fresh:
-            run_id = self._active_run_for_spec(spec)
+            run_id = self._active_run_for_spec(root_spec)
         if run_id is None:
             run_id = _new_run_id()
 
@@ -284,20 +320,61 @@ class StatemRuntime:
             state = {
                 "version": 1,
                 "run_id": run_id,
-                "spec_path": str(spec.path),
-                "spec_hash": spec.spec_hash,
-                "current": spec.initial,
+                "root_spec_path": str(root_spec.path),
+                "root_spec_hash": root_spec.spec_hash,
+                "spec_path": str(root_spec.path),
+                "spec_hash": root_spec.spec_hash,
+                "current": root_spec.initial,
                 "current_entry_id": _new_entry_id(),
                 "created_at": _now(),
                 "updated_at": _now(),
                 "history": [],
             }
+            spec = root_spec
             self._ensure_agent_identity(state)
-            self._ensure_entry_manifest(spec, state, spec.initial)
-            _append_event(state, "start", {"current": spec.initial, "spec": str(spec.path)})
+            self._ensure_entry_manifest(spec, state, root_spec.initial)
+            _append_event(state, "start", {"current": root_spec.initial, "spec": str(root_spec.path)})
         else:
             state = _read_json(state_path)
             self._ensure_agent_identity(state)
+            state.setdefault("root_spec_path", str(state.get("spec_path") or root_spec.path))
+            state.setdefault("root_spec_hash", str(state.get("spec_hash") or root_spec.spec_hash))
+            if Path(str(state["root_spec_path"])).expanduser().resolve() != root_spec.path:
+                raise StatemError(
+                    f"Run '{run_id}' belongs to root spec {state['root_spec_path']}, not {root_spec.path}"
+                )
+            stack = state.get("runbook_stack") or []
+            if stack:
+                if root_spec.spec_hash != state.get("root_spec_hash"):
+                    raise RunbookReturnBlocked(
+                        "Root runbook source changed while a nested runbook is active",
+                        details={
+                            "expected_spec_hash": state.get("root_spec_hash"),
+                            "actual_spec_hash": root_spec.spec_hash,
+                        },
+                    )
+                spec = StatemSpec.load(state["spec_path"])
+                frame = stack[-1]
+                expected_child_hash = (
+                    frame.get("child_spec_hash") if isinstance(frame, dict) else None
+                )
+                if (
+                    spec.spec_hash != state.get("spec_hash")
+                    or spec.spec_hash != expected_child_hash
+                ):
+                    raise RunbookReturnBlocked(
+                        "Active nested runbook source changed after invocation",
+                        details={
+                            "expected_spec_hash": state.get("spec_hash"),
+                            "frame_spec_hash": expected_child_hash,
+                            "actual_spec_hash": spec.spec_hash,
+                        },
+                    )
+            else:
+                spec = root_spec
+                state["spec_path"] = str(root_spec.path)
+                state["spec_hash"] = root_spec.spec_hash
+                state["root_spec_hash"] = root_spec.spec_hash
             previous_current = str(state.get("current"))
             if previous_current not in spec.nodes:
                 state["current"] = spec.initial
@@ -312,20 +389,26 @@ class StatemRuntime:
                         "reason": "current state missing from updated spec",
                     },
                 )
-            state["spec_path"] = str(spec.path)
-            state["spec_hash"] = spec.spec_hash
             self._ensure_current_entry(spec, state)
             _append_event(state, "resume", {"current": state["current"], "spec": str(spec.path)})
 
         self._write_active(run_id)
         self._write_state(state)
-        results = self._run_node_items(spec, state, str(state["current"]), "in_hook")
+        results = self._run_node_items(
+            spec,
+            state,
+            str(state["current"]),
+            "in_hook",
+            resume={"action": "in_hook"},
+        )
         _append_event(
             state,
             "in_hook",
             {"node": state["current"], "reason": "start" if is_new else "resume", "results": results},
         )
         self._write_state(state)
+        if _active_runbook_call(results):
+            return self.cur(run_id=run_id)
         _raise_if_blocked(
             results,
             f"Run '{run_id}' started, but in_hook failed for '{state['current']}'",
@@ -351,6 +434,9 @@ class StatemRuntime:
             "current": current,
             "current_entry_id": state.get("current_entry_id"),
             "agent_id": self._ensure_agent_identity(state),
+            "runbook_stack": _runbook_stack_summary(state),
+            "runbook_depth": len(state.get("runbook_stack") or []),
+            "runbook_return": _runbook_return_summary(state),
             "dynamic_before_transfer": _dynamic_summary(
                 spec.nodes[current].get(DYNAMIC_PURPOSE),
                 self._dynamic_dir(state, current, str(state.get("current_entry_id"))),
@@ -375,6 +461,8 @@ class StatemRuntime:
             "run_id": state["run_id"],
             "current": state["current"],
             "current_entry_id": state.get("current_entry_id"),
+            "runbook_stack": _runbook_stack_summary(state),
+            "runbook_return": _runbook_return_summary(state),
             "nodes": [
                 {
                     "name": name,
@@ -433,10 +521,17 @@ class StatemRuntime:
         return {
             "run_id": state["run_id"],
             "current": current,
+            "runbook_return": _runbook_return_summary(state),
             "next": [_edge_summary(edge) for edge in spec.outgoing.get(current, [])],
         }
 
-    def goto(self, target: str, *, run_id: str | None = None) -> dict[str, Any]:
+    def goto(
+        self,
+        target: str,
+        *,
+        run_id: str | None = None,
+        _resuming_runbook: bool = False,
+    ) -> dict[str, Any]:
         spec, state = self._load_runtime(run_id)
         source = state["current"]
         edge = spec.edge_to(source, target)
@@ -445,8 +540,22 @@ class StatemRuntime:
             raise StatemError(f"Cannot goto '{target}' from '{source}'. Allowed next states: {allowed}")
 
         self._ensure_current_entry(spec, state)
-        attempt_details = self._begin_edge_attempt(state, source, target, edge)
-        before_results = self._run_node_items(spec, state, source, "before_transfer")
+        attempt_details = (
+            None
+            if _resuming_runbook
+            else self._begin_edge_attempt(state, source, target, edge)
+        )
+        resume = {"action": "goto", "target": target}
+        before_results = self._run_node_items(
+            spec,
+            state,
+            source,
+            "before_transfer",
+            resume=resume,
+        )
+        if _active_runbook_call(before_results):
+            self._write_state(state)
+            return self.cur(run_id=str(state["run_id"]))
         dynamic_payload = self._run_dynamic_before_transfer(spec, state, source, target)
         dynamic_results = dynamic_payload["results"]
         from .team import run_team_before_transfer
@@ -484,7 +593,16 @@ class StatemRuntime:
                 details=details,
             )
 
-        out_results = self._run_node_items(spec, state, source, "out_hook")
+        out_results = self._run_node_items(
+            spec,
+            state,
+            source,
+            "out_hook",
+            resume=resume,
+        )
+        if _active_runbook_call(out_results):
+            self._write_state(state)
+            return self.cur(run_id=str(state["run_id"]))
         edge_hook_results = self._run_items(spec, state, edge.get("hook"), "hook")
         side_effect_results = out_results + edge_hook_results
         if _has_blocking_failure(side_effect_results):
@@ -506,7 +624,13 @@ class StatemRuntime:
         state["current_entry_id"] = _new_entry_id()
         self._ensure_entry_manifest(spec, state, target)
         self._write_state(state)
-        in_results = self._run_node_items(spec, state, target, "in_hook")
+        in_results = self._run_node_items(
+            spec,
+            state,
+            target,
+            "in_hook",
+            resume={"action": "in_hook"},
+        )
         all_results = pre_results + side_effect_results + in_results
         event_payload = {
             "from": source,
@@ -524,6 +648,8 @@ class StatemRuntime:
             event_payload[TEAM_PURPOSE] = team_payload
         _append_event(state, "goto", event_payload)
         self._write_state(state)
+        if _active_runbook_call(in_results):
+            return self.cur(run_id=str(state["run_id"]))
         in_details = _block_details(state, source, target, "in_hook", in_results)
         if attempt_details:
             in_details.update(attempt_details)
@@ -595,12 +721,163 @@ class StatemRuntime:
             "attempts_remaining": limit - attempt,
         }
 
+    def return_runbook(self, *, run_id: str | None = None) -> dict[str, Any]:
+        child_spec, state = self._load_runtime(run_id)
+        stack = state.get("runbook_stack") or []
+        if not stack:
+            raise StatemError("No active nested runbook to return from")
+        frame = stack[-1]
+        if not isinstance(frame, dict):
+            raise StatemError("Active nested runbook frame is malformed")
+        if child_spec.spec_hash != frame.get("child_spec_hash"):
+            raise RunbookReturnBlocked(
+                "Nested runbook source changed after invocation",
+                details={
+                    "call_id": frame.get("call_id"),
+                    "expected_spec_hash": frame.get("child_spec_hash"),
+                    "actual_spec_hash": child_spec.spec_hash,
+                },
+            )
+
+        child_state = str(state["current"])
+        return_states = [str(value) for value in frame.get("return_states") or []]
+        if child_state not in return_states:
+            raise RunbookReturnBlocked(
+                f"Cannot return from nested runbook while in {child_state!r}",
+                details={
+                    "call_id": frame.get("call_id"),
+                    "current": child_state,
+                    "allowed_return_states": return_states,
+                },
+            )
+
+        parent_spec = StatemSpec.load(str(frame["parent_spec_path"]))
+        if parent_spec.spec_hash != frame.get("parent_spec_hash"):
+            raise RunbookReturnBlocked(
+                "Parent runbook source changed while the child was active",
+                details={
+                    "call_id": frame.get("call_id"),
+                    "expected_spec_hash": frame.get("parent_spec_hash"),
+                    "actual_spec_hash": parent_spec.spec_hash,
+                },
+            )
+
+        child_out_results = self._run_node_items(
+            child_spec,
+            state,
+            child_state,
+            "out_hook",
+            resume={"action": "return"},
+        )
+        if _active_runbook_call(child_out_results):
+            self._write_state(state)
+            return self.cur(run_id=str(state["run_id"]))
+        _raise_if_blocked(
+            child_out_results,
+            f"Nested runbook return blocked by out_hook for {child_state!r}",
+            details={
+                "run_id": state["run_id"],
+                "current": child_state,
+                "stage": "out_hook",
+                "call_id": frame.get("call_id"),
+                "results": child_out_results,
+            },
+        )
+
+        receipt = {
+            "version": 1,
+            "status": "completed",
+            "call_id": frame.get("call_id"),
+            "call_key": frame.get("call_key"),
+            "returned_at": _now(),
+            "parent_spec_path": str(parent_spec.path),
+            "parent_spec_hash": parent_spec.spec_hash,
+            "parent_node": frame.get("parent_node"),
+            "parent_entry_id": frame.get("parent_entry_id"),
+            "parent_purpose": frame.get("parent_purpose"),
+            "child_spec_path": str(child_spec.path),
+            "child_spec_hash": child_spec.spec_hash,
+            "child_return_state": child_state,
+            "child_entry_id": state.get("current_entry_id"),
+            "role": frame.get("role") or "",
+            "selector_value": frame.get("selector_value"),
+        }
+        state.setdefault("runbook_call_receipts", {})[str(frame["call_key"])] = receipt
+        stack.pop()
+        state["runbook_stack"] = stack
+        state["spec_path"] = str(parent_spec.path)
+        state["spec_hash"] = parent_spec.spec_hash
+        state["current"] = str(frame["parent_node"])
+        state["current_entry_id"] = str(frame["parent_entry_id"])
+        _append_event(state, "runbook_return", receipt)
+        self._write_state(state)
+
+        resume = frame.get("resume") if isinstance(frame.get("resume"), dict) else {}
+        action = str(resume.get("action") or "in_hook")
+        if action == "goto":
+            target = str(resume.get("target") or "")
+            if not target:
+                raise StatemError("Nested runbook return is missing its parent goto target")
+            return self.goto(
+                target,
+                run_id=str(state["run_id"]),
+                _resuming_runbook=True,
+            )
+        if action == "save":
+            return self.save(run_id=str(state["run_id"]))
+        if action == "return":
+            return self.return_runbook(run_id=str(state["run_id"]))
+
+        parent_results = self._run_node_items(
+            parent_spec,
+            state,
+            str(state["current"]),
+            "in_hook",
+            resume={"action": "in_hook"},
+        )
+        _append_event(
+            state,
+            "in_hook",
+            {
+                "node": state["current"],
+                "reason": "runbook_return",
+                "call_id": receipt["call_id"],
+                "results": parent_results,
+            },
+        )
+        self._write_state(state)
+        if _active_runbook_call(parent_results):
+            return self.cur(run_id=str(state["run_id"]))
+        _raise_if_blocked(
+            parent_results,
+            f"Parent in_hook failed after nested runbook return to {state['current']!r}",
+            details={
+                "run_id": state["run_id"],
+                "current": state["current"],
+                "stage": "in_hook",
+                "call_id": receipt["call_id"],
+                "results": parent_results,
+            },
+        )
+        payload = self.cur(run_id=str(state["run_id"]))
+        payload["runbook_return"] = receipt
+        return payload
+
     def save(self, *, run_id: str | None = None, skip_hooks: bool = False) -> dict[str, Any]:
         spec, state = self._load_runtime(run_id)
         current = state["current"]
         results: list[dict[str, Any]] = []
         if not skip_hooks:
-            results = self._run_node_items(spec, state, current, "out_hook")
+            results = self._run_node_items(
+                spec,
+                state,
+                current,
+                "out_hook",
+                resume={"action": "save"},
+            )
+        if _active_runbook_call(results):
+            self._write_state(state)
+            return self.cur(run_id=str(state["run_id"]))
         event = "save_blocked" if _has_blocking_failure(results) else "save"
         _append_event(state, event, {"node": current, "results": results, "skip_hooks": skip_hooks})
         self._write_state(state)
@@ -903,7 +1180,8 @@ class StatemRuntime:
         current = state["current"]
         state_dir = self.state_dir
         run_id_value = state["run_id"]
-        spec_arg = shlex.quote(str(spec.path))
+        root_spec_path = str(state.get("root_spec_path") or spec.path)
+        spec_arg = shlex.quote(root_spec_path)
         state_dir_arg = shlex.quote(str(state_dir))
         run_id_arg = shlex.quote(str(run_id_value))
         prompt = f"""You are resuming a statem-managed agent run after a context clear.
@@ -920,12 +1198,17 @@ Then follow the current node prompt and only move with:
 
 {command} goto <next-state> --run-id {run_id_arg} --state-dir {state_dir_arg} --json
 
+If cur reports runbook_return.can_return=true, return to the caller with:
+
+{command} return --run-id {run_id_arg} --state-dir {state_dir_arg} --json
+
 Current state at prompt generation time: {current}
 """
         return {
             "run_id": run_id_value,
             "current": current,
-            "spec": str(spec.path),
+            "spec": root_spec_path,
+            "active_spec": str(spec.path),
             "state_dir": str(state_dir),
             "prompt": prompt.strip() + "\n",
         }
@@ -971,9 +1254,21 @@ After compaction, immediately recover with:
         }
 
     def _run_node_items(
-        self, spec: StatemSpec, state: dict[str, Any], node_name: str, key: str
+        self,
+        spec: StatemSpec,
+        state: dict[str, Any],
+        node_name: str,
+        key: str,
+        *,
+        resume: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        return self._run_items(spec, state, spec.nodes[node_name].get(key), key)
+        return self._run_items(
+            spec,
+            state,
+            spec.nodes[node_name].get(key),
+            key,
+            resume=resume,
+        )
 
     def _active_state_hooks(
         self,
@@ -1059,13 +1354,39 @@ After compaction, immediately recover with:
         }
 
     def _run_items(
-        self, spec: StatemSpec, state: dict[str, Any], raw_items: Any, purpose: str
+        self,
+        spec: StatemSpec,
+        state: dict[str, Any],
+        raw_items: Any,
+        purpose: str,
+        *,
+        resume: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         items = _normalize_items(raw_items, purpose)
-        return [self._run_item(spec, state, item, purpose) for item in items]
+        results: list[dict[str, Any]] = []
+        for index, item in enumerate(items):
+            result = self._run_item(
+                spec,
+                state,
+                item,
+                purpose,
+                item_index=index,
+                resume=resume,
+            )
+            results.append(result)
+            if _active_runbook_call([result]):
+                break
+        return results
 
     def _run_item(
-        self, spec: StatemSpec, state: dict[str, Any], item: dict[str, Any], purpose: str
+        self,
+        spec: StatemSpec,
+        state: dict[str, Any],
+        item: dict[str, Any],
+        purpose: str,
+        *,
+        item_index: int = 0,
+        resume: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         item_type = item["type"]
         if item_type == "message":
@@ -1082,7 +1403,236 @@ After compaction, immediately recover with:
             return self._run_predicate(spec, item, purpose)
         if item_type == "llm_review":
             return self._run_llm_review(spec, state, item, purpose)
+        if item_type == "runbook":
+            return self._run_runbook_call(
+                spec,
+                state,
+                item,
+                purpose,
+                item_index=item_index,
+                resume=resume,
+            )
         return _result(item, purpose, False, output=f"Unsupported item type: {item_type}")
+
+    def _run_runbook_call(
+        self,
+        spec: StatemSpec,
+        state: dict[str, Any],
+        item: dict[str, Any],
+        purpose: str,
+        *,
+        item_index: int,
+        resume: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        if purpose not in RUNBOOK_CALL_PURPOSES:
+            return _result(
+                item,
+                purpose,
+                False,
+                output=(
+                    "runbook calls are supported only in in_hook, "
+                    "before_transfer, or out_hook"
+                ),
+            )
+        if item_index != 0:
+            return _result(
+                item,
+                purpose,
+                False,
+                output="runbook call must be the first hook item",
+            )
+
+        parent_node = str(state["current"])
+        parent_entry_id = str(state.get("current_entry_id") or "")
+        call_key = _runbook_call_key(
+            spec,
+            parent_node,
+            parent_entry_id,
+            purpose,
+            item_index,
+            item,
+        )
+        completed = (state.get("runbook_call_receipts") or {}).get(call_key)
+        if isinstance(completed, dict) and completed.get("status") == "completed":
+            if completed.get("skipped"):
+                output = (
+                    "nested runbook route already skipped for selector "
+                    f"{completed.get('selector_value')!r}"
+                )
+            else:
+                output = (
+                    f"nested runbook already returned from "
+                    f"{completed.get('child_return_state')!r}"
+                )
+            result = _result(
+                item,
+                purpose,
+                True,
+                output=output,
+            )
+            result["runbook_call"] = {
+                "active": False,
+                "completed": True,
+                "skipped": bool(completed.get("skipped")),
+                "call_id": completed.get("call_id"),
+                "call_key": call_key,
+                "receipt": completed,
+            }
+            return result
+
+        try:
+            selection = _resolve_runbook_selection(spec, item)
+        except StatemError as exc:
+            return _result(item, purpose, False, output=str(exc))
+        if selection["skip"]:
+            skip_receipt = {
+                "version": 1,
+                "status": "completed",
+                "skipped": True,
+                "call_id": "",
+                "call_key": call_key,
+                "returned_at": _now(),
+                "parent_spec_path": str(spec.path),
+                "parent_spec_hash": spec.spec_hash,
+                "parent_node": parent_node,
+                "parent_entry_id": parent_entry_id,
+                "parent_purpose": purpose,
+                "selector_value": selection.get("selector_value"),
+            }
+            state.setdefault("runbook_call_receipts", {})[call_key] = skip_receipt
+            self._write_state(state)
+            result = _result(
+                item,
+                purpose,
+                True,
+                output=f"nested runbook route skipped for selector {selection.get('selector_value')!r}",
+            )
+            result["runbook_call"] = {
+                "active": False,
+                "completed": True,
+                "skipped": True,
+                "call_key": call_key,
+                "selector_value": selection.get("selector_value"),
+                "receipt": skip_receipt,
+            }
+            return result
+
+        stack = state.setdefault("runbook_stack", [])
+        if len(stack) >= MAX_RUNBOOK_DEPTH:
+            return _result(
+                item,
+                purpose,
+                False,
+                output=f"nested runbook depth exceeds maximum {MAX_RUNBOOK_DEPTH}",
+            )
+
+        child_spec = StatemSpec.load(str(selection["path"]))
+        return_states = [str(value) for value in item.get("return_states") or []]
+        missing_return_states = [
+            value for value in return_states if value not in child_spec.nodes
+        ]
+        if missing_return_states:
+            return _result(
+                item,
+                purpose,
+                False,
+                output=(
+                    f"nested runbook {child_spec.name!r} does not define return state(s): "
+                    + ", ".join(missing_return_states)
+                ),
+            )
+        call_id = uuid.uuid4().hex
+        frame = {
+            "version": 1,
+            "call_id": call_id,
+            "call_key": call_key,
+            "started_at": _now(),
+            "parent_spec_path": str(spec.path),
+            "parent_spec_hash": spec.spec_hash,
+            "parent_node": parent_node,
+            "parent_entry_id": parent_entry_id,
+            "parent_purpose": purpose,
+            "parent_item_index": item_index,
+            "resume": dict(resume or {"action": "in_hook"}),
+            "child_spec_path": str(child_spec.path),
+            "child_spec_hash": child_spec.spec_hash,
+            "return_states": return_states,
+            "role": str(item.get("role") or ""),
+            "selector_value": selection.get("selector_value"),
+        }
+        stack.append(frame)
+        state["spec_path"] = str(child_spec.path)
+        state["spec_hash"] = child_spec.spec_hash
+        state["current"] = child_spec.initial
+        state["current_entry_id"] = _new_entry_id()
+        self._ensure_entry_manifest(child_spec, state, child_spec.initial)
+        _append_event(
+            state,
+            "runbook_call",
+            {
+                "call_id": call_id,
+                "call_key": call_key,
+                "parent_spec": str(spec.path),
+                "parent_node": parent_node,
+                "parent_entry_id": parent_entry_id,
+                "purpose": purpose,
+                "child_spec": str(child_spec.path),
+                "child_spec_hash": child_spec.spec_hash,
+                "child_node": child_spec.initial,
+                "role": frame["role"],
+                "selector_value": frame["selector_value"],
+            },
+        )
+        self._write_state(state)
+
+        child_results = self._run_node_items(
+            child_spec,
+            state,
+            child_spec.initial,
+            "in_hook",
+            resume={"action": "in_hook"},
+        )
+        _append_event(
+            state,
+            "in_hook",
+            {
+                "node": child_spec.initial,
+                "reason": "runbook_call",
+                "call_id": call_id,
+                "results": child_results,
+            },
+        )
+        self._write_state(state)
+        _raise_if_blocked(
+            child_results,
+            f"Nested runbook '{child_spec.name}' started, but in_hook failed",
+            details={
+                "run_id": state["run_id"],
+                "current": state["current"],
+                "stage": "in_hook",
+                "call_id": call_id,
+                "results": child_results,
+            },
+        )
+        result = _result(
+            item,
+            purpose,
+            True,
+            output=f"entered nested runbook {child_spec.name!r} at {child_spec.initial!r}",
+        )
+        result["runbook_call"] = {
+            "active": True,
+            "completed": False,
+            "call_id": call_id,
+            "call_key": call_key,
+            "child_spec": str(child_spec.path),
+            "child_spec_hash": child_spec.spec_hash,
+            "child_node": child_spec.initial,
+            "depth": len(state.get("runbook_stack") or []),
+            "role": frame["role"],
+            "selector_value": frame["selector_value"],
+        }
+        return result
 
     def _run_manual(self, item: dict[str, Any], purpose: str) -> dict[str, Any]:
         prompt = str(item.get("prompt") or item.get("text") or item.get("name") or "Confirm check")
@@ -1398,6 +1948,20 @@ After compaction, immediately recover with:
             raise StatemError(f"Run not found: {selected_run_id}")
         state = _read_json(state_path)
         spec = StatemSpec.load(state["spec_path"])
+        stack = state.get("runbook_stack") or []
+        if stack:
+            frame = stack[-1]
+            expected_hash = str(state.get("spec_hash") or "")
+            frame_hash = str(frame.get("child_spec_hash") or "") if isinstance(frame, dict) else ""
+            if spec.spec_hash != expected_hash or spec.spec_hash != frame_hash:
+                raise RunbookReturnBlocked(
+                    "Active nested runbook source changed after invocation",
+                    details={
+                        "expected_spec_hash": expected_hash,
+                        "frame_spec_hash": frame_hash,
+                        "actual_spec_hash": spec.spec_hash,
+                    },
+                )
         if state.get("current") not in spec.nodes:
             raise StatemError(
                 f"Run '{selected_run_id}' points at '{state.get('current')}', which is not in the current spec"
@@ -1486,7 +2050,8 @@ After compaction, immediately recover with:
         if not state_path.exists():
             return None
         state = _read_json(state_path)
-        if Path(str(state.get("spec_path", ""))).expanduser().resolve() == spec.path:
+        root_path = state.get("root_spec_path") or state.get("spec_path", "")
+        if Path(str(root_path)).expanduser().resolve() == spec.path:
             return run_id
         return None
 
@@ -1658,6 +2223,14 @@ def _strict_item_keyword_errors(raw_items: Any, purpose: str, label: str) -> lis
         if allowed is None:
             allowed = set().union(*STRICT_CHECK_KEYS.values())
         errors.extend(_unknown_keyword_errors(raw_item, allowed, f"{label}[{index}]"))
+        if item_type == "runbook" and isinstance(raw_item.get("selector"), dict):
+            errors.extend(
+                _unknown_keyword_errors(
+                    raw_item["selector"],
+                    STRICT_RUNBOOK_SELECTOR_KEYS,
+                    f"{label}[{index}].selector",
+                )
+            )
     return errors
 
 
@@ -1809,6 +2382,7 @@ def _with_defaults(item: dict[str, Any], purpose: str) -> dict[str, Any]:
             "command",
             "predicate",
             "llm_review",
+            "runbook",
         }
     if "on_failure" not in item:
         item["on_failure"] = "block" if bool(item["blocking"]) else "continue"
@@ -1823,7 +2397,7 @@ def _validate_items(raw_items: Any, purpose: str, label: str) -> list[str]:
         return [f"{label}: {exc}"]
     for item in items:
         item_type = item["type"]
-        if item_type not in {"message", "manual", "checklist", "command", "predicate", "llm_review"}:
+        if item_type not in CHECK_TYPES:
             errors.append(f"{label}: unsupported type '{item_type}'")
         if item_type == "command" and not item.get("run"):
             errors.append(f"{label}: command requires run")
@@ -1831,6 +2405,11 @@ def _validate_items(raw_items: Any, purpose: str, label: str) -> list[str]:
             errors.append(f"{label}: predicate requires path")
         if item_type == "checklist" and not (item.get("items") or item.get("checks")):
             errors.append(f"{label}: checklist requires items")
+        if item_type == "runbook" and purpose not in RUNBOOK_CALL_PURPOSES:
+            errors.append(
+                f"{label}: runbook calls are supported only in "
+                "in_hook, before_transfer, or out_hook"
+            )
         if item_type in {"manual", "checklist"}:
             try:
                 _confirmation_mode(item)
@@ -1838,6 +2417,73 @@ def _validate_items(raw_items: Any, purpose: str, label: str) -> list[str]:
                 errors.append(f"{label}: {exc}")
         if item.get("on_failure") not in {"block", "continue"}:
             errors.append(f"{label}: on_failure must be 'block' or 'continue'")
+    return errors
+
+
+def _validate_runbook_items(
+    raw_items: Any,
+    purpose: str,
+    label: str,
+    parent_spec_path: Path,
+) -> list[str]:
+    try:
+        items = _normalize_items(raw_items, purpose)
+    except StatemError as exc:
+        return [f"{label}: {exc}"]
+
+    errors: list[str] = []
+    runbook_indexes = [index for index, item in enumerate(items) if item.get("type") == "runbook"]
+    if not runbook_indexes:
+        return errors
+    if len(runbook_indexes) > 1:
+        errors.append(f"{label}: v1 permits at most one runbook call per hook")
+    if runbook_indexes[0] != 0:
+        errors.append(
+            f"{label}: a runbook call must be the first hook item so return can resume without "
+            "repeating earlier side effects"
+        )
+
+    item = items[runbook_indexes[0]]
+    static_path = item.get("runbook") or item.get("path")
+    selector = item.get("selector")
+    routes = item.get("routes")
+    if bool(static_path) == bool(selector):
+        errors.append(f"{label}: runbook requires exactly one of runbook/path or selector")
+    if selector is not None:
+        if not isinstance(selector, dict):
+            errors.append(f"{label}: selector must be a mapping")
+        else:
+            if not selector.get("path"):
+                errors.append(f"{label}: selector.path is required")
+            if not selector.get("json_path"):
+                errors.append(f"{label}: selector.json_path is required")
+        if not isinstance(routes, dict) or not routes:
+            errors.append(f"{label}: selector-based runbook calls require a non-empty routes mapping")
+    elif routes is not None:
+        errors.append(f"{label}: routes is valid only with selector")
+
+    return_states = item.get("return_states")
+    if not isinstance(return_states, list) or not return_states or not all(
+        isinstance(value, str) and value.strip() for value in return_states
+    ):
+        errors.append(f"{label}: return_states must be a non-empty string list")
+
+    child_values: list[Any] = []
+    if static_path:
+        child_values.append(static_path)
+    if isinstance(routes, dict):
+        child_values.extend(routes.values())
+    if item.get("default") not in (None, False, "", "skip"):
+        child_values.append(item.get("default"))
+    for value in child_values:
+        if value in (None, False, "", "skip"):
+            continue
+        if not isinstance(value, str):
+            errors.append(f"{label}: child runbook routes must be strings or skip/null")
+            continue
+        child_path = _resolve_spec_relative_path(parent_spec_path, value)
+        if not child_path.is_file():
+            errors.append(f"{label}: child runbook not found: {child_path}")
     return errors
 
 
@@ -1962,7 +2608,7 @@ def _normalize_dynamic_config(raw_config: Any) -> dict[str, Any]:
     config["stale_policy"] = str(config.get("stale_policy") or "none")
     allow_types = config.get("allow_types")
     if allow_types is None:
-        config["allow_types"] = sorted(CHECK_TYPES)
+        config["allow_types"] = sorted(DYNAMIC_CHECK_TYPES)
     elif isinstance(allow_types, list):
         config["allow_types"] = [str(item) for item in allow_types]
     else:
@@ -1978,7 +2624,7 @@ def _validate_dynamic_config(raw_config: Any, label: str) -> list[str]:
     if not config:
         return []
     errors: list[str] = []
-    unknown_types = sorted(set(config["allow_types"]) - CHECK_TYPES)
+    unknown_types = sorted(set(config["allow_types"]) - DYNAMIC_CHECK_TYPES)
     if unknown_types:
         errors.append(f"{label}: allow_types includes unsupported type(s): {', '.join(unknown_types)}")
     if config["merge"] != "all":
@@ -2078,7 +2724,7 @@ def _validate_dynamic_payload(payload: dict[str, Any], config: dict[str, Any], p
     if config.get("require_basis"):
         if not isinstance(basis, dict) or not str(basis.get("implementation_summary") or "").strip():
             problems.append(f"{path}: basis.implementation_summary is required")
-    allowed = set(config.get("allow_types") or CHECK_TYPES)
+    allowed = set(config.get("allow_types") or DYNAMIC_CHECK_TYPES)
     for index, raw_check in enumerate(payload.get("checks", []), start=1):
         if not isinstance(raw_check, dict):
             problems.append(f"{path}: check {index} must be a mapping")
@@ -2099,7 +2745,7 @@ def _validate_dynamic_payload(payload: dict[str, Any], config: dict[str, Any], p
 
 
 def _dynamic_checks_schema_hint(allowed_types: set[str] | None = None) -> str:
-    allowed = set(allowed_types or CHECK_TYPES)
+    allowed = set(allowed_types or DYNAMIC_CHECK_TYPES)
     examples = []
     if "manual" in allowed:
         examples.append("{'type': 'manual', 'prompt': 'Confirm ...', 'reason': '...'}")
@@ -2147,6 +2793,13 @@ def _item_summary(item: dict[str, Any]) -> dict[str, Any]:
                 summary[key] = item[key]
     elif item_type == "checklist":
         summary["items"] = item.get("items") or item.get("checks")
+    elif item_type == "runbook":
+        summary["runbook"] = item.get("runbook") or item.get("path")
+        summary["selector"] = item.get("selector")
+        summary["routes"] = item.get("routes")
+        summary["default"] = item.get("default")
+        summary["return_states"] = item.get("return_states") or []
+        summary["role"] = item.get("role") or ""
     else:
         summary["text"] = item.get("prompt") or item.get("text") or item.get("name")
     return summary
@@ -2335,6 +2988,123 @@ def _resolve_path(spec: StatemSpec, item: dict[str, Any], path_value: str) -> Pa
     if path.is_absolute():
         return path
     return (_resolve_cwd(spec, item) / path).resolve()
+
+
+def _resolve_spec_relative_path(parent_spec_path: Path, path_value: str) -> Path:
+    path = Path(path_value).expanduser()
+    if path.is_absolute():
+        return path.resolve()
+    return (parent_spec_path.parent / path).resolve()
+
+
+def _resolve_runbook_selection(spec: StatemSpec, item: dict[str, Any]) -> dict[str, Any]:
+    static_path = item.get("runbook") or item.get("path")
+    if static_path:
+        child_path = _resolve_spec_relative_path(spec.path, str(static_path))
+        if not child_path.is_file():
+            raise StatemError(f"child runbook not found: {child_path}")
+        return {"path": child_path, "selector_value": None, "skip": False}
+
+    selector = item.get("selector")
+    routes = item.get("routes")
+    if not isinstance(selector, dict) or not isinstance(routes, dict):
+        raise StatemError("selector-based runbook call requires selector and routes mappings")
+    selector_path = _resolve_path(spec, item, str(selector.get("path") or ""))
+    if not selector_path.is_file():
+        raise StatemError(f"runbook selector file not found: {selector_path}")
+    try:
+        selector_payload = json.loads(selector_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise StatemError(f"could not read runbook selector {selector_path}: {exc}") from exc
+    found, raw_value = _json_path(selector_payload, str(selector.get("json_path") or ""))
+    if not found:
+        raise StatemError(
+            f"runbook selector path {selector.get('json_path')!r} was not found in {selector_path}"
+        )
+    selector_value = str(raw_value)
+    selected = routes.get(selector_value, item.get("default", "skip"))
+    if selected in (None, False, "", "skip"):
+        return {"path": None, "selector_value": selector_value, "skip": True}
+    if not isinstance(selected, str):
+        raise StatemError("selected child runbook route must be a string or skip/null")
+    child_path = _resolve_spec_relative_path(spec.path, selected)
+    if not child_path.is_file():
+        raise StatemError(f"selected child runbook not found: {child_path}")
+    return {"path": child_path, "selector_value": selector_value, "skip": False}
+
+
+def _runbook_call_key(
+    spec: StatemSpec,
+    node: str,
+    entry_id: str,
+    purpose: str,
+    item_index: int,
+    item: dict[str, Any],
+) -> str:
+    item_payload = {
+        key: value
+        for key, value in item.items()
+        if key not in {"blocking", "on_failure"}
+    }
+    payload = {
+        "spec_hash": spec.spec_hash,
+        "node": node,
+        "entry_id": entry_id,
+        "purpose": purpose,
+        "item_index": item_index,
+        "item": item_payload,
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def _active_runbook_call(results: list[dict[str, Any]]) -> dict[str, Any] | None:
+    for result in results:
+        call = result.get("runbook_call")
+        if isinstance(call, dict) and call.get("active"):
+            return call
+    return None
+
+
+def _runbook_stack_summary(state: dict[str, Any]) -> list[dict[str, Any]]:
+    summaries: list[dict[str, Any]] = []
+    for depth, frame in enumerate(state.get("runbook_stack") or [], start=1):
+        if not isinstance(frame, dict):
+            continue
+        summaries.append(
+            {
+                "depth": depth,
+                "call_id": frame.get("call_id"),
+                "parent_spec": frame.get("parent_spec_path"),
+                "parent_node": frame.get("parent_node"),
+                "parent_entry_id": frame.get("parent_entry_id"),
+                "purpose": frame.get("parent_purpose"),
+                "child_spec": frame.get("child_spec_path"),
+                "return_states": frame.get("return_states") or [],
+                "role": frame.get("role") or "",
+                "selector_value": frame.get("selector_value"),
+            }
+        )
+    return summaries
+
+
+def _runbook_return_summary(state: dict[str, Any]) -> dict[str, Any] | None:
+    stack = state.get("runbook_stack") or []
+    if not stack or not isinstance(stack[-1], dict):
+        return None
+    frame = stack[-1]
+    current = str(state.get("current") or "")
+    return_states = [str(value) for value in frame.get("return_states") or []]
+    return {
+        "active": True,
+        "call_id": frame.get("call_id"),
+        "current": current,
+        "return_states": return_states,
+        "can_return": current in return_states,
+        "parent_node": frame.get("parent_node"),
+        "purpose": frame.get("parent_purpose"),
+    }
 
 
 def _json_path(data: Any, path: str) -> tuple[bool, Any]:
