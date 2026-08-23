@@ -1,0 +1,86 @@
+name: terminal-bench-statem-codex-thin-v4p62-experiment
+initial: solve
+
+nodes:
+  solve:
+    prompt: |
+      Solve the benchmark task normally from the visible prompt and local files.
+      Use StateM only as a phase anchor. Inspect the relevant files, implement
+      the required artifact or code change, and keep progress.md concise with
+      task-visible constraints, commands, checks, and remaining risk.
+
+      Use the task's own tests, examples, public consumers, or direct semantic
+      checks. Do not optimize for StateM receipts, build a broad verifier
+      harness, inspect hidden benchmark artifacts, use public benchmark
+      solutions, or route by task name.
+
+      Continue same-context diagnosis and repair while failures are recoverable.
+      When a runnable candidate is ready, move to verify.
+    state_hooks:
+      - name: continue_solve
+        event: stop
+        host: any
+        template: statem_autoloop
+        scope: current_entry
+        prompt: "Continue the normal solve path, or move to verify when a candidate is ready."
+
+  verify:
+    prompt: |
+      Verify the candidate against the visible task contract. Prefer the
+      strongest bounded public consumer or task-provided check. Distinguish a
+      real implementation failure from a weak or incorrect test plan.
+
+      If verification identifies a local repair, return to solve and revise.
+      If the governing direction is unsupported, record the attribution in
+      progress.md before exploring a different direction. Do not roll back a
+      recoverable candidate merely because evidence is incomplete.
+
+      Move to one bounded self_review when useful. Under deadline pressure,
+      preserve the best runnable artifact and hand off rather than starting new
+      optional work.
+    state_hooks:
+      - name: continue_verify
+        event: stop
+        host: any
+        template: statem_autoloop
+        scope: current_entry
+        prompt: "Finish task-visible verification, then revise, self-review, or hand off."
+
+  self_review:
+    prompt: |
+      Run one short review from the visible contract, final artifact, public
+      checks, and progress.md. Check whether the solution satisfies the actual
+      contract, whether validation tested the right consumer and boundary, and
+      whether any concrete edge or artifact-format issue remains.
+
+      If a conditionally selected family practice was supplied in the initial
+      instruction, use only its compact obligations. Do not load the detailed
+      practice catalog or invent another family. Return to solve for a concrete
+      repair; otherwise hand off.
+    state_hooks:
+      - name: continue_self_review
+        event: stop
+        host: any
+        template: statem_autoloop
+        scope: current_entry
+        prompt: "Complete one bounded self-review, then repair or hand off."
+
+  handoff:
+    prompt: |
+      Finish the benchmark run. Ensure the required files or service state are
+      in their expected locations. Summarize the final artifact, visible checks,
+      and residual risk without starting new work.
+
+edges:
+  - from: solve
+    to: verify
+  - from: verify
+    to: solve
+  - from: verify
+    to: self_review
+  - from: verify
+    to: handoff
+  - from: self_review
+    to: solve
+  - from: self_review
+    to: handoff

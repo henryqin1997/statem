@@ -1,0 +1,158 @@
+{
+  "version": 1,
+  "selection_policy": {
+    "max_selected": 1,
+    "source": "visible_instruction_only",
+    "task_name_routing": false
+  },
+  "practices": [
+    {
+      "practice_id": "stateful_lifecycle_compact",
+      "family": "stateful-lifecycle",
+      "priority": 10,
+      "trigger_groups": [
+        ["\\btransaction(?:al)?\\b", "\\bdatabase\\b", "\\bmvcc\\b", "\\bwal\\b", "\\bservice\\b", "\\bserver\\b", "\\bstream(?:ing)?\\b", "\\bconcurren(?:t|cy)\\b", "\\bdistributed\\b"],
+        ["\\brecover(?:y|able)\\b", "\\breplay\\b", "\\blifecycle\\b", "\\bvisibility\\b", "\\bconsisten(?:cy|t)\\b", "\\bidempoten", "\\bstartup\\b", "\\bshutdown\\b", "\\bcommit\\b", "\\bcompaction\\b"]
+      ],
+      "compact": {
+        "obligations": [
+          "Bind ownership, visibility, replay, and external commit boundaries before changing state transitions.",
+          "Exercise the public lifecycle through the real consumer, including interruption or repeat behavior when visible.",
+          "Prefer a local repair; preserve runnable state and use rollback only for destructive or provenance-invalid changes."
+        ],
+        "stop_rule": "Stop optional lifecycle exploration when the public consumer passes and the handoff reserve begins."
+      },
+      "detailed": {
+        "reviewer_only": true,
+        "prioritized_checks": [
+          "lifecycle_and_ownership",
+          "interruption_and_replay",
+          "idempotence_and_visibility",
+          "external_commit_boundary",
+          "public_artifact_transaction"
+        ],
+        "failure_ownership": {
+          "implementation": "revise the smallest failing transition",
+          "test_plan": "repair the lifecycle population or public oracle first",
+          "provenance": "quarantine or rollback before further execution"
+        }
+      },
+      "validation": {
+        "maturity": "family_candidate",
+        "development_samples": ["mvcc-lsm-compaction"],
+        "admitted": false
+      }
+    },
+    {
+      "practice_id": "structured_transformation_compact",
+      "family": "structured-transformation",
+      "priority": 20,
+      "trigger_groups": [
+        ["\\bparser\\b", "\\bparse\\b", "\\bfilter\\b", "\\bserializ", "\\btransform", "\\bcompiler\\b", "\\btranspil", "\\bformat conversion\\b"],
+        ["\\bmalformed\\b", "\\bnested\\b", "\\bencod", "\\bround.?trip\\b", "\\bpreserv", "\\bselective\\b", "\\border(?:ed|ing)?\\b"]
+      ],
+      "compact": {
+        "obligations": [
+          "Separate transformed content from content that must be preserved byte-for-byte or semantically unchanged.",
+          "Test one public round trip or differential case and one malformed, nested, encoded, or ordering boundary named by the visible surface.",
+          "Repair the parser or transformation abstraction rather than matching one observed sample."
+        ],
+        "stop_rule": "Stop when the public transformation and preservation boundaries pass on a bounded discriminating set."
+      },
+      "detailed": {
+        "reviewer_only": true,
+        "prioritized_checks": [
+          "preservation_obligations",
+          "malformed_and_nested_inputs",
+          "encoding_and_offsets",
+          "selective_transformation",
+          "differential_roundtrip"
+        ],
+        "failure_ownership": {
+          "implementation": "revise the transformation boundary",
+          "test_plan": "add the missing preservation or malformed-input stratum",
+          "direction": "rebranch only when the selected grammar or ordering model is falsified"
+        }
+      },
+      "validation": {
+        "maturity": "family_candidate",
+        "development_samples": ["sound-change-cascade"],
+        "admitted": false
+      }
+    },
+    {
+      "practice_id": "algorithm_performance_compact",
+      "family": "algorithm-performance",
+      "priority": 30,
+      "trigger_groups": [
+        ["\\bperformance\\b", "\\bspeedup\\b", "\\blatency\\b", "\\bthroughput\\b", "\\bmemory\\b", "\\bscal(?:e|ing|ability)\\b"],
+        ["\\balgorithm\\b", "\\bgraph\\b", "\\bcache\\b", "\\bindex\\b", "\\bsearch\\b", "\\bcomplexity\\b", "\\bbatch\\b"]
+      ],
+      "compact": {
+        "obligations": [
+          "Preserve exact public semantics before optimizing and keep a known-good incumbent recoverable.",
+          "Measure a fixed representative population with cold and warm paths, enough samples, and threshold margin when applicable.",
+          "Include the public bulk or incremental construction mode that the consumer actually uses."
+        ],
+        "stop_rule": "Stop tuning after the fixed population clears the visible threshold with margin or the handoff reserve closes heavy work."
+      },
+      "detailed": {
+        "reviewer_only": true,
+        "prioritized_checks": [
+          "semantic_equivalence",
+          "scaling_and_adversarial_paths",
+          "paired_measurement_validity",
+          "acceptance_population_and_margin",
+          "consumer_execution_model"
+        ],
+        "failure_ownership": {
+          "implementation": "revise the measured bottleneck",
+          "measurement": "repair population, cold-start, variance, or consumer construction",
+          "direction": "rebranch after a discriminating profile falsifies the algorithmic hypothesis"
+        }
+      },
+      "validation": {
+        "maturity": "family_candidate",
+        "development_samples": ["vf2-speedup-networkx"],
+        "admitted": false
+      }
+    },
+    {
+      "practice_id": "numerical_model_compact",
+      "family": "numerical-model",
+      "priority": 40,
+      "trigger_groups": [
+        ["\\bestimator\\b", "\\bstatistic", "\\btensor\\b", "\\bmodel\\b", "\\bmetric\\b", "\\bdistribution\\b", "\\boptimi[sz]"],
+        ["\\bunbiased\\b", "\\bcalibrat", "\\bnumeric", "\\bprecision\\b", "\\bpopulation\\b", "\\binference\\b", "\\bshape\\b"]
+      ],
+      "compact": {
+        "obligations": [
+          "Bind the exact estimator, tensor shape, metric population, units, and public load or inference path.",
+          "Use an analytic or independent numerical sanity case that distinguishes plausible formula or convention variants.",
+          "Keep adaptive development evidence separate from the fixed acceptance population."
+        ],
+        "stop_rule": "Stop alternate fitting or formula search after the selected public semantics and bounded numeric checks are stable."
+      },
+      "detailed": {
+        "reviewer_only": true,
+        "prioritized_checks": [
+          "variant_definition",
+          "finite_sample_terms",
+          "tensor_numeric_semantics",
+          "metric_and_population_semantics",
+          "public_consumer_load_path"
+        ],
+        "failure_ownership": {
+          "implementation": "revise the bound formula, shape, or consumer path",
+          "test_plan": "repair the oracle, population, tolerance, or unit transform",
+          "authority": "rebranch when a normative variant contradicts the current model"
+        }
+      },
+      "validation": {
+        "maturity": "family_candidate",
+        "development_samples": ["embedding-drift-monitor"],
+        "admitted": false
+      }
+    }
+  ]
+}
