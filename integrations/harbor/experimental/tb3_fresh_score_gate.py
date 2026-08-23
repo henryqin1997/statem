@@ -15,8 +15,8 @@ ESTIMATE_USE = "final_matched_estimate"
 
 
 def evaluate_score_ledger(ledger: dict[str, Any]) -> dict[str, Any]:
-    if ledger.get("version") != 2:
-        raise ValueError("score ledger must use version 2")
+    if ledger.get("version") not in {2, 3, 4}:
+        raise ValueError("score ledger must use version 2, 3, or 4")
     objective = _mapping(ledger.get("objective"), "objective")
     official_tasks = _positive_int(
         objective.get("official_task_count"), "objective.official_task_count"

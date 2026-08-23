@@ -98,3 +98,17 @@ manifest, versus `$11.610926`, about 48m04s, and 37 files for v4p61. The result
 admits v4p62's thin architecture as the development baseline. The individual
 stateful-lifecycle practice remains a shadow-default family candidate pending
 one transfer cell and one weak-signal false-positive sentinel.
+
+## First fresh generalization outcome
+
+The preregistered untouched `batched-eval-parity` pair completed direct raw
+`0.0` and StateM raw `1.0`, with valid reward/protocol axes, matched Codex
+0.149.0 and local ARM64 Docker, no retries, and no upload. The StateM arm used
+the same 10-file manifest and selected exactly `algorithm_performance_compact`.
+It reached `handoff` without revise, rollback, nested execution, or an
+independent reviewer graph. StateM cost `$3.297902` versus direct `$3.723238`.
+
+This admits the existing high-precision algorithm-performance compact route
+for another frozen comparison, not a broader trigger or global reviewer
+expansion. The observed fresh raw delta is `+1` k1 trial; the score gate keeps
+the pass-rate estimate null and the +15-point target unsupported.

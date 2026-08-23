@@ -1,4 +1,4 @@
-version: 2
+version: 4
 objective:
   metric: terminal_bench_3_raw_percentage_points
   target_delta: 15
@@ -32,6 +32,20 @@ eligibility_contract:
     - ziheng-yaxin-statem-codex-evidence-develop-v4p38-exp
     - ziheng-yaxin-statem-codex-evidence-develop-v4p39-exp
     - ziheng-yaxin-statem-codex-evidence-develop-v4p40-exp
+    - ziheng-yaxin-statem-codex-evidence-develop-v4p41-exp
+    - ziheng-yaxin-statem-codex-evidence-develop-v4p42-exp
+    - ziheng-yaxin-statem-codex-evidence-develop-v4p43-exp
+    - ziheng-yaxin-statem-codex-evidence-develop-v4p44-exp
+    - ziheng-yaxin-statem-codex-evidence-develop-v4p45-exp
+    - ziheng-yaxin-statem-codex-evidence-develop-v4p46-exp
+    - ziheng-yaxin-statem-codex-evidence-develop-v4p47-exp
+    - ziheng-yaxin-statem-codex-evidence-develop-v4p50-exp
+    - ziheng-yaxin-statem-codex-evidence-develop-v4p51-exp
+    - ziheng-yaxin-statem-codex-evidence-develop-v4p52-exp
+    - ziheng-yaxin-statem-codex-evidence-develop-v4p55-exp
+    - ziheng-yaxin-statem-codex-evidence-develop-v4p56-exp
+    - ziheng-yaxin-statem-codex-evidence-develop-v4p57-exp
+    - ziheng-yaxin-statem-codex-thin-family-v4p62-exp
   require:
     - standard_timeout
     - no_retry
@@ -458,8 +472,8 @@ pairs:
       Submitted semantic artifacts remain uninspected, and this direct
       trajectory cannot author or revise the frozen StateM control.
 
-  - pair_id: sound-change-cascade-local-arm-v4p44-k1-a
-    task: terminal-bench/sound-change-cascade
+  - pair_id: distributed-dedup-local-arm64-v4p47-k1-a
+    task: terminal-bench/distributed-dedup
     sample_count_per_agent: 1
     model: gpt-5.6-sol
     codex_version: 0.148.0
@@ -468,47 +482,999 @@ pairs:
     timeout_multiplier: 1.0
     environment_build_timeout_multiplier: 1.0
     retry_policy: no_retries
-    frozen_control_commit: pending_v4p44_promotion
+    frozen_control_commit: 0715034
     no_upload: true
     fresh_for_frozen_control: true
     direct:
-      job: tb3-sol-native-baseline-v2-sound-change-cascade-k1-local-arm-a
+      job: tb3-sol-native-baseline-v2-distributed-dedup-k1-local-arm-a
       agent: codex-auth-no-session-baseline-v2
       state: completed_valid_backed_up
       raw_reward: 0.0
       reward_valid: true
       protocol_valid: true
-      cost_usd: 4.596928
-      input_tokens: 3700490
-      cache_tokens: 3525376
-      output_tokens: 65289
-      wall_seconds: 1828
-      agent_seconds: 1790
+      cost_usd: 4.956994
+      input_tokens: 4705796
+      cache_tokens: 4520448
+      output_tokens: 59001
+      wall_seconds: 2648
+      agent_seconds: 2011
       atif_schema: ATIF-v1.5
-      atif_steps: 56
+      atif_steps: 88
       raw_session_paths: 0
-      backup_files: 15
-      backup_bytes: 453397
+      backup_files: 16
+      backup_bytes: 635985
       backup_tree_sha256: >-
-        eaf373adf803f331db5b252917f21e084f8b210f4a629df3b70aa12c43b32231
+        7d0ace2eb9701e9575af5f8f1da942a380a3eb27f45fde671ae4a27585b8a2dd
     statem:
-      state: pending_v4p44_promotion
-      agent: ziheng-yaxin-statem-codex-evidence-develop-v4p44-exp
-      source_manifest_sha256: pending
-    matched_verdict: direct_valid_zero_statem_pending_no_score
-    score_eligible: false
-    use: pending_frozen_k1_triage_pair
+      job: tb3-sol-evidence-v4p47-distributed-dedup-k1-local-arm-c
+      agent: ziheng-yaxin-statem-codex-evidence-develop-v4p47-exp
+      state: completed_valid_backed_up
+      raw_reward: 0.0
+      reward_valid: true
+      protocol_valid: true
+      cost_usd: 18.558351
+      input_tokens: 22794207
+      cache_tokens: 22140672
+      output_tokens: 140678
+      wall_seconds: 4648
+      agent_seconds: 4309
+      atif_schema: ATIF-v1.5
+      atif_steps: 282
+      final_statem_state: handoff
+      source_manifest_sha256: >-
+        06fb4e7a3828817d680245e7d337696056e9d1c491bc445a593f754845295642
+      raw_session_paths: 0
+      backup_files: 1084
+      backup_bytes: 31017927
+      backup_tree_sha256: >-
+        64eff2dbcae9dc1ade341ec682f618ec8f7589327006e21f068f7607f11f9579
+    matched_verdict: valid_zero_to_zero_no_gain_public_acceptance_recovery_delta
+    score_eligible: true
+    use: k1_triage_only_not_pass_rate_estimate
     freshness_note: >-
-      Submitted semantic artifacts remain uninspected, and this direct
-      trajectory cannot author or revise the independently developed v4p44
-      StateM control.
+      The family discriminator and v4p47 control were frozen before the StateM
+      candidate. This valid k1 pair is triage-only and cannot estimate a pass
+      rate or serve as a final holdout after its control lesson is used.
+
+  - pair_id: pretrain-shard-corruption-aws-x86-v4p55-k1-a
+    task: terminal-bench/pretrain-shard-corruption
+    sample_count_per_agent: 1
+    model: gpt-5.6-sol
+    codex_version: 0.148.0
+    reasoning_effort: max
+    platform_class: aws_x86_64_docker
+    timeout_multiplier: 1.0
+    environment_build_timeout_multiplier: 1.0
+    retry_policy: no_retries
+    no_upload: true
+    fresh_for_frozen_control: true
+    frozen_control_commit: e04eb5d
+    direct:
+      job: tb3-sol-native-baseline-v2-pretrain-shard-corruption-k1-aws-x86-a
+      agent: codex-auth-no-session-baseline-v2
+      state: completed_valid_backed_up
+      raw_reward: 0.0
+      reward_valid: true
+      protocol_valid: true
+      cost_usd: 14.295831
+      input_tokens: 22152987
+      cache_tokens: 21865472
+      output_tokens: 64184
+      atif_schema: ATIF-v1.5
+      atif_steps: 216
+      raw_session_paths: 0
+      backup_files: 39
+      backup_bytes: 22222745
+      backup_tree_sha256: >-
+        a8231cf0d6a8538de4f4152638911f6463cd69e75be0629a3c2c39c435ed994f
+    statem:
+      job: tb3-sol-evidence-v4p55-pretrain-shard-corruption-matched-k1-aws-x86-b
+      agent: ziheng-yaxin-statem-codex-evidence-develop-v4p55-exp
+      state: completed_valid_backed_up
+      raw_reward: 0.0
+      reward_valid: true
+      protocol_valid: true
+      cost_usd: 21.389135
+      input_tokens: 29051281
+      cache_tokens: 28465920
+      output_tokens: 140979
+      wall_seconds: 5752.336
+      agent_seconds: 5666.479
+      atif_schema: ATIF-v1.5
+      atif_steps: 305
+      final_statem_state: handoff
+      family_id: numerical-model
+      primary_profile: ml-model-artifacts
+      promotion_decision: revise
+      final_artifact_disposition: candidate_quarantined
+      evaluation_target: candidate
+      blocking_contract_violations: 1
+      blocking_regressions: 0
+      hard_contract_gaps: 1
+      acceptance_replay_status: failed
+      acceptance_replay_passed: 3
+      acceptance_replay_timed_out: 1
+      source_manifest_sha256: >-
+        39267fe02a6214aa77dfdb24a995f98f9d0cdd7986cc43fdbd78a652fb8e13e2
+      raw_session_paths: 0
+      backup_files: 123
+      backup_bytes: 27678965
+      backup_tree_sha256: >-
+        c0f1ecd93feca6dafdf12db7144ecffed904eed1fd1d29b5733c8fdee1c7fd76
+    matched_verdict: valid_zero_to_zero_submission_eligibility_gap
+    score_eligible: true
+    use: k1_triage_only_not_pass_rate_estimate
+    freshness_note: >-
+      The v4p55 control and family discriminator were frozen before this
+      StateM candidate. The pair is valid k1 triage evidence only. Its control
+      lesson adapts this task, so it cannot serve as a final holdout for the
+      submission-eligibility repair.
+
+  - pair_id: music-harmony-aws-x86-v4p55-k1-a
+    task: terminal-bench/music-harmony
+    sample_count_per_agent: 1
+    model: gpt-5.6-sol
+    codex_version: 0.148.0
+    reasoning_effort: max
+    platform_class: aws_x86_64_docker
+    timeout_multiplier: 1.0
+    environment_build_timeout_multiplier: 1.0
+    retry_policy: no_retries
+    no_upload: true
+    fresh_for_frozen_control: true
+    frozen_control_commit: e04eb5d
+    direct:
+      job: tb3-sol-native-baseline-v2-music-harmony-k1-aws-x86-a
+      agent: codex-auth-no-session-baseline-v2
+      state: completed_valid_backed_up
+      raw_reward: 0.0
+      reward_valid: true
+      protocol_valid: true
+      cost_usd: 4.355218
+      input_tokens: 4123442
+      cache_tokens: 3961856
+      output_tokens: 52212
+      wall_seconds: 3717.953
+      agent_seconds: 3634.274
+      atif_schema: ATIF-v1.5
+      atif_steps: 64
+      raw_session_paths: 0
+      backup_files: 13
+      backup_bytes: 1327190
+      backup_tree_sha256: >-
+        a9abf0e6a894a008649bbb388182b4c7fdedf34137426dea7c7eff2e56e8a62e
+    statem:
+      job: tb3-sol-evidence-v4p55-music-harmony-matched-k1-aws-x86-b
+      agent: ziheng-yaxin-statem-codex-evidence-develop-v4p55-exp
+      state: completed_valid_backed_up
+      raw_reward: 0.0
+      reward_valid: true
+      protocol_valid: true
+      cost_usd: 12.725863
+      input_tokens: 16646591
+      cache_tokens: 16266496
+      output_tokens: 89738
+      wall_seconds: 2824.417
+      agent_seconds: 2769.787
+      atif_schema: ATIF-v1.5
+      atif_steps: 178
+      final_statem_state: handoff
+      family_id: structured-transformation
+      primary_profile: parsing-transformation
+      promotion_decision: revise
+      review_route: quarantine
+      review_budget_exhausted: true
+      candidate_acceptance_replay_status: passed
+      final_replay_status: passed
+      provider_application: quarantine
+      v4p56_offline_submission_target: baseline
+      v4p56_offline_fallback_required: true
+      raw_session_paths: 0
+      backup_files: 97
+      backup_bytes: 5690085
+      backup_tree_sha256: >-
+        64b86037d018da362a0bc397cbb1ee2143b018f9290099342ee3674dd9e1760c
+      backup_dry_run_exact: true
+      source_manifest_sha256: >-
+        39267fe02a6214aa77dfdb24a995f98f9d0cdd7986cc43fdbd78a652fb8e13e2
+    matched_verdict: valid_zero_to_zero_incomplete_review_submission_delta
+    score_eligible: true
+    use: k1_triage_only_not_pass_rate_estimate
+    freshness_note: >-
+      The v4p55 control and structured-media discriminator were frozen before
+      this StateM candidate. The pair is valid k1 triage evidence only. Its
+      reviewer-completeness and submission lesson adapts the task, so it cannot
+      serve as a holdout for v4p56.
+
+  - pair_id: vba-userform-port-local-arm64-v4p55-k1-a
+    task: terminal-bench/vba-userform-port
+    sample_count_per_agent: 1
+    model: gpt-5.6-sol
+    codex_version: 0.148.0
+    reasoning_effort: max
+    platform_class: local_arm64_docker
+    timeout_multiplier: 1.0
+    environment_build_timeout_multiplier: 1.0
+    retry_policy: no_retries
+    no_upload: true
+    fresh_for_frozen_control: true
+    frozen_control_commit: e04eb5d
+    direct:
+      job: tb3-sol-native-baseline-v2-vba-userform-port-k1-local-arm-a
+      agent: codex-auth-no-session-baseline-v2
+      state: completed_valid_backed_up
+      raw_reward: 0.0
+      reward_valid: true
+      protocol_valid: true
+      cost_usd: 8.155353
+      input_tokens: 9768447
+      cache_tokens: 9542016
+      output_tokens: 75073
+      wall_seconds: 2161.995
+      agent_seconds: 2049.212
+      atif_schema: ATIF-v1.5
+      atif_steps: 94
+      raw_session_paths: 0
+      backup_files: 37
+      backup_bytes: 14669194
+      backup_tree_sha256: >-
+        f59990e409c0c9fa524d8ec0da2622b43dce96d475a604614f26f0e2efd03d91
+    statem:
+      job: tb3-sol-evidence-v4p55-vba-userform-port-matched-k1-local-arm-b
+      agent: ziheng-yaxin-statem-codex-evidence-develop-v4p55-exp
+      state: completed_protocol_invalid_solve_timeout_backed_up
+      raw_reward: null
+      reward_valid: false
+      protocol_valid: false
+      error_bucket: wall_timeout_solve_before_review_handoff
+      cost_usd: 0.839339
+      input_tokens: 1270927
+      cache_tokens: 1252608
+      output_tokens: 4048
+      wall_seconds: 3613.55
+      atif_schema: ATIF-v1.5
+      atif_steps: 204
+      final_statem_state: solve
+      family_id: stateful-lifecycle
+      primary_profile: data-database
+      candidate_acceptance_replay_status: failed
+      candidate_acceptance_replay_complete: true
+      promotion_decision_present: false
+      review_route_present: false
+      final_replay_decision_present: false
+      raw_session_paths: 0
+      backup_files: 87
+      backup_bytes: 17277007
+      backup_tree_sha256: >-
+        a68ac60caad6e0365f6b047be7eaef226d5f986ecf2991df74302fec1c597fd5
+      backup_dry_run_exact: true
+      launchd_unloaded: true
+      source_manifest_sha256: >-
+        39267fe02a6214aa77dfdb24a995f98f9d0cdd7986cc43fdbd78a652fb8e13e2
+    matched_verdict: direct_valid_zero_statem_protocol_invalid_no_score
+    score_eligible: false
+    use: adapted_lifecycle_evidence_only_after_protocol_failure
+
+  - pair_id: batched-eval-parity-local-arm-v4p62-k1-a
+    task: terminal-bench/batched-eval-parity
+    sample_count_per_agent: 1
+    model: gpt-5.6-sol
+    codex_version: 0.149.0
+    reasoning_effort: max
+    platform_class: local_arm64_docker
+    timeout_multiplier: 1.0
+    environment_build_timeout_multiplier: 1.0
+    retry_policy: no_retries
+    no_upload: true
+    fresh_for_frozen_control: true
+    frozen_control_commit: 81f6244
+    direct:
+      job: tb3-sol-native-baseline-v2-batched-eval-parity-v4p62-k1-local-arm-a
+      agent: codex-auth-no-session-baseline-v2
+      raw_reward: 0.0
+      reward_valid: true
+      protocol_valid: true
+      cost_usd: 3.7232384
+      input_tokens: 4808080
+      cache_tokens: 4633856
+      output_tokens: 58640
+      wall_seconds: 2064.800171
+      agent_seconds: 1999.157639
+      atif_schema: ATIF-v1.5
+      atif_steps: 72
+      raw_session_paths: 0
+      backup_files: 48
+      backup_bytes: 900144
+      backup_tree_sha256: >-
+        6eec224bf35bc7e38a453252ef71bb76ae4716c944d3aad48326ec23ae7039e6
+    statem:
+      job: tb3-sol-thin-family-v4p62-batched-eval-parity-k1-local-arm-b
+      agent: ziheng-yaxin-statem-codex-thin-family-v4p62-exp
+      raw_reward: 1.0
+      reward_valid: true
+      protocol_valid: true
+      cost_usd: 3.2979016
+      input_tokens: 4079101
+      cache_tokens: 3939584
+      output_tokens: 58200
+      wall_seconds: 1747.495673
+      agent_seconds: 1687.757712
+      atif_schema: ATIF-v1.5
+      atif_steps: 62
+      final_statem_state: handoff
+      source_manifest_files: 10
+      source_manifest_sha256: >-
+        82239b696d02f50fa848064438d7cf1b809540f9f9d4aa46017f38e0815afaf0
+      family_id: algorithm-performance
+      practice_id: algorithm_performance_compact
+      eligible_family_matches: 1
+      runbook_depth: 0
+      raw_session_paths: 0
+      backup_files: 59
+      backup_bytes: 1190955
+      backup_tree_sha256: >-
+        b00f6a2bf05c6580897908570c2ce61dc95344c23d390302680ed679cd6af203
+    matched_verdict: valid_fresh_zero_to_one_thin_family_gain
+    score_eligible: true
+    use: k1_triage_only_not_pass_rate_estimate
+
+positive_raw_feasibility:
+  status: evidence_only_not_pass_rate_estimate
+  tasks:
+    - task: terminal-bench/mvcc-lsm-compaction
+      public_sol_passes: 0
+      public_sol_attempts: 5
+      statem_raw_reward: 1.0
+      evidence_class: adapted_causal_development
+      latest_matched_baseline:
+        job: tb3-sol-evidence-v4p53-mvcc-obligation-baseline-k1-local-arm-a
+        raw_reward: 1.0
+        reward_valid: true
+        protocol_valid: true
+        errors: 0
+        retries: 0
+        cost_usd: 16.700215
+        input_tokens: 23496917
+        cache_tokens: 22976000
+        output_tokens: 86921
+        atif_schema: ATIF-v1.5
+        atif_steps: 274
+        final_statem_state: handoff
+        source_manifest_files: 36
+        source_manifest_sha256: >-
+          368500101a75063cce16d0859883b5141f35aba2dc3e985fba725e18dee6c532
+        preflight_verdict: revise_plan
+        final_review_route: quarantine
+        raw_session_paths: 0
+        backup_files: 149
+        backup_bytes: 10573898
+        backup_tree_sha256: >-
+          6bea7e15ab688473587b767767541095d49a3eaea03cb12b0a1308c8c718069d
+        dry_run_exact: true
+        score_eligible: false
+        purpose: frozen_v4p53_negative_transfer_baseline_for_v4p54
+    - task: terminal-bench/session-window-debug
+      public_sol_passes: 0
+      public_sol_attempts: 5
+      statem_raw_reward: 1.0
+      evidence_class: fresh_generalization_k1
+    - task: terminal-bench/vf2-speedup-networkx
+      public_sol_passes: 1
+      public_sol_attempts: 5
+      statem_raw_reward: 1.0
+      evidence_class: adapted_control_development
+    - task: terminal-bench/interleaved-vigenere
+      public_sol_passes: 1
+      public_sol_attempts: 5
+      statem_raw_reward: 1.0
+      evidence_class: adapted_matched_k1
+    - task: terminal-bench/embedding-drift-monitor
+      public_sol_passes: 2
+      public_sol_attempts: 5
+      statem_raw_reward: 1.0
+      evidence_class: adapted_contract_authority_development
+    - task: terminal-bench/wal-recovery-ordering
+      public_sol_passes: 3
+      public_sol_attempts: 5
+      statem_raw_reward: 1.0
+      evidence_class: fresh_generalization_k1
+  raw_positive_task_count: 6
+  fresh_generalization_task_count: 2
+  public_passes_over_these_30_trials: 7
+  descriptive_full_conversion_additional_reward_over_370: 23
+  descriptive_full_conversion_percentage_points: 6.2162162162
+  caveat: >-
+    Full conversion is a ceiling calculation, not an estimate. One k1 pass per
+    task cannot establish 5/5 behavior, and adapted tasks cannot serve as final
+    holdouts for the controls they helped develop.
+
+provisional_raw_feasibility:
+  - task: terminal-bench/html-js-filter
+    public_sol_passes: 1
+    public_sol_attempts: 5
+    observed_raw_reward: 1.0
+    evidence_class: reward_valid_protocol_invalid
+    score_eligible: false
+    descriptive_full_conversion_additional_reward_over_370: 4
+    latest_extended_diagnostic:
+      job: tb3-sol-evidence-v4p53-html-js-failure-closure-k1-local-arm-a
+      reward_valid: false
+      protocol_valid: false
+      raw_reward: null
+      error_bucket: final_state_solve_after_no_progress_resume
+      cost_usd: 1.489583
+      source_manifest_file_count: 36
+      source_manifest_sha256: >-
+        368500101a75063cce16d0859883b5141f35aba2dc3e985fba725e18dee6c532
+      backup_files: 108
+      backup_bytes: 10058447
+      backup_tree_sha256: >-
+        de84af29adf9e840e16ea5c170b93f514728d8f7177543a70e7574964652dff5
+      score_effect: none
+      disposition: parked_pending_independent_generic_lifecycle_repair
+
+closed_direct_calibrations:
+  - task: terminal-bench/vllm-deepseek-streaming
+    direct_job: tb3-sol-native-baseline-v2-vllm-deepseek-streaming-k1-local-arm-a
+    agent: codex-auth-no-session-baseline-v2
+    public_sol_passes: 1
+    public_sol_attempts: 5
+    raw_reward: 1.0
+    reward_valid: true
+    protocol_valid: true
+    cost_usd: 14.376190
+    input_tokens: 19192478
+    cache_tokens: 18748160
+    output_tokens: 92684
+    atif_schema: ATIF-v1.5
+    atif_steps: 170
+    raw_session_paths: 0
+    backup_files: 37
+    backup_bytes: 3953851
+    backup_tree_sha256: >-
+      aac0bf0c3dcdab5567495eeb2b63c223bb2ae174e5bded79fa18585aa5d0472f
+    score_eligible: false
+    verdict: direct_raw_one_closes_k1_calibration_no_statem_arm
+
+fresh_direct_zero_gates:
+  - task: terminal-bench/rs-archive-clone
+    direct_job: tb3-sol-native-baseline-v2-rs-archive-clone-k1-aws-x86-a
+    agent: codex-auth-no-session-baseline-v2
+    public_sol_passes: 1
+    public_sol_attempts: 5
+    raw_reward: 0.0
+    reward_valid: true
+    protocol_valid: true
+    errors: 0
+    retries: 0
+    cost_usd: 11.401709
+    input_tokens: 15343279
+    cache_tokens: 15095808
+    output_tokens: 87215
+    atif_schema: ATIF-v1.5
+    atif_steps: 149
+    raw_session_paths: 0
+    backup_files: 14
+    backup_bytes: 1376794
+    backup_tree_sha256: >-
+      b88f1645195d8ecaac9617ff3f83b6b95ed3250c16ee660a64c1cdc9b97c2119
+    score_eligible: false
+    matched_gate: >-
+      At most one later matched arm is eligible because the declared public
+      executable exposes the pre-authored staged and round-trip discriminator.
+      Keep it behind the admitted higher-yield replacement arms.
+    matched_result:
+      job: tb3-sol-evidence-v4p52-rs-archive-clone-matched-k1-aws-x86-b
+      raw_reward: null
+      reward_valid: false
+      protocol_valid: false
+      error_bucket: baseline_snapshot_permission_denied_pre_solver
+      errors: 1
+      retries: 0
+      input_tokens: null
+      cache_tokens: null
+      output_tokens: null
+      cost_usd: null
+      atif_schema: null
+      final_statem_state: null
+      raw_session_paths: 0
+      backup_files: 12
+      backup_bytes: 1299991
+      backup_tree_sha256: >-
+        6315a16dbf070c17510097b7631049907c9b08e5a3e4178ff9aa27f0a39deed8
+      dry_run_exact: true
+      score_eligible: false
+      verdict: >-
+        protocol-invalid before solver start; park pending a generic immutable
+        baseline policy for task-provided artifacts unreadable by the agent
+
+active_matched_arms:
+  - task: terminal-bench/distributed-dedup
+    direct_raw_reward: 0.0
+    public_sol_passes: 0
+    public_sol_attempts: 5
+    statem_job: tb3-sol-evidence-v4p47-distributed-dedup-k1-local-arm-c
+    evidence_class: frozen_matched_k1_valid_zero
+    raw_reward: 0.0
+    reward_valid: true
+    protocol_valid: true
+    cost_usd: 18.558351
+    input_tokens: 22794207
+    cache_tokens: 22140672
+    output_tokens: 140678
+    final_statem_state: handoff
+    source_manifest_sha256: >-
+      06fb4e7a3828817d680245e7d337696056e9d1c491bc445a593f754845295642
+    source_manifest_files: 36
+    family_id: algorithm-performance
+    primary_profile: performance-resources
+    promotion_decision: revise
+    final_artifact_disposition: candidate_quarantined
+    unresolved_acceptance_obligations:
+      - bounded_execution
+      - resource_ratios
+    atif_schema: ATIF-v1.5
+    atif_steps: 282
+    raw_session_paths: 0
+    backup_files: 1084
+    backup_bytes: 31017927
+    backup_tree_sha256: >-
+      64eff2dbcae9dc1ade341ec682f618ec8f7589327006e21f068f7607f11f9579
+    score_eligible: true
+    use: k1_triage_only_not_pass_rate_estimate
+  - task: terminal-bench/erp-procurement-planning
+    direct_job: tb3-sol-native-baseline-v2-erp-procurement-planning-k1-aws-x86-a2
+    direct_raw_reward: 0.0
+    public_sol_passes: 2
+    public_sol_attempts: 5
+    statem_job: tb3-sol-evidence-v4p52-erp-procurement-matched-k1-aws-x86-b2
+    evidence_class: frozen_matched_k1_valid_zero
+    raw_reward: 0.0
+    reward_valid: true
+    protocol_valid: true
+    cost_usd: 14.796557
+    input_tokens: 18826627
+    cache_tokens: 18340864
+    output_tokens: 106577
+    final_statem_state: handoff
+    source_manifest_sha256: >-
+      fb2cf1a10c86496cd40a079306856333708b2cf8503d8c28dab0d61d120ebc4f
+    source_manifest_files: 36
+    family_id: stateful-lifecycle
+    primary_profile: stateful-systems
+    promotion_decision: revise
+    final_artifact_disposition: candidate_quarantined
+    retry_decision: handoff_deadline_infeasible_without_public_validation_delta
+    atif_schema: ATIF-v1.5
+    atif_steps: 180
+    raw_session_paths: 0
+    backup_files: 96
+    backup_bytes: 8047321
+    backup_tree_sha256: >-
+      31217e15ba014a54f5912a019b1c088efc299c6d2d8be8999d50290dc3bcba9d
+    score_eligible: true
+    use: k1_triage_only_no_gain_task_parked
+  - task: terminal-bench/intrastat-meldung
+    direct_raw_reward: 0.0
+    public_sol_passes: 0
+    public_sol_attempts: 5
+    statem_job: tb3-sol-evidence-v4p47-intrastat-matched-k1-aws-x86-a
+    evidence_class: infrastructure_invalid_runner_lifecycle_loss
+    raw_reward: null
+    reward_valid: false
+    protocol_valid: false
+    error_bucket: remote_runner_exited_with_orphan_task_containers
+    backup_files: 6
+    backup_bytes: 10984
+    backup_tree_sha256: >-
+      fdad04f5f1ee8194629a624da9887f3dddf27ac3f7e677ebf6270873395dbe13
+    score_eligible: false
+    replacement_job: tb3-sol-evidence-v4p52-intrastat-matched-k1-aws-x86-b2
+    replacement_state: completed_valid_zero_handoff_with_quarantine
+    replacement_evidence_class: frozen_matched_k1_valid_zero
+    replacement_raw_reward: 0.0
+    replacement_reward_valid: true
+    replacement_protocol_valid: true
+    replacement_error: null
+    replacement_cost_usd: 28.281399
+    replacement_input_tokens: 38935779
+    replacement_cached_input_tokens: 38105088
+    replacement_output_tokens: 169180
+    replacement_final_statem_state: handoff
+    replacement_source_manifest_sha256: >-
+      fb2cf1a10c86496cd40a079306856333708b2cf8503d8c28dab0d61d120ebc4f
+    replacement_source_manifest_files: 36
+    replacement_family_id: stateful-lifecycle
+    replacement_primary_profile: stateful-systems
+    replacement_promotion_decision: revise
+    replacement_final_artifact_disposition: candidate_quarantined
+    replacement_observed_owner: adapter_submission_artifact_projection
+    replacement_atif: ATIF-v1.5
+    replacement_atif_steps: 440
+    replacement_raw_sessions: 0
+    replacement_backup_files: 137
+    replacement_backup_bytes: 14670750
+    replacement_backup_tree_sha256: >-
+      a6121315727247d94cd75dff0fd2b9b1001de6f9ff38709ea8c6b7fa09d641a1
+    replacement_backup_dry_run_exact: true
+    replacement_score_eligible: true
+    replacement_matched_delta: 0.0
+    replacement_next_use: >-
+      Park after the valid zero-to-zero k1 observation. The public runtime-state
+      export remained failed because its public Harbor declaration was not
+      projected into the in-run acceptance population. Another same-control
+      sample has low expected information gain and high cost.
+  - task: terminal-bench/nextjs-performance
+    direct_raw_reward: 0.0
+    public_sol_passes: 1
+    public_sol_attempts: 5
+    statem_job: tb3-sol-evidence-v4p47-nextjs-performance-matched-k1-aws-x86-a
+    evidence_class: infrastructure_invalid_runner_lifecycle_loss
+    raw_reward: null
+    reward_valid: false
+    protocol_valid: false
+    error_bucket: remote_runner_exited_with_orphan_task_container
+    backup_files: 6
+    backup_bytes: 11030
+    backup_tree_sha256: >-
+      e3207109d5b1fa0bb25c1647ad534cddbb87694b229e43346b8883e1f01efa27
+    score_eligible: false
+    replacement_job: tb3-sol-evidence-v4p52-nextjs-performance-matched-k1-aws-x86-b2
+    replacement_state: protocol_invalid_solve_lifecycle_after_completed_preflight
+    replacement_raw_reward: null
+    replacement_reward_valid: false
+    replacement_protocol_valid: false
+    replacement_error: RuntimeError
+    replacement_failure_owner: solver_lifecycle_progress_closure
+    replacement_cost_usd: 1.976050
+    replacement_input_tokens: 2298560
+    replacement_cached_input_tokens: 2210560
+    replacement_output_tokens: 14359
+    replacement_atif: ATIF-v1.5
+    replacement_atif_steps: 401
+    replacement_raw_sessions: 0
+    replacement_backup_files: 135
+    replacement_backup_bytes: 11715547
+    replacement_backup_tree_sha256: >-
+      2776725318aa199ba8268397d94863cde7a75cfabf804865b3772861d742b1ba
+    replacement_backup_dry_run_exact: true
+    replacement_next_use: >-
+      Park this adapted cell. It provides no score evidence. Reconsider only
+      after the independently tested v4p54 plan-resolution and solver-lifecycle
+      control completes a matched sentinel without reward or protocol regression.
+
+current_frozen_score_cells:
+  frozen_control_commit: 37980df
+  source_manifest_files: 37
+  source_manifest_sha256: >-
+    fde4788cf0f23d0abfd8c7ca9b5e92f94b7eb74ca00dc590e5b33afe1e6ea7a9
+  completed_protocol_invalid:
+    - pair_id: sglang-qwen-burst-aws-x86-v4p57-k1-a
+      task: terminal-bench/sglang-qwen-burst
+      public_sol_passes: 0
+      public_sol_attempts: 5
+      direct_job: tb3-sol-native-baseline-v2-sglang-qwen-burst-k1-aws-x86-a
+      direct_raw_reward: 0.0
+      direct_reward_valid: true
+      direct_protocol_valid: true
+      direct_backup_tree_sha256: >-
+        5932bad0266b1a42da621984c915ee9463f892edcba5e7b84efc6652ef5476f6
+      statem_job: tb3-sol-evidence-v4p57-sglang-qwen-burst-k1-aws-x86-a
+      statem_state: completed_protocol_invalid_final_quarantine
+      statem_raw_reward: null
+      statem_reward_valid: false
+      statem_protocol_valid: false
+      error_bucket: quarantine_transfer_live_artifact_identity_drift
+      cost_usd: 1.359143
+      input_tokens: 1234255
+      cached_input_tokens: 1170176
+      output_tokens: 15122
+      atif_schema: ATIF-v1.5
+      atif_steps: 364
+      raw_session_paths: 0
+      route_primary: parsing-transformation
+      route_secondary:
+        - performance-resources
+      family_id: structured-transformation
+      route_prior_mismatch: true
+      route_protocol_valid: true
+      acceptance_replay_passed: true
+      promotion_decision: revise
+      final_artifact_disposition: candidate_quarantined
+      lifecycle_owner: terminal_provider_snapshot_toctou
+      entry_application_verified: true
+      transfer_gate_blocked_post_application_drift: true
+      backup_files: 181
+      backup_bytes: 45941916
+      backup_tree_sha256: >-
+        c8ecaba6cb2eb78a8b21c2158a84dabb80085a250f29a52bb9db820ee3006104
+      score_eligible: false
+  completed_valid:
+    - pair_id: sound-change-cascade-local-arm-v4p57-k1-a
+      task: terminal-bench/sound-change-cascade
+      public_sol_passes: 1
+      public_sol_attempts: 5
+      direct_job: tb3-sol-native-baseline-v2-sound-change-cascade-k1-local-arm-a
+      direct_raw_reward: 0.0
+      direct_reward_valid: true
+      direct_protocol_valid: true
+      direct_backup_tree_sha256: >-
+        eaf373adf803f331db5b252917f21e084f8b210f4a629df3b70aa12c43b32231
+      statem_job: tb3-sol-evidence-v4p57-sound-change-cascade-k1-local-arm-a
+      statem_state: completed_handoff
+      statem_raw_reward: 0.0
+      statem_reward_valid: true
+      statem_protocol_valid: true
+      matched_reward_delta: 0.0
+      cost_usd: 17.051126
+      input_tokens: 22224916
+      cached_input_tokens: 21733632
+      output_tokens: 124263
+      atif_schema: ATIF-v1.5
+      atif_steps: 231
+      raw_session_paths: 0
+      route_primary: parsing-transformation
+      route_secondary:
+        - numerical-statistical
+      family_id: structured-transformation
+      route_prior_mismatch: false
+      route_protocol_valid: true
+      first_review_route: revise
+      final_review_route: promote
+      acceptance_replay_passed: true
+      final_replay_passed: true
+      selected_submission_target: candidate
+      submission_application_verified: true
+      final_artifact_identity: >-
+        tree-sha256:9d8b801dd35255e028972f4349a89124a5fa88b3ec92475c8017717657265e6d
+      generic_gap: inductive_generalization_evidence_role_and_support_scope
+      backup_files: 101
+      backup_bytes: 6099211
+      backup_tree_sha256: >-
+        f13cae7204024a0abacc33eb1c6e5fd27a2f19684b190120e02572f499870e91
+      backup_dry_run_exact: true
+      score_eligible: true
+  active: []
+  retired_unlaunched:
+    - pair_id: batched-eval-parity-aws-x86-v4p57-k1-a
+      task: terminal-bench/batched-eval-parity
+      status: retired_unlaunched
+      reason: >-
+        v4p57 source generation was not admitted; predeclared launchers cannot
+        be reused or silently rebound to another control generation
+    - pair_id: batched-eval-parity-aws-x86-v4p61-k1-a
+      task: terminal-bench/batched-eval-parity
+      status: retired_unlaunched
+      reason: >-
+        v4p61 preserved the MVCC reward but materially regressed cost and wall
+        time. Its heavy path was rejected and its launchers cannot be rebound
+        to the v4p62 thin generation.
+  frozen_unlaunched: []
+
+v4p62_fresh_score_cells:
+  frozen_control_commit: 81f624420aff45c06ca72ebeefc202c148bc1123
+  source_manifest_files: 10
+  source_manifest_sha256: >-
+    82239b696d02f50fa848064438d7cf1b809540f9f9d4aa46017f38e0815afaf0
+  completed_valid:
+    - pair_id: batched-eval-parity-local-arm-v4p62-k1-a
+      task: terminal-bench/batched-eval-parity
+      public_sol_passes: 3
+      public_sol_attempts: 5
+      model: gpt-5.6-sol
+      codex_version: 0.149.0
+      reasoning_effort: max
+      platform_class: local_arm64_docker
+      timeout_multiplier: 1.0
+      environment_build_timeout_multiplier: 1.0
+      retry_policy: no_retries
+      no_upload: true
+      fresh_for_frozen_control: true
+      direct:
+        job: tb3-sol-native-baseline-v2-batched-eval-parity-v4p62-k1-local-arm-a
+        agent: codex-auth-no-session-baseline-v2
+        raw_reward: 0.0
+        reward_valid: true
+        protocol_valid: true
+        cost_usd: 3.7232384
+        input_tokens: 4808080
+        cache_tokens: 4633856
+        output_tokens: 58640
+        wall_seconds: 2064.800171
+        agent_seconds: 1999.157639
+        atif_schema: ATIF-v1.5
+        atif_steps: 72
+        raw_session_paths: 0
+        backup_files: 48
+        backup_bytes: 900144
+        backup_tree_sha256: >-
+          6eec224bf35bc7e38a453252ef71bb76ae4716c944d3aad48326ec23ae7039e6
+      statem:
+        job: tb3-sol-thin-family-v4p62-batched-eval-parity-k1-local-arm-b
+        agent: ziheng-yaxin-statem-codex-thin-family-v4p62-exp
+        raw_reward: 1.0
+        reward_valid: true
+        protocol_valid: true
+        cost_usd: 3.2979016
+        input_tokens: 4079101
+        cache_tokens: 3939584
+        output_tokens: 58200
+        wall_seconds: 1747.495673
+        agent_seconds: 1687.757712
+        atif_schema: ATIF-v1.5
+        atif_steps: 62
+        final_statem_state: handoff
+        family_id: algorithm-performance
+        practice_id: algorithm_performance_compact
+        eligible_family_matches: 1
+        runbook_depth: 0
+        raw_session_paths: 0
+        backup_files: 59
+        backup_bytes: 1190955
+        backup_tree_sha256: >-
+          b00f6a2bf05c6580897908570c2ce61dc95344c23d390302680ed679cd6af203
+      matched_reward_delta: 1.0
+      matched_verdict: valid_fresh_zero_to_one_thin_family_gain
+      score_eligible: true
+      use: k1_triage_only_not_pass_rate_estimate
+      source_manifest_sha256: >-
+        82239b696d02f50fa848064438d7cf1b809540f9f9d4aa46017f38e0815afaf0
+      preregistration: >-
+        .statem/benchmarks/analysis/20260823-tb3-v4p62-batched-eval-parity-fresh-pair-preregistration.yaml
+      both_launchers_exact_dry_run_passed: true
+      backup_checksum_dry_runs_empty: true
+
+conversion_portfolio:
+  status: planned_ceiling_not_observed_or_estimated_gain
+  task_count: 21
+  tasks:
+    - terminal-bench/mvcc-lsm-compaction
+    - terminal-bench/session-window-debug
+    - terminal-bench/vf2-speedup-networkx
+    - terminal-bench/interleaved-vigenere
+    - terminal-bench/embedding-drift-monitor
+    - terminal-bench/wal-recovery-ordering
+    - terminal-bench/html-js-filter
+    - terminal-bench/distributed-dedup
+    - terminal-bench/intrastat-meldung
+    - terminal-bench/nextjs-performance
+    - terminal-bench/ks-solver-cpp
+    - terminal-bench/protein-autointerp-disulfide
+    - terminal-bench/sound-change-cascade
+    - terminal-bench/rs-archive-clone
+    - terminal-bench/freecad-impeller
+    - terminal-bench/freecad-platform-drawing
+    - terminal-bench/erp-procurement-planning
+    - terminal-bench/freecad-spring-clip
+    - terminal-bench/pretrain-shard-corruption
+    - terminal-bench/sglang-qwen-burst
+    - terminal-bench/batched-eval-parity
+  evidence_buckets:
+    raw_positive_k1: 6
+    reward_positive_protocol_invalid: 1
+    active_matched: 0
+    frozen_unlaunched_pairs: 1
+    completed_protocol_invalid_matched: 1
+    valid_matched_zero: 4
+    infrastructure_invalid_matched: 2
+    active_fresh_direct: 1
+    completed_fresh_direct_zero_parked: 1
+    completed_fresh_direct_zero_pending_matched_gate: 2
+    closed_fresh_direct_one: 1
+    preadmitted_or_practice_gated: 5
+  public_exact_passes_over_105_trials: 18
+  descriptive_full_conversion_additional_reward_over_370: 87
+  descriptive_full_conversion_percentage_points: 23.5135135135
+  target_additional_reward_over_370: 55.5
+  caveat: >-
+    This is only the maximum score coverage of the named development portfolio.
+    It assumes every remaining public failure becomes an exact pass and is not
+    a pass-rate estimate, an observed delta, or evidence that the target has
+    been achieved. Adapted tasks remain ineligible as fresh holdouts, HTML is
+    protocol-invalid, three matched arms were valid zeros, two historical
+    matched launches were lost to the remote runner lifecycle, their Intrastat
+    replacement completed as a valid zero and their Next.js replacement was
+    protocol-invalid, two newly admitted fresh-direct arms are active, and the
+    the v4p57 sound-change arm completed as another valid zero, one contemporaneous mid-score pair is
+    frozen but unlaunched, and the remaining paths have not produced their
+    required matched or fresh evidence yet. One additional fresh-direct
+    opportunity was closed after a valid raw one and is not counted in this
+    conversion ceiling.
 
 aggregate:
-  completed_pairs: 3
+  as_of: 2026-08-23T02:47:49-07:00
+  completed_pairs: 8
+  active_matched_arms: 0
+  frozen_unlaunched_pairs: 0
   pending_matched_pairs: 2
-  protocol_invalid_statem_pairs: 3
+  pending_fresh_direct_arms: 1
+  closed_fresh_direct_one: 1
+  infrastructure_invalid_matched_pairs: 2
+  protocol_invalid_statem_pairs: 7
   eligible_direct_reward: 0
-  eligible_statem_reward: 0
-  observed_reward_delta: 0
+  eligible_statem_reward: 1
+  observed_reward_delta: 1
+  observed_raw_delta_over_370_percentage_points: 0.2702702703
   estimated_percentage_point_delta: null
-  note: k1 triage cannot estimate a pass rate or establish the phase-1 target
+  verified_fresh_percentage_point_delta: null
+  target_remaining_percentage_points: 15
+  note: >-
+    k1 triage and feasibility cells cannot estimate a pass rate or establish
+    the phase-1 target. The frozen v4p62 batched-eval-parity pair is the first
+    valid fresh zero-to-one observation, but one stochastic pair is not a
+    pass@5 estimate. The final claim requires a small frozen k evaluation,
+    additional untouched family-transfer pairs, or a broad matched batch under
+    one promoted thin control.
+
+latest_negative_transfer_sentinel:
+  task: terminal-bench/mvcc-lsm-compaction
+  job: tb3-sol-evidence-v4p57-mvcc-revision-semantics-sentinel-k1-local-arm-b
+  evidence_class: adapted_negative_transfer_and_receipt_semantics_sentinel
+  raw_reward: 1.0
+  reward_valid: true
+  protocol_valid: true
+  final_statem_state: handoff
+  promotion_decision: promote
+  application_mode: activate
+  final_review_count: 1
+  reviewer_receipt_expression_invalid: false
+  candidate_revision_required: false
+  candidate_submission_identity_verified: true
+  cost_usd: 7.084132
+  input_tokens: 9474344
+  cached_input_tokens: 9242624
+  output_tokens: 43474
+  atif_schema: ATIF-v1.5
+  atif_steps: 116
+  source_manifest_files: 37
+  source_manifest_sha256: >-
+    fde4788cf0f23d0abfd8c7ca9b5e92f94b7eb74ca00dc590e5b33afe1e6ea7a9
+  raw_session_paths: 0
+  backup_files: 101
+  backup_bytes: 4150981
+  backup_tree_sha256: >-
+    9d6a12763e137aa6e519064a19a48db5d730d770754e255b9d66cd391a38f79c
+  score_eligible: false
+  admission_effect: >-
+    Preserves the frozen v4p57 candidate-submission path and corrected promote
+    receipt semantics before the fresh SGLang and sound-change matched arms.
+
+latest_scope_boundary_sentinel:
+  task: terminal-bench/mvcc-lsm-compaction
+  job: tb3-sol-evidence-v4p61-mvcc-scope-exclusion-sentinel-k1-aws-x86-a
+  evidence_class: adapted_scope_boundary_negative_transfer_sentinel
+  raw_reward: 1.0
+  reward_valid: true
+  protocol_valid: true
+  final_statem_state: handoff
+  promotion_decision: promote
+  application_mode: activate
+  candidate_submission_identity_verified: true
+  acceptance_plan_schema_version: 4
+  bounded_requirement_count: 5
+  generalization_requirement_count: 1
+  generalization_uncovered_region_count: 4
+  scope_exclusion_count: 0
+  scope_exclusion_live_branch_exercised: false
+  cost_usd: 11.610926
+  input_tokens: 16991080
+  cached_input_tokens: 16673792
+  output_tokens: 56253
+  atif_schema: ATIF-v1.5
+  atif_steps: 163
+  source_manifest_files: 37
+  source_manifest_sha256: >-
+    0332b2ef0cb12fa551edb275b2dfa1f70165683d5b5d49abbbab56abc879faeb
+  raw_session_paths: 0
+  backup_files: 113
+  backup_bytes: 6362538
+  backup_tree_sha256: >-
+    607ed5f1d926c4bd078c7fc8e2be1de48ca9cedecbe8534c5b88773b75cdbd60
+  backup_checksum_dry_run_empty: true
+  score_eligible: false
+  admission_effect: >-
+    Preserves the known-positive raw reward and validates the v4
+    generalization-assessment path, but does not exercise non-empty
+    scope_exclusions and shows material cost/wall overhead versus v4p57. Keep
+    v4p61 as mechanism evidence; do not admit the heavy global path or launch
+    the preregistered fresh pair under the user stop.
