@@ -8,11 +8,11 @@ export PYTHONPATH="/private/tmp/statem-tb3-v4p62-thin"
 cd /private/tmp/statem-tb3-v4p62-thin
 
 exec /Users/qinziheng/workspace/statem/.venv/bin/python \
-  /Users/qinziheng/workspace/statem/.statem/benchmarks/run_harbor_batch.py \
+  /private/tmp/statem-tb3-v4p62-thin/.statem/benchmarks/run_harbor_batch.py \
   --dataset terminal-bench/terminal-bench@3.0.0 \
   --dataset-path /private/tmp/tb3-v3.0.0-full/terminal-bench \
   --task terminal-bench/mvcc-lsm-compaction \
-  --job-name tb3-sol-thin-family-v4p62-mvcc-negative-transfer-k1-local-arm-a \
+  --job-name tb3-sol-thin-family-v4p62-mvcc-negative-transfer-k1-local-arm-b \
   --model gpt-5.6-sol \
   --reasoning-effort max \
   --agent-name ziheng-yaxin-statem-codex-thin-family-v4p62-exp \
