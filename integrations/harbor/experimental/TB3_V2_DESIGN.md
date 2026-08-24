@@ -51,6 +51,26 @@ checks are reviewer-only. One same-task adapted cell is authorized; failure to
 improve the public witness, or reliance on settings/reporting/path changes,
 parks or rebranches the direction. No fresh score claim follows from this cell.
 
+## 2026-08-24: v4p76 phase-scoped practice projection
+
+The former three-obligation limit was a context-size heuristic, not a semantic
+rule. Catalog generation 4 instead separates `direction_cues` from
+`verify_obligations`. Every selected item must affect its phase decision, be
+non-empty and deduplicated, and fit a small phase character budget; there is no
+item-count limit.
+
+The adapter materializes a per-run overlay of the unchanged four-state thin
+graph. Initial solve context contains only direction cues. Late obligations and
+the stop rule appear only in the verify node. Detailed checks remain outside
+the task graph and are generated only for an explicitly invoked reviewer. The
+overlay is derived from the hash-bound catalog, strictly validated before
+start, and receipt-bound without changing the stable source manifest.
+
+This projection is advisory. Making a verification gate cryptographically
+non-bypassable remains a separate security change: root-runbook identity must
+fail closed and static runbook/catalog files must become agent-read-only. That
+security work is not coupled to context phasing.
+
 ## 2026-08-19: authority, evidence, and stage portfolio
 
 ### Contract authority and repair
