@@ -48,3 +48,17 @@ This version is not score evidence and does not authorize a same-task CLI
 rerun. It is eligible for a new untouched pair only after source bundle and
 route receipts are frozen. A future positive result may admit its exact family;
 it must not broaden unrelated triggers or activate reviewer roles.
+
+## Daytona ATIF recovery
+
+The ATRX direct calibration showed that Daytona can build and run the task but
+returned no ATIF or usage metadata. The no-session adapter converted sessions
+from its local log directory before Harbor downloaded cloud logs, then removed
+the remote raw sessions. v4p69 conditionally downloads `/logs/agent/sessions`
+before conversion when no local JSONL exists. Docker bind-mounted runs keep the
+existing zero-copy path. Public ATIF is generated first, then both remote and
+local raw sessions are deleted as before.
+
+Focused fake-cloud tests cover remote download, Docker-style existing local
+sessions, and missing-session cleanup. No benchmark task is resampled to tune
+this lifecycle repair.

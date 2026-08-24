@@ -2,11 +2,34 @@ from __future__ import annotations
 
 import shlex
 import shutil
+from pathlib import Path
 
 from harbor.agents.installed.codex import Codex
 from harbor.environments.base import BaseEnvironment
 from harbor.models.agent.context import AgentContext
 from harbor.models.trial.paths import EnvironmentPaths
+
+
+async def sync_remote_codex_sessions_for_atif(
+    environment: BaseEnvironment,
+    logs_dir: Path,
+) -> bool:
+    """Download cloud session logs only long enough to produce public ATIF."""
+
+    sessions_dir = logs_dir / "sessions"
+    if sessions_dir.is_dir() and any(sessions_dir.rglob("*.jsonl")):
+        return False
+
+    remote_sessions = (EnvironmentPaths.agent_dir / "sessions").as_posix()
+    try:
+        if not await environment.is_dir(remote_sessions):
+            return False
+        sessions_dir.mkdir(parents=True, exist_ok=True)
+        await environment.download_dir(remote_sessions, sessions_dir)
+    except Exception:
+        shutil.rmtree(sessions_dir, ignore_errors=True)
+        return False
+    return sessions_dir.is_dir() and any(sessions_dir.rglob("*.jsonl"))
 
 
 class AuthNoSessionCodex(Codex):
@@ -49,6 +72,9 @@ class AuthNoSessionCodex(Codex):
                 await super().run(instruction, environment, context)
         finally:
             try:
+                await sync_remote_codex_sessions_for_atif(
+                    environment, self.logs_dir
+                )
                 Codex.populate_context_post_run(self, context)
             finally:
                 await self.exec_as_agent(

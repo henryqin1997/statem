@@ -17,6 +17,10 @@ from harbor.environments.base import BaseEnvironment
 from harbor.models.agent.context import AgentContext
 from harbor.models.trial.paths import EnvironmentPaths
 
+from integrations.harbor.codex_auth_no_session_baseline import (
+    sync_remote_codex_sessions_for_atif,
+)
+
 
 _SOURCE_EXCLUDED_DIRS = {"__pycache__", ".statem"}
 _SOURCE_EXCLUDED_SUFFIXES = {".pyc", ".pyo"}
@@ -1106,6 +1110,9 @@ Benchmark task:
                 # Harbor normally converts the copied Codex session after
                 # run() returns. Generate ATIF first because the public
                 # artifact cleanup below intentionally removes that session.
+                await sync_remote_codex_sessions_for_atif(
+                    environment, self.logs_dir
+                )
                 Codex.populate_context_post_run(self, context)
             finally:
                 await self._remove_codex_session_logs(environment)
