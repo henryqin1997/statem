@@ -14,6 +14,9 @@ from integrations.harbor.statem_codex_thin_family_v4p70_exp import (
 from integrations.harbor.statem_codex_thin_family_v4p71_exp import (
     ThinFamilyV4p71ExperimentalStatemCodex,
 )
+from integrations.harbor.statem_codex_thin_family_v4p62_exp import (
+    select_thin_family_practice,
+)
 
 
 REPO = Path(__file__).resolve().parents[1]
@@ -35,6 +38,35 @@ class ThinFamilyV4p71Test(unittest.TestCase):
         agent._direct_bypass_active = False
         agent.logs_dir = Path(tempfile.gettempdir()) / "v4p71-test-logs"
         return agent
+
+    def test_development_override_activates_selected_claim_supplement(self) -> None:
+        instruction = (
+            "Transform related records while preserving the same token for an "
+            "underlying entity across aliases and effective-dated history."
+        )
+        selection = select_thin_family_practice(
+            instruction,
+            CATALOG,
+            activation_mode="active",
+        )
+        agent = self._agent("structured_transformation_compact")
+        agent._thin_family_selection = selection
+        agent._thin_family_selection.update(
+            {
+                "activated": True,
+                "activation_reason": "explicit_adapted_development",
+                "development_override": True,
+            }
+        )
+        for supplement in agent._thin_family_selection["supplements"]:
+            supplement["activated"] = True
+        text = agent._augment_instruction(
+            instruction,
+            "run-1",
+            "Run: run-1\nCurrent: solve\nNext: verify",
+        )
+        self.assertIn("temporal_identity_equivalence_compact", text)
+        self.assertIn("must not drift", text)
 
     def test_explicit_adapted_practice_uses_thin_graph(self) -> None:
         agent = self._agent("stateful_lifecycle_compact")

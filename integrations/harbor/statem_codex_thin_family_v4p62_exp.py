@@ -16,6 +16,32 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _DEFAULT_CATALOG = _REPO_ROOT / "examples" / "tb3-thin-family-practices-v1.json"
 
 
+def _match_trigger_groups(
+    instruction: str,
+    groups: Any,
+    *,
+    label: str,
+) -> list[str] | None:
+    if not isinstance(groups, list) or not groups:
+        raise ValueError(f"{label} has no trigger groups")
+    matched_patterns: list[str] = []
+    for group in groups:
+        if not isinstance(group, list) or not group:
+            raise ValueError(f"{label} has an empty trigger group")
+        group_match = next(
+            (
+                str(pattern)
+                for pattern in group
+                if re.search(str(pattern), instruction, flags=re.IGNORECASE)
+            ),
+            None,
+        )
+        if group_match is None:
+            return None
+        matched_patterns.append(group_match)
+    return matched_patterns
+
+
 def select_thin_family_practice(
     instruction: str,
     catalog_path: str | Path = _DEFAULT_CATALOG,
@@ -30,32 +56,18 @@ def select_thin_family_practice(
         raise ValueError("thin family catalog must use version 1")
     if data.get("selection_policy", {}).get("max_selected") != 1:
         raise ValueError("thin family catalog must select at most one practice")
+    max_supplements = data.get("selection_policy", {}).get("max_supplements", 0)
+    if not isinstance(max_supplements, int) or not 0 <= max_supplements <= 1:
+        raise ValueError("thin family catalog must allow at most one supplement")
 
     matches: list[dict[str, Any]] = []
     for practice in data.get("practices", []):
-        groups = practice.get("trigger_groups")
-        if not isinstance(groups, list) or not groups:
-            raise ValueError(f"practice {practice.get('practice_id')!r} has no trigger groups")
-        matched_patterns: list[str] = []
-        matched = True
-        for group in groups:
-            if not isinstance(group, list) or not group:
-                raise ValueError(
-                    f"practice {practice.get('practice_id')!r} has an empty trigger group"
-                )
-            group_match = next(
-                (
-                    str(pattern)
-                    for pattern in group
-                    if re.search(str(pattern), instruction, flags=re.IGNORECASE)
-                ),
-                None,
-            )
-            if group_match is None:
-                matched = False
-                break
-            matched_patterns.append(group_match)
-        if matched:
+        matched_patterns = _match_trigger_groups(
+            instruction,
+            practice.get("trigger_groups"),
+            label=f"practice {practice.get('practice_id')!r}",
+        )
+        if matched_patterns is not None:
             matches.append(
                 {
                     "priority": int(practice.get("priority") or 1000),
@@ -75,6 +87,23 @@ def select_thin_family_practice(
         selected
         and selected["practice"].get("validation", {}).get("admitted")
     )
+    supplement_matches: list[dict[str, Any]] = []
+    if selected is not None:
+        for supplement in data.get("supplements", []):
+            matched_patterns = _match_trigger_groups(
+                instruction,
+                supplement.get("trigger_groups"),
+                label=f"supplement {supplement.get('supplement_id')!r}",
+            )
+            if matched_patterns is not None:
+                supplement_matches.append(
+                    {
+                        "supplement": supplement,
+                        "matched_patterns": matched_patterns,
+                    }
+                )
+    if len(supplement_matches) > max_supplements:
+        raise ValueError("thin family catalog selected too many claim supplements")
     catalog_bytes = path.read_bytes()
     receipt: dict[str, Any] = {
         "version": 1,
@@ -90,6 +119,7 @@ def select_thin_family_practice(
             and activation_mode == "active"
         ),
         "eligible_match_count": len(matches),
+        "supplement_eligible_count": len(supplement_matches),
         "activation_reason": (
             "no_match"
             if selected is None
@@ -119,6 +149,23 @@ def select_thin_family_practice(
                 "admitted": bool(practice.get("validation", {}).get("admitted")),
             }
         )
+        if supplement_matches:
+            receipt["supplements"] = [
+                {
+                    "supplement_id": item["supplement"]["supplement_id"],
+                    "trigger_evidence": item["matched_patterns"],
+                    "compact": item["supplement"]["compact"],
+                    "maturity": item["supplement"].get("validation", {}).get(
+                        "maturity"
+                    ),
+                    "admitted": bool(
+                        item["supplement"].get("validation", {}).get("admitted")
+                    ),
+                    "activated": False,
+                    "activation_reason": "unadmitted_shadow",
+                }
+                for item in supplement_matches
+            ]
     return receipt
 
 
@@ -198,6 +245,19 @@ class ThinFamilyV4p62ExperimentalStatemCodex(ThinStatemCodex):
         obligations = "\n".join(
             f"- {obligation}" for obligation in compact["obligations"]
         )
+        supplements = []
+        for supplement in selection.get("supplements", []):
+            if not supplement.get("activated"):
+                continue
+            supplement_obligations = "\n".join(
+                f"- {obligation}"
+                for obligation in supplement["compact"]["obligations"]
+            )
+            supplements.append(
+                "\nConditionally selected compact claim supplement:\n"
+                + f"- supplement_id: {supplement['supplement_id']}\n"
+                + supplement_obligations
+            )
         return (
             base
             + "\n\nConditionally selected compact family practice:\n"
@@ -206,6 +266,7 @@ class ThinFamilyV4p62ExperimentalStatemCodex(ThinStatemCodex):
             + obligations
             + "\n- stop_rule: "
             + str(compact["stop_rule"])
+            + "".join(supplements)
             + "\nDetailed reviewer checks are not in solver context. Do not load another "
             + "family or expand the practice catalog.\n"
         )

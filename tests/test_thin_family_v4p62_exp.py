@@ -120,6 +120,7 @@ class ThinFamilyV4p62Test(unittest.TestCase):
     def test_catalog_keeps_detailed_practices_reviewer_only_and_unadmitted(self) -> None:
         catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
         self.assertEqual(catalog["selection_policy"]["max_selected"], 1)
+        self.assertEqual(catalog["selection_policy"]["max_supplements"], 1)
         self.assertFalse(catalog["selection_policy"]["task_name_routing"])
         admitted = []
         for practice in catalog["practices"]:
@@ -129,6 +130,34 @@ class ThinFamilyV4p62Test(unittest.TestCase):
             self.assertGreaterEqual(len(practice["compact"]["obligations"]), 2)
             self.assertGreaterEqual(len(practice["detailed"]["prioritized_checks"]), 3)
         self.assertEqual(admitted, ["algorithm_performance_compact"])
+
+    def test_temporal_identity_supplement_is_precise_and_compact(self) -> None:
+        instruction = (
+            "Transform related records while preserving the same token for an "
+            "underlying entity across aliases and transitive effective-dated history."
+        )
+        selection = select_thin_family_practice(
+            instruction,
+            CATALOG,
+            activation_mode="active",
+        )
+        self.assertEqual(selection["practice_id"], "structured_transformation_compact")
+        self.assertEqual(selection["supplement_eligible_count"], 1)
+        self.assertEqual(
+            selection["supplements"][0]["supplement_id"],
+            "temporal_identity_equivalence_compact",
+        )
+        self.assertFalse(selection["supplements"][0]["activated"])
+
+    def test_temporal_identity_supplement_does_not_pollute_plain_transform(self) -> None:
+        selection = select_thin_family_practice(
+            "Parse and transform nested encoded records while preserving order.",
+            CATALOG,
+            activation_mode="active",
+        )
+        self.assertEqual(selection["practice_id"], "structured_transformation_compact")
+        self.assertEqual(selection["supplement_eligible_count"], 0)
+        self.assertNotIn("supplements", selection)
 
     def test_invalid_activation_mode_is_rejected(self) -> None:
         with self.assertRaises(ValueError):

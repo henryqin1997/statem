@@ -63,4 +63,11 @@ class ThinFamilyV4p71ExperimentalStatemCodex(
                 "development_override": True,
             }
         )
+        for supplement in self._thin_family_selection.get("supplements", []):
+            supplement.update(
+                {
+                    "activated": True,
+                    "activation_reason": "explicit_adapted_development",
+                }
+            )
         await StatemCodex.run(self, instruction, environment, context)
