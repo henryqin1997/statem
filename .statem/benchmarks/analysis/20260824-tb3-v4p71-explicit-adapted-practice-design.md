@@ -35,3 +35,9 @@ otherwise ERP is parked for this generation.
 - The adapter fails closed on a selected-practice mismatch.
 - Source manifest: 10 files,
   `0f479de15a83477094f822253f44c5563fc6b44d30cba6afc86911181b13587c`.
+
+The first ERP launcher was cancelled before model execution when its dry launch
+contract was found to inherit the generic 750-second StateM deadline. It used
+zero tokens and zero API cost and is preserved separately. The corrected `u2`
+launcher binds a 3300-second development deadline and 180-second handoff reserve
+inside the public 3600-second task budget; no source or practice changed.

@@ -24,7 +24,7 @@ exec /Users/qinziheng/workspace/statem/.venv/bin/python \
   --dataset terminal-bench/terminal-bench@3.0.0 \
   --dataset-path "$dataset_path" \
   --task terminal-bench/erp-procurement-planning \
-  --job-name tb3-sol-thin-family-v4p71-erp-compact-adapted-k1-daytona-u \
+  --job-name tb3-sol-thin-family-v4p71-erp-compact-adapted-k1-daytona-u2 \
   --model gpt-5.6-sol \
   --reasoning-effort max \
   --agent-name ziheng-yaxin-statem-codex-thin-family-v4p71-exp \
@@ -36,6 +36,10 @@ exec /Users/qinziheng/workspace/statem/.venv/bin/python \
   --env-file /Users/qinziheng/workspace/statem/.statem/benchmarks/daytona.env \
   --auth-mode auth-json \
   --codex-auth-json /Users/qinziheng/.codex/auth.json \
+  --no-statem-agent-env \
+  --agent-env STATEM_STOP_REQUIRE_STATE_HOOKS=true \
+  --agent-env STATEM_AGENT_DEADLINE_SECONDS=3300 \
+  --agent-env STATEM_HANDOFF_BUFFER_SECONDS=180 \
   --concurrency 1 \
   --attempts 1 \
   --max-retries 0 \
