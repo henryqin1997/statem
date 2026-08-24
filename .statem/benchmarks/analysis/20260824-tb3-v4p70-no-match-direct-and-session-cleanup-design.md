@@ -34,3 +34,12 @@ This is adapter routing, not a new global state or a heavier runbook.
   stateful-lifecycle match, keep it inactive, execute `native_direct_bypass`,
   retain no StateM graph or raw session, and reach a verifier result. The raw
   reward is a negative-transfer observation, not fresh score evidence.
+
+## Live validation outcome
+
+The React sentinel passed raw `1.0` with valid protocol. Its route receipt was
+`stateful_lifecycle_compact`, `admitted=false`, `activated=false`, and
+`execution_mode=native_direct_bypass`. It produced ATIF-v1.5 with complete
+usage, no StateM state directory, no reviewer or resume, and no raw session.
+This admits the direct-bypass routing and cloud cleanup repair. It does not
+admit the lifecycle practice itself.

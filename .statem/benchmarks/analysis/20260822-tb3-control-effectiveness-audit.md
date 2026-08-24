@@ -191,3 +191,18 @@ does not close the task, while further adapted rollout requires a new
 falsifiable oracle or validation delta. Independently, no-match routing must be
 made direct-like and local cloud sessions must be removed after ATIF conversion
 before another fresh pair is admitted.
+
+## v4p70 direct-bypass admission
+
+v4p70 moves no-match and unadmitted-match decisions ahead of StateM startup.
+The adapted React sentinel selected the existing stateful-lifecycle hypothesis
+but kept it unadmitted and inactive, then executed native direct solve with the
+original task instruction. It preserved raw `1.0`, produced valid ATIF and
+usage, retained no raw session, and created no StateM graph, reviewer, or
+session resume. The 31-file backup is exact with tree SHA
+`23d397af77007052a81c7075554e01fd8e897ed1d1f1caae11a89f959fab735e`.
+
+This is positive negative-transfer evidence for precise routing: an auditable
+family hypothesis may remain in host metadata without entering solver context.
+The routing rule is admitted; the stateful-lifecycle practice remains
+unadmitted. No more React sampling is allocated to this generation.
