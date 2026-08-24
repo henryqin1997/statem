@@ -120,7 +120,7 @@ class ThinFamilyV4p62Test(unittest.TestCase):
     def test_catalog_keeps_detailed_practices_reviewer_only_and_unadmitted(self) -> None:
         catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
         self.assertEqual(catalog["selection_policy"]["max_selected"], 1)
-        self.assertEqual(catalog["selection_policy"]["max_supplements"], 1)
+        self.assertEqual(catalog["selection_policy"]["max_supplements"], 2)
         self.assertFalse(catalog["selection_policy"]["task_name_routing"])
         admitted = []
         for practice in catalog["practices"]:
@@ -158,6 +158,20 @@ class ThinFamilyV4p62Test(unittest.TestCase):
         self.assertEqual(selection["practice_id"], "structured_transformation_compact")
         self.assertEqual(selection["supplement_eligible_count"], 0)
         self.assertNotIn("supplements", selection)
+
+    def test_seeded_transform_supplement_requires_two_precise_signals(self) -> None:
+        selection = select_thin_family_practice(
+            "Anonymize transformed records with --seed 42; seeded transforms must "
+            "change when the seed changes while preserving unseeded fields.",
+            CATALOG,
+            activation_mode="active",
+        )
+        self.assertEqual(selection["practice_id"], "structured_transformation_compact")
+        self.assertEqual(selection["supplement_eligible_count"], 1)
+        self.assertEqual(
+            selection["supplements"][0]["supplement_id"],
+            "seeded_transform_sensitivity_compact",
+        )
 
     def test_invalid_activation_mode_is_rejected(self) -> None:
         with self.assertRaises(ValueError):

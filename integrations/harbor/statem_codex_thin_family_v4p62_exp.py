@@ -57,8 +57,8 @@ def select_thin_family_practice(
     if data.get("selection_policy", {}).get("max_selected") != 1:
         raise ValueError("thin family catalog must select at most one practice")
     max_supplements = data.get("selection_policy", {}).get("max_supplements", 0)
-    if not isinstance(max_supplements, int) or not 0 <= max_supplements <= 1:
-        raise ValueError("thin family catalog must allow at most one supplement")
+    if not isinstance(max_supplements, int) or not 0 <= max_supplements <= 2:
+        raise ValueError("thin family catalog must allow at most two supplements")
 
     matches: list[dict[str, Any]] = []
     for practice in data.get("practices", []):
