@@ -31,6 +31,26 @@ validation. The complete repository has 321 passing tests, one skip, and seven
 failures caused by fixtures and examples intentionally absent from this
 isolated experiment worktree; no focused failure is attributable to v4p74.
 
+## 2026-08-24: v4p75 semantic-translation causal cell
+
+The hyper runbook reused the preserved fresh direct zero for
+`fix-uautomizer-soundness` and authorized a bounded public preflight before any
+new task rollout. The submitted artifact stayed on the default translation
+path and changed only translation implementation classes, but the public
+witness and six independently authored defined-semantics pairs all remained
+indeterminate. The earliest owner is therefore implementation, with a missing
+pre-submit validation matrix, rather than routing, configuration, or a broad
+solver-direction failure.
+
+Catalog generation 3 adds one unadmitted family practice,
+`defined_semantics_boundary_matrix`. Its solver projection contains three
+compact obligations: preserve the default execution path, test paired safe and
+counterexample semantic boundaries, and cold-start the final built artifact.
+Its detailed semantic, verdict-direction, artifact-binding, and path-preserving
+checks are reviewer-only. One same-task adapted cell is authorized; failure to
+improve the public witness, or reliance on settings/reporting/path changes,
+parks or rebranches the direction. No fresh score claim follows from this cell.
+
 ## 2026-08-19: authority, evidence, and stage portfolio
 
 ### Contract authority and repair
