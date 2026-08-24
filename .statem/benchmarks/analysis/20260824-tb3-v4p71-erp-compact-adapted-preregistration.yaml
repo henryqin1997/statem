@@ -57,6 +57,16 @@ superseded_startup_attempt:
   backup_files: 8
   backup_bytes: 23826
   backup_tree_sha256: bd0d4972c6919e961fcf7e2a5a1cd00a1d5b938642bf65087a06a6d2e6d35d95
+setup_invalid_attempt:
+  job: tb3-sol-thin-family-v4p71-erp-compact-adapted-k1-daytona-u2
+  state: environment_build_network_failure_before_agent_setup
+  error_bucket: postgresql_signing_key_connection_reset
+  token_usage: 0
+  cost_usd: 0.0
+  backup_files: 9
+  backup_bytes: 233985
+  backup_tree_sha256: bb124df595a7bb987131fe7d70b84ef979dcf5b59944fedd68b2f81ae81ff745
+replacement_job: tb3-sol-thin-family-v4p71-erp-compact-adapted-k1-daytona-u3
 continuation_rule: >-
   Raw one supports one frozen same-family transfer. Raw zero continues adapted
   work only with a new falsifiable public discriminator or validation delta.

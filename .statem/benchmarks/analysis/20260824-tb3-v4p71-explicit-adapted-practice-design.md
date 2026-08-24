@@ -41,3 +41,8 @@ contract was found to inherit the generic 750-second StateM deadline. It used
 zero tokens and zero API cost and is preserved separately. The corrected `u2`
 launcher binds a 3300-second development deadline and 180-second handoff reserve
 inside the public 3600-second task budget; no source or practice changed.
+
+The corrected `u2` job then failed during Daytona environment build before
+agent setup when the PostgreSQL signing-key download was reset. It used zero
+model tokens and is preserved as setup-invalid. The frozen adapter and practice
+remain unchanged for one replacement job, `u3`.

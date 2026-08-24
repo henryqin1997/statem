@@ -24,7 +24,7 @@ exec /Users/qinziheng/workspace/statem/.venv/bin/python \
   --dataset terminal-bench/terminal-bench@3.0.0 \
   --dataset-path "$dataset_path" \
   --task terminal-bench/erp-procurement-planning \
-  --job-name tb3-sol-thin-family-v4p71-erp-compact-adapted-k1-daytona-u2 \
+  --job-name tb3-sol-thin-family-v4p71-erp-compact-adapted-k1-daytona-u3 \
   --model gpt-5.6-sol \
   --reasoning-effort max \
   --agent-name ziheng-yaxin-statem-codex-thin-family-v4p71-exp \
