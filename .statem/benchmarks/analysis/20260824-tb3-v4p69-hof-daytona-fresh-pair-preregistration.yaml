@@ -1,0 +1,82 @@
+version: 1
+kind: tb3_fresh_matched_pair_preregistration
+created_at: 2026-08-24T18:55:00Z
+pair_id: hof-topology-interpenetration-daytona-v4p69-k1-r
+status: frozen_ready
+
+task:
+  id: terminal-bench/hof-topology-interpenetration
+  public_sol_passes: 3
+  public_sol_attempts: 5
+  public_sol_errors: 0
+  public_mean_cost_usd: 4.904
+  maximum_added_raw_passes: 2
+  development_use_under_v4p69: false
+  selection_basis: >-
+    untouched clean mid-score CPU task selected before either arm; it tests
+    cloud ATIF recovery and the zero-practice thin path
+
+shared_configuration:
+  dataset: terminal-bench/terminal-bench@3.0.0
+  dataset_path: /Users/qinziheng/workspace/statem/.statem/benchmarks/datasets/tb3-v3.0.0-persistent/terminal-bench
+  platform: daytona_cpu_x86
+  model: gpt-5.6-sol
+  reasoning_effort: max
+  codex_version: 0.149.1
+  k: 1
+  concurrency_per_job: 1
+  execution: sequential_no_result_conditioning
+  max_retries: 0
+  retry_agent_timeouts: false
+  timeout_multiplier: 1.0
+  environment_build_timeout_multiplier: 1.0
+  outer_wall_timeout_seconds: 14000
+  upload: false
+
+frozen_control_source:
+  branch: codex/tb3-v4p69-admission-canonical-manifest-20260824
+  semantic_commit: bac3459
+  runbook_lines: 86
+  manifest_file_count: 10
+  manifest_sha256: 1bf9364849b73981c8b3e2dc2e49f68d94cc9f73f2ca8d5617c009566678e4b2
+  selector:
+    selected: false
+    activated: false
+    eligible_match_count: 0
+    family: null
+    practice_id: null
+    activation_reason: no_match
+    note: >-
+      The StateM arm receives only the thin backbone. No family practice or
+      reviewer role is activated.
+
+arms:
+  direct:
+    job_name: tb3-sol-native-baseline-v2-hof-topology-v4p69-k1-daytona-r
+    agent_name: codex-auth-no-session-baseline-v2
+    launcher: >-
+      .statem/benchmarks/launch/run_tb3_native_baseline_v2_hof_topology_v4p69_k1_daytona_r.sh
+  statem:
+    job_name: tb3-sol-thin-family-v4p69-hof-topology-k1-daytona-s
+    agent_name: ziheng-yaxin-statem-codex-thin-family-v4p69-exp
+    activation_mode: active
+    launcher: >-
+      .statem/benchmarks/launch/run_tb3_thin_family_v4p69_hof_topology_k1_daytona_s.sh
+
+score_eligibility:
+  adapted: false
+  diagnostic_replay: false
+  protocol_invalid_is_raw_zero: false
+  retries_or_rescues_enter_raw_numerator: false
+  inspect_or_mutate_between_arms: forbidden
+  inspect_hidden_verifier_evidence: forbidden
+  require_atif_v1_5_and_usage_metadata: true
+  require_complete_artifact_backup_and_tree_sha256: true
+
+decision_rule:
+  direct_and_statem_rewards_reported_separately: true
+  pair_is_k1_triage_not_pass_at_5: true
+  no_control_change_from_either_arm_before_both_complete: true
+  any_protocol_invalid_arm_keeps_pair_out_of_score_comparison: true
+  direct_protocol_failure_cancels_statem_arm: true
+  no_family_match_must_remain_thin_backbone_only: true
