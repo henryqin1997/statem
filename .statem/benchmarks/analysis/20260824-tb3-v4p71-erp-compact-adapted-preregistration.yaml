@@ -1,0 +1,51 @@
+version: 1
+evidence_class: adapted_family_practice_causal_test
+task: terminal-bench/erp-procurement-planning
+fresh: false
+prior_observation:
+  direct_raw_reward: 0.0
+  heavy_statem_raw_reward: 0.0
+  candidate_public_replay_passed: true
+  final_candidate_disposition: quarantine
+hypothesis: >-
+  Compact lifecycle guidance with ordinary verify/revise/handoff avoids a
+  false-heavy evidence gate and can preserve a useful candidate.
+configuration:
+  model: gpt-5.6-sol
+  reasoning_effort: max
+  codex_version: 0.149.1
+  platform: daytona_cpu
+  k: 1
+  concurrency: 1
+  timeout_multiplier: 1.0
+  environment_build_timeout_multiplier: 1.0
+  max_retries: 0
+  upload: false
+agent:
+  name: ziheng-yaxin-statem-codex-thin-family-v4p71-exp
+  import_path: >-
+    integrations.harbor.statem_codex_thin_family_v4p71_exp:ThinFamilyV4p71ExperimentalStatemCodex
+  source_manifest_file_count: 10
+  source_manifest_sha256: 0f479de15a83477094f822253f44c5563fc6b44d30cba6afc86911181b13587c
+expected_route:
+  practice_id: stateful_lifecycle_compact
+  admitted: false
+  activated: true
+  activation_reason: explicit_adapted_development
+  development_override: true
+forbidden:
+  - detailed_reviewer
+  - independent_reviewer_graph
+  - second_family
+  - quarantine_or_rollback_without_destructive_or_provenance_evidence
+hard_protocol_requirements:
+  - ATIF-v1.5
+  - token_and_cost_usage_present
+  - raw_session_absence
+  - exact_source_manifest
+  - final_handoff_or_attributable_protocol_error
+  - complete_backup_and_tree_checksum
+score_eligible: false
+continuation_rule: >-
+  Raw one supports one frozen same-family transfer. Raw zero continues adapted
+  work only with a new falsifiable public discriminator or validation delta.
