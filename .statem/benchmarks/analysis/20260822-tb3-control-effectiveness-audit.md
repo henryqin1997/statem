@@ -172,3 +172,22 @@ protocol, receipt, ATIF, raw-session, and checksum-preservation audits finish.
 The official mid-score portfolio is recorded separately and shifts future
 allocation toward clean `2/5` through `4/5` CPU tasks rather than only the
 lowest-score tail.
+
+## v4p69 no-match and cloud cleanup evidence
+
+The fresh HOF Daytona pair observed direct raw `0.0` and StateM raw `0.0`.
+Direct was protocol-valid. StateM reached `handoff`, used the exact canonical
+10-file manifest, and correctly recorded `selected=false`, `activated=false`,
+`activation_reason=no_match`; however, one locally downloaded raw Codex session
+remained after ATIF conversion, so the StateM arm is protocol-invalid and the
+pair supplies no score evidence.
+
+The StateM path ran solve/verify twice before self-review and handoff, taking
+1791 seconds versus direct's 1340. Public submitted outputs differed only on
+one of seven records, where the second attempt selected a different topology
+and interpenetration hypothesis; both complete outputs scored zero. This is a
+real bounded rebranch but lacks a public discriminator. One zero-to-zero pair
+does not close the task, while further adapted rollout requires a new
+falsifiable oracle or validation delta. Independently, no-match routing must be
+made direct-like and local cloud sessions must be removed after ATIF conversion
+before another fresh pair is admitted.
