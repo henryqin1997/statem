@@ -4,6 +4,33 @@ This file records incremental, task-general control changes for the local
 Terminal-Bench 3 development path. These controls are experimental and do not
 change the default `StatemCodex` route.
 
+## 2026-08-24: hyper/task separation and information-gain scheduling
+
+Experiment orchestration now has its own StateM graph,
+`examples/tb3-hyper-agent-development-v1.yaml`. It owns scoring, develop, and
+low-frequency safety lanes; raw reuse; adapted causal extraction; information-
+gain budgets; transfer choice; score accounting; and parking. None of that
+policy is projected into a benchmark task.
+
+The host-side `tb3_family_develop.py` validates adapted contrasts and practice
+candidates. It permits `no_extractable_control`, marks multi-control contrasts
+confounded, redirects controller or protocol defects to focused fixtures, and
+chooses same-task evidence, same-family transfer, or a known-positive sentinel
+from the claim being tested rather than from a mechanical sequence.
+
+Task-level v4p74 remains the four-state thin graph. A separate v2 practice
+catalog contains compact solver obligations and detailed reviewer-only checks.
+The solver projection never includes detailed checks. Detailed content is
+identity-bound and loadable only through an explicit reviewer projection.
+Adapted cells name the exact supplement set, so an eligible but unselected
+supplement cannot silently enter the causal comparison. Historical v4p62-v4p73
+source and catalog remain unchanged.
+
+Focused validation passes 36 tests and both hyper and task runbooks pass strict
+validation. The complete repository has 321 passing tests, one skip, and seven
+failures caused by fixtures and examples intentionally absent from this
+isolated experiment worktree; no focused failure is attributable to v4p74.
+
 ## 2026-08-19: authority, evidence, and stage portfolio
 
 ### Contract authority and repair

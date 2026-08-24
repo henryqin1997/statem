@@ -1,0 +1,109 @@
+name: tb3-hyper-agent-development-v1
+initial: triage
+
+nodes:
+  triage:
+    prompt: |
+      Work at the experiment level, never inside the benchmark task. Reuse any
+      configuration-compatible raw evidence and classify the next uncertainty
+      as capability, hardware, infrastructure, protocol, solver direction,
+      implementation, validation, routing, or context burden.
+
+      Select exactly one lane and record the decision before launch:
+      scoring for an untouched frozen comparison, develop for causal practice
+      discovery, or safety for a low-frequency known-positive risk check.
+      Rank eligible work by expected decision-changing information per cost.
+
+  raw_observe:
+    prompt: |
+      Obtain raw evidence only when no compatible observation exists. Keep the
+      agent, model, platform, timeout, retry, and upload configuration bound.
+      Do not tune between paired arms. Separate reward validity, protocol
+      validity, infrastructure status, and artifact identity before diagnosis.
+
+  develop:
+    prompt: |
+      Treat this sample as adapted causal evidence. Contrast available positive
+      and negative observations, locate the earliest consequential divergence,
+      and declare the failure owner. Before any additional rollout, bind the
+      competing hypotheses, predicted observations, public discriminator,
+      validation delta, cost, deadline feasibility, and stop condition.
+
+      Use focused fixtures or a bounded subagent for controller, lifecycle,
+      receipt, routing, or test-plan defects. Continue same-context repair while
+      the direction is supported; rebranch only after its governing assumption
+      is falsified. A zero result alone neither proves nor closes the task.
+
+  extract_practice:
+    prompt: |
+      Extract the smallest reusable control supported by the adapted contrast:
+      observable activation signal, earliest wrong choice, bounded action,
+      protected behavior, public evidence boundary, and stop rule. Keep one
+      compact solver projection and a separate detailed reviewer projection.
+      Do not encode task identity, observed answers, counts, patches, hidden
+      evidence, portfolio state, or score targets.
+
+  causal_validate:
+    prompt: |
+      Choose the cheapest validation that matches the claim. Use same-task
+      independent evidence for a task-boundary claim, an untouched same-family
+      task only for a family-general claim, and a known-positive sentinel only
+      for plausible negative-transfer risk. Do not require cross-task transfer
+      mechanically. Freeze a successful control instead of expanding it.
+
+  score:
+    prompt: |
+      Run only a preregistered untouched comparison under frozen source and
+      matched configuration. No task influenced by control authoring or
+      selection enters the fresh numerator. A k=1 pair is triage, not a pass@k
+      estimate. Preserve complete artifacts and independent validity axes.
+
+  safety:
+    prompt: |
+      Run a known-positive sentinel only when a route widens, solver context
+      grows, a hard gate changes, or artifact lifecycle authority changes.
+      Otherwise keep this lane idle. Attribute any regression before changing
+      another control.
+
+  archive:
+    prompt: |
+      Wait for runners, reviewers, processes, and containers to exit. Preserve
+      source and result artifacts, verify file count, bytes, and deterministic
+      relative-path tree identity, update the evidence ledger, and choose the
+      next state from the new information rather than from rollout count.
+
+edges:
+  - from: triage
+    to: raw_observe
+  - from: triage
+    to: develop
+  - from: triage
+    to: score
+  - from: triage
+    to: safety
+  - from: raw_observe
+    to: develop
+  - from: raw_observe
+    to: archive
+  - from: develop
+    to: develop
+  - from: develop
+    to: extract_practice
+  - from: develop
+    to: archive
+  - from: extract_practice
+    to: causal_validate
+  - from: causal_validate
+    to: develop
+  - from: causal_validate
+    to: score
+  - from: causal_validate
+    to: archive
+  - from: score
+    to: archive
+  - from: safety
+    to: develop
+  - from: safety
+    to: archive
+  - from: archive
+    to: triage
