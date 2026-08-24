@@ -23,10 +23,17 @@ new falsifiable hypothesis is that compact lifecycle guidance plus ordinary
 verify/revise/handoff preserves a potentially useful candidate without the
 false-heavy evidence gate.
 
-This is a second adapted control hypothesis, not repetition of the old one. A
-raw one supports family transfer. A raw zero may still justify another adapted
-proposal only if the public artifact or state path yields a new discriminator;
-otherwise ERP is parked for this generation.
+Pre-launch offline route validation later found that the exact visible selector
+chooses `structured_transformation_compact`, while this cell preregistered
+`stateful_lifecycle_compact`. The adapter would fail closed before model use.
+All attempted ERP environments failed earlier during setup, with zero model
+usage, so no semantic experiment occurred. ERP is parked pending both a
+healthy execution lane and a corrected preregistered route.
+
+A single reward-valid raw zero would close only the tested comparison. Further
+adapted search remains available when an effective attempt narrows failure
+ownership and the next proposal supplies a new falsifiable public discriminator
+or validation delta with deadline-feasible expected information gain.
 
 ## Validation
 
@@ -42,7 +49,7 @@ zero tokens and zero API cost and is preserved separately. The corrected `u2`
 launcher binds a 3300-second development deadline and 180-second handoff reserve
 inside the public 3600-second task budget; no source or practice changed.
 
-The corrected `u2` job then failed during Daytona environment build before
-agent setup when the PostgreSQL signing-key download was reset. It used zero
-model tokens and is preserved as setup-invalid. The frozen adapter and practice
-remain unchanged for one replacement job, `u3`.
+The corrected `u2` and `u3` jobs then failed during Daytona environment build
+before agent setup when the PostgreSQL signing-key download was reset. The
+local replacement failed while resolving the `odoo:19` image metadata. All
+three used zero model tokens and are preserved as setup-invalid.

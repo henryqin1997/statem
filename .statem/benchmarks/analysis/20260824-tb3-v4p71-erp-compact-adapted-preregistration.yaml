@@ -86,6 +86,18 @@ local_replacement:
     Local Docker is an independent environment-build path and the public task
     compose file has no architecture lock. The build timeout is extended for
     development, while the task and agent deadlines remain standard.
+  state: environment_build_failure_before_agent_setup
+  error_bucket: odoo_registry_metadata_deadline
+  token_usage: 0
+  cost_usd: 0.0
+  backup_files: 9
+  backup_bytes: 49277
+  backup_tree_sha256: dbd25af92616fa15526e2d20758701f92b9427bc9bf3db0862265b77953f740b
+routing_audit:
+  expected_practice_id: stateful_lifecycle_compact
+  exact_visible_selector_practice_id: structured_transformation_compact
+  disposition: design_invalid_fail_closed_before_model
+erp_status: parked_no_healthy_lane_and_route_preregistration_mismatch
 continuation_rule: >-
   Raw one supports one frozen same-family transfer. One raw zero closes only
   the tested comparison. Further adapted work requires effective prior
