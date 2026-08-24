@@ -509,7 +509,9 @@ class StatemCodex(Codex):
         payload: dict[str, Any] = {
             "version": 1,
             "agent": self.name(),
-            "source_root": self._statem_source_dir.name,
+            # Source identity must not change when an identical tree is checked
+            # out under a different worktree basename.
+            "source_root": "statem",
             "runbook": str(self._runbook_path.relative_to(self._statem_source_dir))
             if self._runbook_path.is_relative_to(self._statem_source_dir)
             else self._runbook_path.name,

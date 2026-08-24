@@ -47,7 +47,9 @@ class ThinFamilyV4p62Test(unittest.TestCase):
             CATALOG,
             activation_mode="active",
         )
-        self.assertTrue(receipt["activated"])
+        self.assertTrue(receipt["selected"])
+        self.assertFalse(receipt["activated"])
+        self.assertEqual(receipt["activation_reason"], "unadmitted_shadow")
         self.assertEqual(receipt["family"], "stateful-lifecycle")
         self.assertEqual(receipt["practice_id"], "stateful_lifecycle_compact")
         self.assertEqual(len(receipt["trigger_evidence"]), 2)
@@ -61,7 +63,7 @@ class ThinFamilyV4p62Test(unittest.TestCase):
         )
         self.assertGreaterEqual(receipt["eligible_match_count"], 1)
         self.assertEqual(receipt["family"], "stateful-lifecycle")
-        self.assertTrue(receipt["activated"])
+        self.assertFalse(receipt["activated"])
 
     def test_shadow_records_selection_without_solver_injection(self) -> None:
         instruction = (
@@ -119,11 +121,14 @@ class ThinFamilyV4p62Test(unittest.TestCase):
         catalog = json.loads(CATALOG.read_text(encoding="utf-8"))
         self.assertEqual(catalog["selection_policy"]["max_selected"], 1)
         self.assertFalse(catalog["selection_policy"]["task_name_routing"])
+        admitted = []
         for practice in catalog["practices"]:
             self.assertTrue(practice["detailed"]["reviewer_only"])
-            self.assertFalse(practice["validation"]["admitted"])
+            if practice["validation"]["admitted"]:
+                admitted.append(practice["practice_id"])
             self.assertGreaterEqual(len(practice["compact"]["obligations"]), 2)
             self.assertGreaterEqual(len(practice["detailed"]["prioritized_checks"]), 3)
+        self.assertEqual(admitted, ["algorithm_performance_compact"])
 
     def test_invalid_activation_mode_is_rejected(self) -> None:
         with self.assertRaises(ValueError):

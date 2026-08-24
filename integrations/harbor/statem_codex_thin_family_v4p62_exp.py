@@ -71,6 +71,10 @@ def select_thin_family_practice(
         )
     )
     selected = matches[0] if matches else None
+    selected_admitted = bool(
+        selected
+        and selected["practice"].get("validation", {}).get("admitted")
+    )
     catalog_bytes = path.read_bytes()
     receipt: dict[str, Any] = {
         "version": 1,
@@ -80,8 +84,21 @@ def select_thin_family_practice(
         "catalog_sha256": hashlib.sha256(catalog_bytes).hexdigest(),
         "catalog_version": data["version"],
         "selected": selected is not None,
-        "activated": selected is not None and activation_mode == "active",
+        "activated": (
+            selected is not None
+            and selected_admitted
+            and activation_mode == "active"
+        ),
         "eligible_match_count": len(matches),
+        "activation_reason": (
+            "no_match"
+            if selected is None
+            else "unadmitted_shadow"
+            if not selected_admitted
+            else "shadow_mode"
+            if activation_mode == "shadow"
+            else "admitted_active"
+        ),
     }
     if selected is not None:
         practice = selected["practice"]

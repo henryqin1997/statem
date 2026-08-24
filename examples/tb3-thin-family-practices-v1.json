@@ -112,9 +112,10 @@
         }
       },
       "validation": {
-        "maturity": "family_candidate",
+        "maturity": "fresh_k1_positive",
         "development_samples": ["vf2-speedup-networkx"],
-        "admitted": false
+        "fresh_samples": ["batched-eval-parity"],
+        "admitted": true
       }
     },
     {
