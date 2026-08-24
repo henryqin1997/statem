@@ -66,7 +66,28 @@ setup_invalid_attempt:
   backup_files: 9
   backup_bytes: 233985
   backup_tree_sha256: bb124df595a7bb987131fe7d70b84ef979dcf5b59944fedd68b2f81ae81ff745
-replacement_job: tb3-sol-thin-family-v4p71-erp-compact-adapted-k1-daytona-u3
+replacement_attempt:
+  job: tb3-sol-thin-family-v4p71-erp-compact-adapted-k1-daytona-u3
+  state: environment_build_network_failure_before_agent_setup
+  error_bucket: repeated_postgresql_signing_key_connection_reset
+  token_usage: 0
+  cost_usd: 0.0
+  backup_files: 9
+  backup_bytes: 231741
+  backup_tree_sha256: 3be83ac000eb938e45f77b98f24d87e59757ec15480b0e7dce985a00be6c7d78
+daytona_disposition: >-
+  Closed for this ERP image until a new infrastructure discriminator exists.
+  A valid replacement must use another x86 lane or first prove the failing
+  build dependency reachable.
+local_replacement:
+  job: tb3-sol-thin-family-v4p71-erp-compact-adapted-k1-local-arm-a
+  platform: local_arm64_docker
+  rationale: >-
+    Local Docker is an independent environment-build path and the public task
+    compose file has no architecture lock. The build timeout is extended for
+    development, while the task and agent deadlines remain standard.
 continuation_rule: >-
-  Raw one supports one frozen same-family transfer. Raw zero continues adapted
-  work only with a new falsifiable public discriminator or validation delta.
+  Raw one supports one frozen same-family transfer. One raw zero closes only
+  the tested comparison. Further adapted work requires effective prior
+  progress plus a new falsifiable public discriminator or validation delta,
+  deadline-feasible information gain, and justified search cost.
