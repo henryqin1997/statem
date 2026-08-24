@@ -5,10 +5,12 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 from integrations.harbor.codex_auth_no_session_baseline import (
     sync_remote_codex_sessions_for_atif,
 )
+from integrations.harbor.statem_codex import StatemCodex
 
 
 class _FakeCloudEnvironment:
@@ -24,6 +26,10 @@ class _FakeCloudEnvironment:
         if self.remote_sessions is None:
             raise FileNotFoundError(source_dir)
         shutil.copytree(self.remote_sessions, target_dir, dirs_exist_ok=True)
+
+
+class _FakeCleanupEnvironment:
+    pass
 
 
 class CloudCodexAtifSyncTest(unittest.TestCase):
@@ -70,6 +76,23 @@ class CloudCodexAtifSyncTest(unittest.TestCase):
 
             self.assertFalse(downloaded)
             self.assertFalse((logs / "sessions").exists())
+
+    def test_statem_cleanup_removes_downloaded_local_session(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            logs = Path(temp_dir) / "agent"
+            session = logs / "sessions" / "one"
+            session.mkdir(parents=True)
+            (session / "rollout.jsonl").write_text("{}\n", encoding="utf-8")
+            agent = StatemCodex.__new__(StatemCodex)
+            agent.logs_dir = logs
+            agent.exec_as_agent = AsyncMock()
+
+            asyncio.run(
+                agent._remove_codex_session_logs(_FakeCleanupEnvironment())
+            )
+
+            self.assertFalse((logs / "sessions").exists())
+            agent.exec_as_agent.assert_awaited_once()
 
 
 if __name__ == "__main__":

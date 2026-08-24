@@ -1,0 +1,40 @@
+version: 1
+evidence_class: adapted_negative_transfer_and_route_sentinel
+task: terminal-bench/react-lead-form
+fresh: false
+reason: >-
+  This task already supplied direct and StateM development evidence. The cell
+  validates no-match/unadmitted direct routing and cloud session cleanup only.
+configuration:
+  model: gpt-5.6-sol
+  reasoning_effort: max
+  codex_version: 0.149.1
+  platform: daytona_cpu
+  k: 1
+  concurrency: 1
+  timeout_multiplier: 1.0
+  environment_build_timeout_multiplier: 1.0
+  max_retries: 0
+  upload: false
+agent:
+  name: ziheng-yaxin-statem-codex-thin-family-v4p70-exp
+  import_path: >-
+    integrations.harbor.statem_codex_thin_family_v4p70_exp:ThinFamilyV4p70ExperimentalStatemCodex
+  source_manifest_file_count: 10
+  source_manifest_sha256: 029c152a99b935d6d17a6edbbf4546311fba66078c3acfca669cf15d78507201
+expected_route:
+  selected: true
+  practice_id: stateful_lifecycle_compact
+  admitted: false
+  activated: false
+  activation_reason: unadmitted_shadow
+  execution_mode: native_direct_bypass
+hard_protocol_requirements:
+  - ATIF-v1.5
+  - token_and_cost_usage_present
+  - raw_session_absence
+  - no_statem_state_graph
+  - no_reviewer_or_session_resume
+  - verifier_result_or_attributable_error
+  - complete_backup_and_tree_checksum
+score_eligible: false

@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import time
 import tomllib
 from pathlib import Path, PurePosixPath
@@ -1133,6 +1134,10 @@ Benchmark task:
             )
         except Exception:
             pass
+        finally:
+            # Cloud environments download the remote session into logs_dir so
+            # Harbor can build ATIF before the remote workspace is released.
+            shutil.rmtree(self.logs_dir / "sessions", ignore_errors=True)
 
     async def _collect_statem_artifacts(
         self,
