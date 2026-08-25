@@ -39,3 +39,11 @@ forbidden:
   - unadmitted_numerical_practice
   - hidden_verifier_evidence
   - ordinary_failure_retry
+
+post_result_attribution_correction:
+  evidence_class: repeated_direct_version_calibration
+  score_eligible: false
+  reason: >-
+    A prior Codex 0.148.0 direct cell already completed with valid raw zero, and
+    v4p78 later rejected the proposed numerical practice at the exact visible
+    route boundary. The fresh label in this preregistration was too broad.

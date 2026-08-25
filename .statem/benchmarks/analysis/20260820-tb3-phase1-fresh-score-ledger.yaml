@@ -1118,6 +1118,36 @@ fresh_direct_protocol_invalid:
       Verifier/output-contract ownership. Do not repeat or extract a task
       practice until the public lifecycle boundary changes.
 
+repeated_direct_calibrations:
+  - task: terminal-bench/ks-solver-cpp
+    job: tb3-sol-native-baseline-v2-ks-solver-v4p87-k1-aws-x86-a
+    evidence_class: repeated_direct_version_calibration
+    prior_direct_codex_version: 0.148.0
+    codex_version: 0.149.1
+    raw_reward: 0.0
+    reward_valid: true
+    protocol_valid: true
+    errors: 0
+    retries: 0
+    cost_usd: 3.2498696
+    input_tokens: 4139025
+    cache_tokens: 4024064
+    output_tokens: 59020
+    wall_seconds: 2203.289323
+    agent_seconds: 2072.152606
+    atif_schema: ATIF-v1.5
+    atif_steps: 77
+    raw_session_paths: 0
+    backup_files: 14
+    backup_bytes: 406097
+    backup_tree_sha256: >-
+      695e5ad6904331b0442a566c1450d94a2de6c6a3a4c8d32c7c61dcb3b56729a2
+    backup_checksum_dry_run_empty: true
+    score_eligible: false
+    disposition: >-
+      Park. The repeated zero and prior exact route rejection add no independent
+      candidate-blind numerical discriminator and authorize no adapted retry.
+
 fresh_direct_zero_gates:
   - task: terminal-bench/atrx-vep-crispr
     direct_job: tb3-sol-native-baseline-v2-atrx-vep-v4p87-k1-local-arm-c
@@ -1606,7 +1636,7 @@ conversion_portfolio:
     completed_protocol_invalid_matched: 1
     valid_matched_zero: 4
     infrastructure_invalid_matched: 2
-    active_fresh_direct: 2
+    active_fresh_direct: 1
     completed_fresh_direct_zero_parked: 2
     completed_fresh_direct_zero_pending_matched_gate: 3
     closed_fresh_direct_one: 2
@@ -1632,12 +1662,12 @@ conversion_portfolio:
     conversion ceiling.
 
 aggregate:
-  as_of: 2026-08-25T16:55:26Z
+  as_of: 2026-08-25T17:08:56Z
   completed_pairs: 8
   active_matched_arms: 0
   frozen_unlaunched_pairs: 0
   pending_matched_pairs: 3
-  pending_fresh_direct_arms: 2
+  pending_fresh_direct_arms: 1
   closed_fresh_direct_one: 3
   infrastructure_invalid_matched_pairs: 2
   protocol_invalid_statem_pairs: 7
