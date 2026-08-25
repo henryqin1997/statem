@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.statem.tb3.satb-audio.v4p77.adapted.daytona.a</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>/private/tmp/statem-tb3-v4p76/.statem/benchmarks/launch/run_tb3_thin_family_v4p77_satb_audio_adapted_k1_daytona_x86_a.sh</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/private/tmp/statem-tb3-v4p76</string>
+  <key>StandardOutPath</key>
+  <string>/private/tmp/statem-tb3-v4p76/.statem/benchmarks/launch/tb3-satb-audio-v4p77-adapted-daytona-a.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/private/tmp/statem-tb3-v4p76/.statem/benchmarks/launch/tb3-satb-audio-v4p77-adapted-daytona-a.err.log</string>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>RunAtLoad</key>
+  <true/>
+</dict>
+</plist>

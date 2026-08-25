@@ -221,6 +221,7 @@ class ThinFamilyV4p76ExperimentalStatemCodex(ThinFamilyV4p73ExperimentalStatemCo
         self,
         *args: Any,
         development_supplement_ids: Sequence[str] | None = None,
+        practice_catalog_path: str | None = None,
         **kwargs: Any,
     ):
         self._development_supplement_ids = tuple(development_supplement_ids or ())
@@ -233,7 +234,11 @@ class ThinFamilyV4p76ExperimentalStatemCodex(ThinFamilyV4p73ExperimentalStatemCo
         self._phased_runbook_receipt: dict[str, Any] | None = None
         self._use_phased_runbook = False
         super().__init__(
-            *args, practice_catalog_path=str(_DEFAULT_CATALOG_V4), **kwargs
+            *args,
+            practice_catalog_path=str(
+                practice_catalog_path or _DEFAULT_CATALOG_V4
+            ),
+            **kwargs,
         )
 
     @staticmethod
