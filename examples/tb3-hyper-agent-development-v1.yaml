@@ -57,8 +57,9 @@ nodes:
 
       Record scope, evidence basis, and hack risk. Keep non-common details at
       task or subfamily scope. Synthesize a family or global control only from
-      convergent independently developed mechanisms; broader wording alone is
-      not generalization evidence.
+      at least two convergent independently developed local analyses with the
+      same earliest consequential mechanism; broader wording or shared desired
+      outcomes alone are not generalization evidence.
 
   causal_validate:
     prompt: |
@@ -67,7 +68,9 @@ nodes:
       task only for a family-general claim, and a known-positive sentinel only
       for plausible negative-transfer risk. Do not require cross-task transfer
       mechanically or promote every local practice separately. Validate scope
-      expansion only after convergence synthesis. Freeze a successful control
+      expansion only after convergence synthesis, and bind the frozen common
+      mechanism to its precise selector. This validates the shared abstraction,
+      not a transfer of the first task's practice. Freeze a successful control
       at its supported scope; no positive transfer means no scope expansion.
 
   score:

@@ -14,7 +14,7 @@ positive transfer.
 | `algorithm_performance_compact` | family | VF2 adapted/repeat positives plus frozen `batched-eval-parity` direct 0 versus StateM 1 | admitted family control |
 | repair-aware contract authority | task; global candidate | embedding-drift adapted 0 to 1; related authority conflicts observed elsewhere but without independent positive transfer | retain mechanism, do not expand globally |
 | numerical estimator/population checks | task/subfamily | embedding-drift positive; lake-temperature clean negative under sealed distribution shift | family candidate, unadmitted |
-| interleaved candidate-blind acceptance plus information gate | task composite | adapted v4p29 0 to v4p30 1, but two controls changed together | unisolated; no promotion |
+| interleaved candidate-blind acceptance plus information gate | task composite | adapted v4p29 0 to v4p30 1; the final candidate was bound to preflight evidence and passed identity-bound replay, while the information gate later denied an unbound retry and preserved that candidate | temporal roles attributed, reward effect remains composite; freeze task-local, no scope expansion |
 | stateful lifecycle/revise practice | subfamily/family candidate | repeated MVCC reward preservation and thin sentinel; frozen KV scope cell was raw 0/0 but protocol-invalid because public cross-service artifacts were not collected | no positive transfer; retain precise route, unadmitted; block the current false-heavy family selector |
 | risk-scorer failure closure | task safety | reward preserved with large time/cost overhead; tested control path was not exercised | sentinel only |
 | temporal identity and seed sensitivity | task/subfamily | public discriminators closed, final adapted reward remained 0 | useful local effects, incomplete |
@@ -24,8 +24,9 @@ positive transfer.
 
 ## Hack-risk review queue
 
-- **Interleaved composite:** the positive outcome cannot identify which changed
-  control mattered; promoting either component would be post-hoc attribution.
+- **Interleaved composite:** bounded receipts separate the controls' temporal
+  roles, but the positive outcome still cannot identify either component's
+  counterfactual reward effect; promoting one alone would be post-hoc.
 - **UAutomizer semantic matrix:** the authored checks did not distinguish the
   submitted change and were not candidate-bound in the final environment.
 - **Task-local public-gap repairs with raw 0:** temporal identity, seed

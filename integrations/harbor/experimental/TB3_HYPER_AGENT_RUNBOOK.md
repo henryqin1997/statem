@@ -58,11 +58,15 @@ sample-specific thresholds, post-hoc checks, and non-discriminating evidence as
 1. **Local development:** obtain or reuse raw evidence, diagnose the owner, and
    validate the smallest task or subfamily control.
 2. **Convergence synthesis:** compare independently developed controls and
-   extract only their common mechanism. No rollout is required when no common
-   mechanism is observed.
+   extract only their common mechanism. Family synthesis requires at least two
+   independent local analyses with the same earliest consequential mechanism;
+   similar wording or desired outcomes are insufficient. No rollout is
+   required when no common mechanism is observed.
 3. **Scope validation:** freeze the synthesized family or global control and run
-   the cheapest discriminator of the scope expansion. This is not a requirement
-   to promote every local practice one by one.
+   the cheapest discriminator of the scope expansion, including its precise
+   selector. This validates the shared abstraction, not a transfer of the first
+   task's practice, and is not a requirement to promote every local practice
+   one by one.
 
 ## Cheap preflight
 

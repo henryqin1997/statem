@@ -1,0 +1,37 @@
+version: 1
+cell_id: fix-uautomizer-soundness-v4p82-x86-direct-a
+task: terminal-bench/fix-uautomizer-soundness
+evidence_class: adapted_platform_calibration
+scope: task
+question: >-
+  Does the direct solver succeed on the task's native x86_64 platform after
+  removing the ARM-only runtime confound observed in the earlier direct and
+  adapted cells?
+existing_evidence:
+  - local ARM direct raw zero
+  - local ARM adapted raw zero
+  - both submitted artifacts passed the same public semantic cases only through an architecture-compatible invocation
+  - the existing semantic matrix was advisory and did not distinguish the artifacts
+matched_configuration:
+  model: gpt-5.6-sol
+  reasoning_effort: max
+  codex_version: 0.149.1
+  platform: aws_x86_64_docker
+  attempts: 1
+  retries: 0
+  timeout_multiplier: 1.0
+  upload: false
+agent: codex-auth-no-session-baseline-v2
+admission:
+  require_runtime_field_preflight: true
+  require_no_active_experiment_container: true
+decisions:
+  raw_1: freeze_direct_route_and_close_existing_practice
+  raw_0_protocol_valid: require_new_candidate_blind_public_discriminator_before_one_adapted_cell
+  protocol_invalid: exclude_reward_attribution_and_assign_infrastructure_owner
+forbidden:
+  - task_specific_advice
+  - reuse_of_nondiscriminating_matrix_as_causal_evidence
+  - hidden_verifier_evidence
+  - ordinary_failure_retry
+  - family_or_global_scope_promotion
