@@ -24,6 +24,7 @@ positive transfer.
 | retro-console direct route | task | Daytona failed before solver on a package-mirror TLS boundary; the preregistered AWS x86 replacement completed fresh raw 1 | freeze direct route; no StateM arm or control extraction |
 | layout-config direct route | task | Daytona failed before environment start; AWS reached solver execution but timed out at the standard 3,600-second deadline before verifier handoff, with public outputs preserved | protocol-invalid deadline evidence; no raw zero or control extraction; extended diagnosis requires a preregistered public completion discriminator |
 | cumulative-layout-shift direct route | task | Daytona rejected the disk requirement; AWS completed solver execution but the verifier produced no reward file and the declared patch artifact was not collected | protocol-invalid verifier/output-contract ownership; no raw attribution or control extraction; do not repeat without changing the diagnosed boundary |
+| runtime-field compatibility prelaunch | global host gate | KV and Payments both declare sidecar `service` artifacts that pinned Harbor `0.13.1` does not model; both were rejected before auth/environment startup | admitted fail-closed gate; test a pinned newer Harbor in isolation because upstream sidecar support carries artifact-layout and lifecycle-event changes; never bypass per task |
 
 ## Hack-risk review queue
 
