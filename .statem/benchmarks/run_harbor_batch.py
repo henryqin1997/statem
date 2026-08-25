@@ -16,7 +16,7 @@ HARBOR_BIN = Path(
 ).expanduser().resolve()
 HARBOR_PYTHON = Path(
     os.environ.get("STATEM_HARBOR_PYTHON", HARBOR_BIN.parent / "python")
-).expanduser().resolve()
+).expanduser()
 DEFAULT_AGENT_TIMEOUT_SECONDS = 750
 DEFAULT_HARBOR_AGENT_TIMEOUT_SECONDS = 900
 DEFAULT_ENV_FILE = REPO_ROOT / ".statem" / "benchmarks" / "daytona.env"
