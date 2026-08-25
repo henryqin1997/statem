@@ -1003,6 +1003,32 @@ closed_direct_calibrations:
       aac0bf0c3dcdab5567495eeb2b63c223bb2ae174e5bded79fa18585aa5d0472f
     score_eligible: false
     verdict: direct_raw_one_closes_k1_calibration_no_statem_arm
+  - task: terminal-bench/retro-console-soc
+    direct_job: tb3-sol-native-baseline-v2-retro-console-v4p82-k1-aws-x86-b
+    agent: codex-auth-no-session-baseline-v2
+    public_sol_passes: 3
+    public_sol_attempts: 5
+    evidence_class: fresh_direct_infrastructure_replacement
+    replaced_boundary: daytona_fedora_mirror_tls_failure_before_solver
+    raw_reward: 1.0
+    reward_valid: true
+    protocol_valid: true
+    errors: 0
+    retries: 0
+    cost_usd: 8.3938912
+    input_tokens: 13152604
+    cache_tokens: 12851968
+    output_tokens: 102528
+    wall_seconds: 3601.283465
+    atif_schema: ATIF-v1.5
+    atif_steps: 115
+    raw_session_paths: 0
+    backup_files: 21
+    backup_bytes: 2463390
+    backup_tree_sha256: >-
+      a3392221acd43c2eab824bc38c557e5476840b0d16ea31c35faab52e13598405
+    score_eligible: false
+    verdict: direct_raw_one_freezes_route_no_statem_arm
 
 fresh_direct_zero_gates:
   - task: terminal-bench/rs-archive-clone
@@ -1450,13 +1476,13 @@ conversion_portfolio:
     conversion ceiling.
 
 aggregate:
-  as_of: 2026-08-23T02:47:49-07:00
+  as_of: 2026-08-25T11:44:49-07:00
   completed_pairs: 8
   active_matched_arms: 0
   frozen_unlaunched_pairs: 0
   pending_matched_pairs: 2
   pending_fresh_direct_arms: 1
-  closed_fresh_direct_one: 1
+  closed_fresh_direct_one: 2
   infrastructure_invalid_matched_pairs: 2
   protocol_invalid_statem_pairs: 7
   eligible_direct_reward: 0

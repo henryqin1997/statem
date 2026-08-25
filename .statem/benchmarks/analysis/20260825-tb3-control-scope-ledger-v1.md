@@ -19,16 +19,18 @@ positive transfer.
 | risk-scorer failure closure | task safety | reward preserved with large time/cost overhead; tested control path was not exercised | sentinel only |
 | temporal identity and seed sensitivity | task/subfamily | public discriminators closed, final adapted reward remained 0 | useful local effects, incomplete |
 | audio symbolic transcription | task | material artifact delta, adapted reward remained 0 | parked, unadmitted |
-| defined-semantics matrix | task | UAutomizer population was non-discriminating and platform-confounded | unproven; human review required |
+| defined-semantics matrix | task | UAutomizer ARM direct/adapted and x86 direct all scored raw 0; the three distinct JARs differ only in `BitabsTranslation.class`, while the existing public population still cannot distinguish them | platform confound closed, control remains non-discriminating; park and require a new candidate-blind oracle before another adapted cell |
 | session lifecycle control | task | one raw 1 followed by a later raw 0 sentinel | unstable; rejected for expansion |
+| retro-console direct route | task | Daytona failed before solver on a package-mirror TLS boundary; the preregistered AWS x86 replacement completed fresh raw 1 | freeze direct route; no StateM arm or control extraction |
 
 ## Hack-risk review queue
 
 - **Interleaved composite:** bounded receipts separate the controls' temporal
   roles, but the positive outcome still cannot identify either component's
   counterfactual reward effect; promoting one alone would be post-hoc.
-- **UAutomizer semantic matrix:** the authored checks did not distinguish the
-  submitted change and were not candidate-bound in the final environment.
+- **UAutomizer semantic matrix:** x86 execution removed the platform confound,
+  but the authored checks still do not distinguish three different submitted
+  implementations and were not candidate-bound in the final environment.
 - **Task-local public-gap repairs with raw 0:** temporal identity, seed
   sensitivity, and SATB changes are real local effects but must not be rewritten
   as family success.

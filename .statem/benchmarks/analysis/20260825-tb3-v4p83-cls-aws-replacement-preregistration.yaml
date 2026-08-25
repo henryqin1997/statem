@@ -1,0 +1,35 @@
+version: 1
+cell_id: cumulative-layout-shift-v4p83-aws-direct-b
+task: terminal-bench/cumulative-layout-shift
+evidence_class: fresh_direct_infrastructure_replacement
+prior_attempt: >-
+  Daytona rejected the declared 20 GB task disk before environment creation
+  because the account supports at most 10 GB per sandbox. No solver or verifier
+  execution occurred.
+changed_boundary: aws_x86_64_docker_storage_capacity
+public_prior: 4/5
+question: >-
+  Does the direct solver preserve the strong public baseline on a compatible
+  x86 Docker boundary before any frontend-performance control is considered?
+configuration:
+  model: gpt-5.6-sol
+  reasoning_effort: max
+  codex_version: 0.149.1
+  platform: aws_x86_64_docker
+  attempts: 1
+  retries: 0
+  timeout_multiplier: 1.0
+  upload: false
+agent: codex-auth-no-session-baseline-v2
+admission:
+  require_runtime_field_preflight: true
+  require_no_active_conflicting_container: true
+decisions:
+  raw_1: freeze_direct_route
+  raw_0_protocol_valid: classify_implementation_measurement_and_lifecycle_ownership_before_any_adapted_cell
+  protocol_invalid: exclude_reward_attribution_and_require_new_boundary_before_replacement
+forbidden:
+  - task_specific_advice
+  - family_control_loading
+  - hidden_verifier_evidence
+  - ordinary_failure_retry
