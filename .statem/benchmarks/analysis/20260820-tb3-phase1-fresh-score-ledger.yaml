@@ -1030,6 +1030,63 @@ closed_direct_calibrations:
     score_eligible: false
     verdict: direct_raw_one_freezes_route_no_statem_arm
 
+fresh_direct_protocol_invalid:
+  - task: terminal-bench/layout-config-recreation
+    direct_job: tb3-sol-native-baseline-v2-layout-config-v4p83-k1-aws-x86-a
+    agent: codex-auth-no-session-baseline-v2
+    public_sol_passes: 2
+    public_sol_attempts: 5
+    evidence_class: fresh_direct_infrastructure_replacement
+    replaced_boundary: daytona_environment_start_timeout_before_solver
+    raw_reward: null
+    reward_valid: false
+    protocol_valid: false
+    error_bucket: agent_timeout_before_verifier_handoff
+    retries: 0
+    cost_usd: 9.2220368
+    input_tokens: 16110489
+    cache_tokens: 15839872
+    output_tokens: 90181
+    agent_seconds: 3600.0
+    atif_schema: ATIF-v1.5
+    atif_steps: 149
+    raw_session_paths: 0
+    backup_files: 23
+    backup_bytes: 8803498
+    backup_tree_sha256: >-
+      8b1abf63594887755a6afcd87a4122f4a6e53ca6313ad4a155722a01248d1c30
+    score_eligible: false
+    disposition: >-
+      Deadline evidence only. Require a preregistered public completion
+      discriminator before any extended diagnostic; do not extract a control.
+  - task: terminal-bench/cumulative-layout-shift
+    direct_job: tb3-sol-native-baseline-v2-cls-v4p83-k1-aws-x86-b
+    agent: codex-auth-no-session-baseline-v2
+    public_sol_passes: 4
+    public_sol_attempts: 5
+    evidence_class: fresh_direct_infrastructure_replacement
+    replaced_boundary: daytona_disk_admission_rejection_before_environment
+    raw_reward: null
+    reward_valid: false
+    protocol_valid: false
+    error_bucket: verifier_reward_file_missing
+    retries: 0
+    cost_usd: 8.740488
+    input_tokens: 16372191
+    cache_tokens: 16088960
+    output_tokens: 58599
+    atif_schema: ATIF-v1.5
+    atif_steps: 127
+    raw_session_paths: 0
+    backup_files: 12
+    backup_bytes: 9014142
+    backup_tree_sha256: >-
+      93a647e80308915275cde13ddd0b574a602cb827adbf6b834f03ec2f60dc0389
+    score_eligible: false
+    disposition: >-
+      Verifier/output-contract ownership. Do not repeat or extract a task
+      practice until the public lifecycle boundary changes.
+
 fresh_direct_zero_gates:
   - task: terminal-bench/rs-archive-clone
     direct_job: tb3-sol-native-baseline-v2-rs-archive-clone-k1-aws-x86-a

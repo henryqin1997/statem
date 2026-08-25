@@ -22,6 +22,8 @@ positive transfer.
 | defined-semantics matrix | task | UAutomizer ARM direct/adapted and x86 direct all scored raw 0; the three distinct JARs differ only in `BitabsTranslation.class`, while the existing public population still cannot distinguish them | platform confound closed, control remains non-discriminating; park and require a new candidate-blind oracle before another adapted cell |
 | session lifecycle control | task | one raw 1 followed by a later raw 0 sentinel | unstable; rejected for expansion |
 | retro-console direct route | task | Daytona failed before solver on a package-mirror TLS boundary; the preregistered AWS x86 replacement completed fresh raw 1 | freeze direct route; no StateM arm or control extraction |
+| layout-config direct route | task | Daytona failed before environment start; AWS reached solver execution but timed out at the standard 3,600-second deadline before verifier handoff, with public outputs preserved | protocol-invalid deadline evidence; no raw zero or control extraction; extended diagnosis requires a preregistered public completion discriminator |
+| cumulative-layout-shift direct route | task | Daytona rejected the disk requirement; AWS completed solver execution but the verifier produced no reward file and the declared patch artifact was not collected | protocol-invalid verifier/output-contract ownership; no raw attribution or control extraction; do not repeat without changing the diagnosed boundary |
 
 ## Hack-risk review queue
 
