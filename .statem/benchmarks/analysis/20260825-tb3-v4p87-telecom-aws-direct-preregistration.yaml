@@ -39,3 +39,11 @@ forbidden:
   - family_control_loading
   - hidden_verifier_evidence
   - ordinary_failure_retry
+
+post_result_attribution_correction:
+  evidence_class: repeated_direct_platform_calibration
+  score_eligible: false
+  reason: >-
+    A preserved Daytona x86 direct cell with the same model, Codex version,
+    and agent had already completed with valid raw one. The fresh label in
+    this preregistration missed that historical result.

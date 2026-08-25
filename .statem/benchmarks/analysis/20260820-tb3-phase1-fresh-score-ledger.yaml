@@ -1119,6 +1119,34 @@ fresh_direct_protocol_invalid:
       practice until the public lifecycle boundary changes.
 
 repeated_direct_calibrations:
+  - task: terminal-bench/telecom-entity-resolution
+    job: tb3-sol-native-baseline-v2-telecom-entity-v4p87-k1-aws-x86-b
+    evidence_class: repeated_direct_platform_calibration
+    prior_platform: daytona_x86_64
+    platform: aws_x86_64_docker
+    codex_version: 0.149.1
+    raw_reward: 1.0
+    reward_valid: true
+    protocol_valid: true
+    errors: 0
+    retries: 0
+    cost_usd: 4.7357112
+    input_tokens: 6638280
+    cache_tokens: 6449408
+    output_tokens: 70023
+    wall_seconds: 2597.698626
+    agent_seconds: 2473.420126
+    atif_schema: ATIF-v1.5
+    atif_steps: 90
+    raw_session_paths: 0
+    artifact_status: ok
+    backup_files: 14
+    backup_bytes: 5639570
+    backup_tree_sha256: >-
+      2000fc1bce762e313bdc373468e21427c7312652635165ac136649c023f9f570
+    backup_checksum_dry_run_empty: true
+    score_eligible: false
+    disposition: direct_route_frozen_platform_non_regression_only
   - task: terminal-bench/ks-solver-cpp
     job: tb3-sol-native-baseline-v2-ks-solver-v4p87-k1-aws-x86-a
     evidence_class: repeated_direct_version_calibration
@@ -1636,7 +1664,7 @@ conversion_portfolio:
     completed_protocol_invalid_matched: 1
     valid_matched_zero: 4
     infrastructure_invalid_matched: 2
-    active_fresh_direct: 1
+    active_fresh_direct: 0
     completed_fresh_direct_zero_parked: 2
     completed_fresh_direct_zero_pending_matched_gate: 3
     closed_fresh_direct_one: 2
@@ -1662,12 +1690,12 @@ conversion_portfolio:
     conversion ceiling.
 
 aggregate:
-  as_of: 2026-08-25T17:08:56Z
+  as_of: 2026-08-25T17:19:26Z
   completed_pairs: 8
   active_matched_arms: 0
   frozen_unlaunched_pairs: 0
   pending_matched_pairs: 3
-  pending_fresh_direct_arms: 1
+  pending_fresh_direct_arms: 0
   closed_fresh_direct_one: 3
   infrastructure_invalid_matched_pairs: 2
   protocol_invalid_statem_pairs: 7
