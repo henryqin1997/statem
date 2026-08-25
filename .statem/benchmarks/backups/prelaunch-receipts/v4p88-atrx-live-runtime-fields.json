@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "kind": "tb3_task_runtime_compat",
+  "job_name": "tb3-sol-thin-family-v4p88-atrx-artifact-consistency-adapted-k1-local-arm-c",
+  "task": "terminal-bench/atrx-vep-crispr",
+  "task_config_sha256": "4951a73fa554698d3575f98e0905585ce1fecb97825042c22d656d7e25ac3c3d",
+  "runtime_name": "harbor",
+  "runtime_version": "0.13.1",
+  "supported_artifact_fields": [
+    "destination",
+    "exclude",
+    "source"
+  ],
+  "declared_artifact_fields": [
+    "source"
+  ],
+  "unsupported_artifact_fields": [],
+  "artifact_entry_count": 1,
+  "decision": "admit",
+  "reason": "artifact_fields_supported",
+  "receipt_sha256": "efeb16586b14d43fcc211b3983ad66ad1e64a602b79fa3de2f339746c6f5e3e7"
+}

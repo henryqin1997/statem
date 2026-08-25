@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "kind": "tb3_prelaunch_route_check",
+  "job_name": "tb3-sol-thin-family-v4p88-atrx-artifact-consistency-adapted-k1-local-arm-c",
+  "task": "terminal-bench/atrx-vep-crispr",
+  "agent_name": "ziheng-yaxin-statem-codex-thin-family-v4p88-exp",
+  "agent_import_path": "integrations.harbor.statem_codex_thin_family_v4p88_exp:ThinFamilyV4p88ExperimentalStatemCodex",
+  "instruction_sha256": "a07e6d4114ff02b8192b8588b23ca331d4e7035f533848b0a09ec5689acb48a4",
+  "catalog_sha256": "4acd9a9178d7c44c7dd4348cd541e9d3a278a36e49edb26d76d10b4a46bfdf43",
+  "activation_mode": "active",
+  "development_practice_id": "bio_variant_design_consistency",
+  "expected_practice_id": "bio_variant_design_consistency",
+  "selected": true,
+  "selected_practice_id": "bio_variant_design_consistency",
+  "selected_family": "bioinformatics-variant-design",
+  "selected_admitted": false,
+  "eligible_match_count": 1,
+  "decision": "admit",
+  "reason": "exact_visible_route_match",
+  "receipt_sha256": "323aa464f4d5687488cae62d664babab53815af62e456df237fbac19e16834ff"
+}

@@ -1,0 +1,63 @@
+version: 1
+cell_id: atrx-vep-crispr-v4p88-local-arm-adapted-c
+task: terminal-bench/atrx-vep-crispr
+evidence_class: adapted_task_subfamily_practice_causal_test
+score_eligible: false
+
+prior_evidence:
+  direct_job: tb3-sol-native-baseline-v2-atrx-vep-v4p87-k1-local-arm-c
+  direct_raw_reward: 0.0
+  direct_reward_valid: true
+  direct_protocol_valid: true
+  public_artifact_status: complete
+  hardware_lifecycle_and_missing_output_closed: true
+
+hypothesis: >-
+  A thin, candidate-blind cross-field consistency practice can help the solver
+  separate annotation, coordinate mapping, sequence reconstruction, and guide
+  design, then detect the earliest inconsistent stage in the final public
+  mutation report without encoding expected biological values.
+
+scope:
+  practice_id: bio_variant_design_consistency
+  supported_scope: task_or_bioinformatics_variant_design_subfamily
+  family_or_global_promotion_authorized: false
+  detailed_checks: reviewer_only
+  late_checks: public_artifact_cross_field_consistency
+  hack_risk_blockers:
+    - expected_variant_or_consequence
+    - expected_coordinate_or_sequence
+    - expected_guide_or_pam
+    - task_name_routing
+
+route_contract:
+  selector_input: exact_visible_instruction
+  expected_practice_id: bio_variant_design_consistency
+  eligible_match_count: 1
+  development_override: true
+  activation_reason: explicit_adapted_development
+  catalog_admitted: false
+  second_family_or_supplement_loaded: false
+
+configuration:
+  platform: local_arm64_docker
+  model: gpt-5.6-sol
+  reasoning_effort: max
+  codex_version: 0.149.1
+  harbor_version: 0.13.1
+  k: 1
+  concurrency: 1
+  retries: 0
+  upload: false
+  task_timeout_multiplier: 1.0
+  environment_build_timeout_multiplier: 1.0
+  statem_deadline_seconds: 17400
+  handoff_buffer_seconds: 300
+  wall_timeout_seconds: 21600
+
+decision_rule: >-
+  Raw one supports the task/subfamily mechanism only and authorizes no scope
+  expansion until an independent local analysis recurs on the same earliest
+  consequential mechanism. Raw zero with a valid lifecycle parks this practice
+  unless the public artifact yields a genuinely new validation delta. Any
+  protocol-invalid result is excluded from reward attribution.
