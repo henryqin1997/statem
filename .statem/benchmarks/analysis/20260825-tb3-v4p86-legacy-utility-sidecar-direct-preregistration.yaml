@@ -1,0 +1,57 @@
+version: 1
+cell_id: legacy-utility-triage-v4p86-harbor-sidecar-direct-a
+task: terminal-bench/legacy-utility-triage
+evidence_class: fresh_direct_runtime_calibration
+prior_boundary: pinned_harbor_0_13_1_cannot_model_visible_sidecar_service_artifact
+changed_boundary: harbor_0_22_0_pinned_and_validated_sidecar_artifact_runtime
+public_prior: 0/5
+public_errors: 1/5
+public_mean_cost_usd: 19.08
+question: >-
+  Can the direct solver convert or materially complete this untouched legacy
+  GUI operations task when its declared service artifact is transferable by a
+  validated runtime, or is the remaining failure capability-owned?
+configuration:
+  model: gpt-5.6-sol
+  reasoning_effort: max
+  codex_version: 0.149.1
+  harbor_version: 0.22.0
+  harbor_commit: 6ecebe4ae9910ee0b28a2e6e8fa30934c0b41dfa
+  platform: aws_x86_64_docker
+  attempts: 1
+  retries: 0
+  timeout_multiplier: 1.0
+  upload: false
+resources:
+  cpus: 2
+  memory_mb: 8192
+  storage_mb: 20480
+  gpus: 0
+  agent_timeout_seconds: 5400
+prelaunch:
+  hyper_route: direct_untouched_calibration
+  task_field_decision: admit
+  task_config_sha256: 4f9d5ca086ddb6a0d84763b22382efe29903ae4574d0907246c902c130fcab93
+  receipt_file_sha256: ee4382846ad288d9daa65e5f7292ac6382da89e8e768cacae85b0135e4bf98a2
+  receipt_sha256: 7bb8f2ec39ec67d691474c761dfbfa67f430f64bda80a0d10d6a85037c0ac186
+  sidecar_smoke_raw_reward: 1.0
+  payments_runtime_replacement_raw_reward: 1.0
+information_gain:
+  hypotheses:
+    - runtime_artifact_transfer_owned
+    - solver_direction_or_legacy_gui_capability_owned
+    - public_completion_or_validation_owned
+  predicted_observation: >-
+    A protocol-valid reward and service audit artifact separates runtime
+    ownership from task execution; raw zero permits post-result public owner
+    classification but not an automatic StateM arm.
+  decision_change: freeze_direct_or_authorize_one_discriminator_bound_adapted_cell_or_park
+decisions:
+  raw_1: freeze_direct_route
+  raw_0_protocol_valid: require_public_failure_owner_and_candidate_blind_discriminator
+  protocol_invalid: exclude_reward_attribution_and_require_new_boundary_before_replacement
+forbidden:
+  - task_specific_advice
+  - family_control_loading
+  - hidden_verifier_evidence
+  - ordinary_failure_retry

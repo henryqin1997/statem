@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "kind": "tb3_task_runtime_compat",
+  "job_name": "tb3-sol-native-baseline-v2-legacy-utility-v4p86-harbor-sidecar-k1-aws-x86-a",
+  "task": "terminal-bench/legacy-utility-triage",
+  "task_config_sha256": "4f9d5ca086ddb6a0d84763b22382efe29903ae4574d0907246c902c130fcab93",
+  "runtime_name": "harbor",
+  "runtime_version": "0.22.0",
+  "supported_artifact_fields": [
+    "destination",
+    "exclude",
+    "service",
+    "source"
+  ],
+  "declared_artifact_fields": [
+    "service",
+    "source"
+  ],
+  "unsupported_artifact_fields": [],
+  "artifact_entry_count": 1,
+  "decision": "admit",
+  "reason": "artifact_fields_supported",
+  "receipt_sha256": "7bb8f2ec39ec67d691474c761dfbfa67f430f64bda80a0d10d6a85037c0ac186"
+}
