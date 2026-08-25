@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.statem.tb3.atrx-vep.v4p87.local.c</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>/private/tmp/statem-tb3-v4p79-prelaunch-route-check/.statem/benchmarks/launch/run_tb3_native_baseline_v2_atrx_vep_v4p87_k1_local_arm_c.sh</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/private/tmp/statem-tb3-v4p79-prelaunch-route-check</string>
+  <key>StandardOutPath</key>
+  <string>/private/tmp/statem-tb3-v4p79-prelaunch-route-check/.statem/benchmarks/launch/tb3-atrx-vep-v4p87-local-c.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/private/tmp/statem-tb3-v4p79-prelaunch-route-check/.statem/benchmarks/launch/tb3-atrx-vep-v4p87-local-c.err.log</string>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>RunAtLoad</key>
+  <true/>
+</dict>
+</plist>

@@ -1,0 +1,41 @@
+version: 1
+cell_id: ks-solver-cpp-v4p87-aws-direct-a
+task: terminal-bench/ks-solver-cpp
+evidence_class: fresh_direct_calibration
+public_prior: 1/5
+public_errors: 0/5
+public_mean_cost_usd: 3.10
+question: >-
+  Does the untouched direct solver convert this mid-low-score numerical task
+  on its declared x86 CPU boundary before any numerical practice is considered?
+configuration:
+  model: gpt-5.6-sol
+  reasoning_effort: max
+  codex_version: 0.149.1
+  harbor_version: 0.13.1
+  platform: aws_x86_64_docker
+  attempts: 1
+  retries: 0
+  timeout_multiplier: 1.0
+  upload: false
+resources:
+  cpus: 4
+  memory_mb: 8192
+  storage_mb: 10240
+  gpus: 0
+  agent_timeout_seconds: 14400
+prelaunch:
+  hyper_route: direct_untouched_calibration
+  task_field_decision: admit
+  task_config_sha256: 78a21bc365fa02c7e1efef24c161f753da543913718d09a72b6161b6cbd06a90
+  receipt_file_sha256: cb889f1b345f758fa4b5bec3739b8aa095ef8f1daac875d82040f9f551a7459d
+  receipt_sha256: 8a21c0223ae94004e3a75e18401cfd4279186428b127fd951ecd00abdbe02ee9
+decisions:
+  raw_1: freeze_direct_route
+  raw_0_protocol_valid: require_independent_public_numerical_discriminator_before_any_adapted_cell
+  protocol_invalid: exclude_reward_attribution_and_require_new_boundary_before_replacement
+forbidden:
+  - task_specific_advice
+  - unadmitted_numerical_practice
+  - hidden_verifier_evidence
+  - ordinary_failure_retry

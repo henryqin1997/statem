@@ -1119,6 +1119,40 @@ fresh_direct_protocol_invalid:
       practice until the public lifecycle boundary changes.
 
 fresh_direct_zero_gates:
+  - task: terminal-bench/legacy-utility-triage
+    direct_job: tb3-sol-native-baseline-v2-legacy-utility-v4p86-harbor-sidecar-k1-aws-x86-a
+    agent: codex-auth-no-session-baseline-v2
+    public_sol_passes: 0
+    public_sol_attempts: 5
+    public_errors: 1
+    evidence_class: fresh_direct_runtime_calibration
+    raw_reward: 0.0
+    reward_valid: true
+    protocol_valid: true
+    errors: 0
+    retries: 0
+    cost_usd: 4.5455872
+    input_tokens: 7785910
+    cache_tokens: 7541248
+    output_tokens: 27522
+    wall_seconds: 1569.310827
+    agent_seconds: 1353.529804
+    atif_schema: ATIF-v1.7
+    atif_steps: 98
+    raw_session_paths: 0
+    sidecar_artifact_status: ok
+    sidecar_audit_entries: 19
+    backup_files: 15
+    backup_bytes: 7358101
+    backup_tree_sha256: >-
+      dd85e861e502a228cee2c4c17c043f7d4f66bea6000f8ff37592485039888515
+    backup_checksum_dry_run_empty: true
+    score_eligible: false
+    matched_gate: >-
+      Runtime compatibility and artifact transfer are closed, but the public
+      audit log contains no independent expected-decision oracle. Park without
+      retry or adapted search until a candidate-blind discriminator is authored
+      independently of this failed submission.
   - task: terminal-bench/rs-archive-clone
     direct_job: tb3-sol-native-baseline-v2-rs-archive-clone-k1-aws-x86-a
     agent: codex-auth-no-session-baseline-v2
@@ -1540,7 +1574,7 @@ conversion_portfolio:
     valid_matched_zero: 4
     infrastructure_invalid_matched: 2
     active_fresh_direct: 0
-    completed_fresh_direct_zero_parked: 1
+    completed_fresh_direct_zero_parked: 2
     completed_fresh_direct_zero_pending_matched_gate: 2
     closed_fresh_direct_one: 2
     preadmitted_or_practice_gated: 5
@@ -1565,7 +1599,7 @@ conversion_portfolio:
     conversion ceiling.
 
 aggregate:
-  as_of: 2026-08-25T14:59:10Z
+  as_of: 2026-08-25T16:21:56Z
   completed_pairs: 8
   active_matched_arms: 0
   frozen_unlaunched_pairs: 0

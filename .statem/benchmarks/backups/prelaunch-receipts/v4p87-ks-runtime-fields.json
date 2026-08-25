@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "kind": "tb3_task_runtime_compat",
+  "job_name": "tb3-sol-native-baseline-v2-ks-solver-v4p87-k1-aws-x86-a",
+  "task": "terminal-bench/ks-solver-cpp",
+  "task_config_sha256": "78a21bc365fa02c7e1efef24c161f753da543913718d09a72b6161b6cbd06a90",
+  "runtime_name": "harbor",
+  "runtime_version": "0.13.1",
+  "supported_artifact_fields": [
+    "destination",
+    "exclude",
+    "source"
+  ],
+  "declared_artifact_fields": [
+    "source"
+  ],
+  "unsupported_artifact_fields": [],
+  "artifact_entry_count": 1,
+  "decision": "admit",
+  "reason": "artifact_fields_supported",
+  "receipt_sha256": "8a21c0223ae94004e3a75e18401cfd4279186428b127fd951ecd00abdbe02ee9"
+}

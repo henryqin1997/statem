@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "kind": "tb3_task_runtime_compat",
+  "job_name": "tb3-sol-native-baseline-v2-atrx-vep-v4p87-k1-local-arm-c",
+  "task": "terminal-bench/atrx-vep-crispr",
+  "task_config_sha256": "4951a73fa554698d3575f98e0905585ce1fecb97825042c22d656d7e25ac3c3d",
+  "runtime_name": "harbor",
+  "runtime_version": "0.13.1",
+  "supported_artifact_fields": [
+    "destination",
+    "exclude",
+    "source"
+  ],
+  "declared_artifact_fields": [
+    "source"
+  ],
+  "unsupported_artifact_fields": [],
+  "artifact_entry_count": 1,
+  "decision": "admit",
+  "reason": "artifact_fields_supported",
+  "receipt_sha256": "9c28b03c64adeca3c21a356be15a72ce5c09be33751b729ca36b069a12da54ec"
+}

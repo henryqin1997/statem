@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "kind": "tb3_task_runtime_compat",
+  "job_name": "tb3-sol-native-baseline-v2-telecom-entity-v4p87-k1-aws-x86-b",
+  "task": "terminal-bench/telecom-entity-resolution",
+  "task_config_sha256": "4a1716ddb6f9e9a5c626470062d30b985c057d9ee1f1fa4b4c45540db816ec27",
+  "runtime_name": "harbor",
+  "runtime_version": "0.13.1",
+  "supported_artifact_fields": [
+    "destination",
+    "exclude",
+    "source"
+  ],
+  "declared_artifact_fields": [
+    "source"
+  ],
+  "unsupported_artifact_fields": [],
+  "artifact_entry_count": 1,
+  "decision": "admit",
+  "reason": "artifact_fields_supported",
+  "receipt_sha256": "2de2c7b89250c68cf1f48254c2004d2790c8afa2d4e99324387117cae4d4f962"
+}

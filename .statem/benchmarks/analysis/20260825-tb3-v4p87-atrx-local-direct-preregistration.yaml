@@ -1,0 +1,50 @@
+version: 1
+cell_id: atrx-vep-crispr-v4p87-local-arm-direct-c
+task: terminal-bench/atrx-vep-crispr
+evidence_class: fresh_direct_calibration
+public_prior: 2/5
+public_errors: 0/5
+public_mean_cost_usd: 3.12
+question: >-
+  Does the untouched direct solver convert this mid-score artifact task on a
+  validated ARM-compatible CPU boundary before any domain practice is loaded?
+configuration:
+  model: gpt-5.6-sol
+  reasoning_effort: max
+  codex_version: 0.149.1
+  harbor_version: 0.13.1
+  platform: local_arm64_docker
+  attempts: 1
+  retries: 0
+  timeout_multiplier: 1.0
+  upload: false
+resources:
+  cpus: 2
+  memory_mb: 4096
+  storage_mb: 10240
+  gpus: 0
+  agent_timeout_seconds: 18000
+platform_validation:
+  environment_image: python:3.11-slim
+  verifier_image: python:3.11-slim
+  images_are_multiarch: true
+  docker_architecture: aarch64
+  docker_memory_bytes: 8321150976
+  frozen_task_files: 23
+  frozen_task_bytes: 130147519
+  frozen_task_tree_sha256: 83d728f3723e2d5d5033572f2b9aabcc69667b412982f20e3143a3bf72d6d90f
+prelaunch:
+  hyper_route: direct_untouched_calibration
+  task_field_decision: admit
+  task_config_sha256: 4951a73fa554698d3575f98e0905585ce1fecb97825042c22d656d7e25ac3c3d
+  receipt_file_sha256: ec2ea31d599e0e357b115c90c21240c72cca72504dcbc7f9103a7a4518242be0
+  receipt_sha256: 9c28b03c64adeca3c21a356be15a72ce5c09be33751b729ca36b069a12da54ec
+decisions:
+  raw_1: freeze_direct_route
+  raw_0_protocol_valid: separate_artifact_validation_from_domain_capability_before_any_adapted_cell
+  protocol_invalid: exclude_reward_attribution_and_require_new_boundary_before_replacement
+forbidden:
+  - task_specific_advice
+  - family_control_loading
+  - hidden_verifier_evidence
+  - ordinary_failure_retry

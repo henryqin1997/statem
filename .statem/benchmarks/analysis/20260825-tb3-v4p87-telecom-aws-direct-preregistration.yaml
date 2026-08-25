@@ -1,0 +1,41 @@
+version: 1
+cell_id: telecom-entity-resolution-v4p87-aws-direct-b
+task: terminal-bench/telecom-entity-resolution
+evidence_class: fresh_direct_calibration
+public_prior: 4/5
+public_errors: 0/5
+public_mean_cost_usd: 10.12
+question: >-
+  Does the untouched direct solver preserve the already-strong route on a
+  declared x86 CPU environment, avoiding unnecessary StateM context?
+configuration:
+  model: gpt-5.6-sol
+  reasoning_effort: max
+  codex_version: 0.149.1
+  harbor_version: 0.13.1
+  platform: aws_x86_64_docker
+  attempts: 1
+  retries: 0
+  timeout_multiplier: 1.0
+  upload: false
+resources:
+  cpus: 1
+  memory_mb: 4096
+  storage_mb: 10240
+  gpus: 0
+  agent_timeout_seconds: 9000
+prelaunch:
+  hyper_route: direct_high_prior_preservation
+  task_field_decision: admit
+  task_config_sha256: 4a1716ddb6f9e9a5c626470062d30b985c057d9ee1f1fa4b4c45540db816ec27
+  receipt_file_sha256: 05c98b7e40284a0e96a9d57c3b70744cfc9a2ea4c96dcb8850467ec6c4570911
+  receipt_sha256: 2de2c7b89250c68cf1f48254c2004d2790c8afa2d4e99324387117cae4d4f962
+decisions:
+  raw_1: freeze_direct_route
+  raw_0_protocol_valid: classify_owner_before_any_control_and_preserve_high_prior_against_false_heavy_routing
+  protocol_invalid: exclude_reward_attribution_and_require_new_boundary_before_replacement
+forbidden:
+  - task_specific_advice
+  - family_control_loading
+  - hidden_verifier_evidence
+  - ordinary_failure_retry
