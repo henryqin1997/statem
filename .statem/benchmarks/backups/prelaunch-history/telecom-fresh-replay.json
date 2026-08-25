@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "kind": "tb3_prelaunch_history_check",
+  "index_sha256": "da0ca3b848cd52d8e69c086f078fcc667f7efaad9963ff32231fd38da8e51ce8",
+  "task": "terminal-bench/telecom-entity-resolution",
+  "job_name": "tb3-v4p89-telecom-fresh-proposal",
+  "agent_name": "codex-auth-no-session-baseline-v2",
+  "model": "gpt-5.6-sol",
+  "codex_version": "0.149.1",
+  "evidence_class": "fresh_direct",
+  "boundary_change_reason": null,
+  "compatible_history_count": 2,
+  "valid_history_count": 2,
+  "matching_history": [
+    {
+      "job_name": "tb3-sol-native-baseline-v2-telecom-entity-resolution-v4p76-k1-daytona-x86-b",
+      "trial_id": "13466af7-38a9-4a48-90f8-9bff4d64c819",
+      "codex_version": "0.149.1",
+      "reward": 1.0,
+      "reward_valid": true,
+      "protocol_valid": true,
+      "result_sha256": "f64a3b53779aafa47c5107442adb91ade4e247fa823f195e7afb509d897f5bae"
+    },
+    {
+      "job_name": "tb3-sol-native-baseline-v2-telecom-entity-v4p87-k1-aws-x86-b",
+      "trial_id": "3614637d-97a0-4005-aec8-eff772eaf0f1",
+      "codex_version": "0.149.1",
+      "reward": 1.0,
+      "reward_valid": true,
+      "protocol_valid": true,
+      "result_sha256": "7898d87060ff3bc82c98cbbae1ecac0a0a59f5a22e82436791465461d979a810"
+    }
+  ],
+  "decision": "reject",
+  "reason": "prior_reward_valid_direct_observation",
+  "score_eligible": false,
+  "receipt_sha256": "5b92830a9de128206851b84136c1a3d8b6d436cf228505d16ef0623b91306a85"
+}

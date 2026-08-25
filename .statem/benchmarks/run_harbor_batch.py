@@ -283,6 +283,31 @@ def main() -> int:
         help="Optional output path for the field-validated prelaunch receipt.",
     )
     parser.add_argument(
+        "--prelaunch-history-index",
+        type=Path,
+        help="Compact result-only history index used to reject duplicate cells.",
+    )
+    parser.add_argument(
+        "--prelaunch-evidence-class",
+        choices=[
+            "adapted",
+            "fresh_direct",
+            "infrastructure_replacement",
+            "repeated_calibration",
+            "sentinel",
+        ],
+        help="Proposed evidence class to validate against preserved history.",
+    )
+    parser.add_argument(
+        "--prelaunch-history-receipt",
+        type=Path,
+        help="Optional output path for the history admission receipt.",
+    )
+    parser.add_argument(
+        "--prelaunch-boundary-change-reason",
+        help="Required diagnosed boundary change for infrastructure replacement.",
+    )
+    parser.add_argument(
         "--prelaunch-only",
         action="store_true",
         help="Run configured prelaunch checks and exit before auth or an environment starts.",
@@ -346,6 +371,18 @@ def main() -> int:
                 f"selected {prelaunch_receipt['selected_practice_id']!r}"
             )
 
+    history_receipt = _run_prelaunch_history_check(args, tasks, parser)
+    if history_receipt is not None:
+        print(
+            "Prelaunch history: "
+            f"{history_receipt['decision']} "
+            f"({history_receipt['reason']})"
+        )
+        if history_receipt["decision"] != "admit":
+            parser.error(
+                "prelaunch history rejected: " + str(history_receipt["reason"])
+            )
+
     if args.prelaunch_task_field_check and args.dataset_path is not None:
         if not HARBOR_BIN.exists():
             parser.error(f"missing Harbor executable: {HARBOR_BIN}")
@@ -362,7 +399,11 @@ def main() -> int:
             )
 
     if args.prelaunch_only:
-        if prelaunch_receipt is None and not task_field_receipts:
+        if (
+            prelaunch_receipt is None
+            and history_receipt is None
+            and not task_field_receipts
+        ):
             parser.error("no prelaunch check was applicable")
         return 0
 
@@ -677,6 +718,75 @@ def _run_prelaunch_route_check(
         write_prelaunch_route_receipt(receipt, receipt_path)
     except ValueError as exc:
         parser.error(f"invalid prelaunch route configuration: {exc}")
+    return receipt
+
+
+def _run_prelaunch_history_check(
+    args: argparse.Namespace,
+    tasks: list[str],
+    parser: argparse.ArgumentParser,
+) -> dict[str, object] | None:
+    configured = any(
+        (
+            args.prelaunch_history_index,
+            args.prelaunch_evidence_class,
+            args.prelaunch_history_receipt,
+            args.prelaunch_boundary_change_reason,
+        )
+    )
+    if not configured:
+        return None
+    if not args.prelaunch_history_index or not args.prelaunch_evidence_class:
+        parser.error(
+            "--prelaunch-history-index and --prelaunch-evidence-class "
+            "must be provided together"
+        )
+    if args.all_tasks or len(tasks) != 1:
+        parser.error("prelaunch history checks require exactly one selected task")
+    if args.additional_agent:
+        parser.error("prelaunch history checks do not support additional agents")
+    try:
+        index = json.loads(
+            args.prelaunch_history_index.expanduser().read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError) as exc:
+        parser.error(f"invalid prelaunch history index: {exc}")
+    version = next(
+        (
+            value.split("=", 1)[1]
+            for value in args.agent_kwarg
+            if value.startswith("version=")
+        ),
+        None,
+    )
+    if not version:
+        parser.error("prelaunch history checks require agent kwarg version=...")
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    from integrations.harbor.experimental.tb3_prelaunch_history_check import (
+        build_history_receipt,
+        write_json_receipt,
+    )
+
+    try:
+        receipt = build_history_receipt(
+            index=index,
+            task=tasks[0],
+            job_name=args.job_name,
+            agent_name=args.agent_name,
+            model=args.model,
+            codex_version=version,
+            evidence_class=args.prelaunch_evidence_class,
+            boundary_change_reason=args.prelaunch_boundary_change_reason,
+        )
+        receipt_path = args.prelaunch_history_receipt or (
+            args.jobs_dir
+            / ".prelaunch-receipts"
+            / f"{args.job_name}.history.json"
+        )
+        write_json_receipt(receipt, receipt_path)
+    except ValueError as exc:
+        parser.error(f"invalid prelaunch history configuration: {exc}")
     return receipt
 
 

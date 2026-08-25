@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "tb3_prelaunch_history_check",
+  "index_sha256": "da0ca3b848cd52d8e69c086f078fcc667f7efaad9963ff32231fd38da8e51ce8",
+  "task": "terminal-bench/prelaunch-history-never-observed",
+  "job_name": "tb3-v4p89-unseen-fresh-proposal",
+  "agent_name": "codex-auth-no-session-baseline-v2",
+  "model": "gpt-5.6-sol",
+  "codex_version": "0.149.1",
+  "evidence_class": "fresh_direct",
+  "boundary_change_reason": null,
+  "compatible_history_count": 0,
+  "valid_history_count": 0,
+  "matching_history": [],
+  "decision": "admit",
+  "reason": "no_compatible_history",
+  "score_eligible": true,
+  "receipt_sha256": "0e37a2f086b58a6db7a825405ebc52a60b539012ba9a22277e7c14722738e3ea"
+}

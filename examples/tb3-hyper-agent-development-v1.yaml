@@ -13,6 +13,12 @@ nodes:
       scoring for an untouched frozen comparison, develop for causal practice
       discovery, or safety for a low-frequency known-positive risk check.
       Rank eligible work by expected decision-changing information per cost.
+
+      Before labeling a cell fresh, require a host history receipt over the
+      preserved result index. A prior reward-valid direct observation rejects
+      another fresh direct launch across platform or Codex-version changes.
+      Infrastructure replacement requires no prior valid reward plus a named
+      changed boundary; intentional repeats must be score-ineligible.
       For an adapted family cell, require a field-validated host prelaunch
       receipt proving the visible selector chose the exact requested practice.
       Reject any mismatch before Harbor, authentication, or environment setup.
@@ -27,6 +33,10 @@ nodes:
       agent, model, platform, timeout, retry, and upload configuration bound.
       Do not tune between paired arms. Separate reward validity, protocol
       validity, infrastructure status, and artifact identity before diagnosis.
+      Rebuild the history index from synchronized completed backups before each
+      launch, pin its hash in the receipt, and fail closed when it is missing,
+      invalid, or reports a prior valid direct result. Never repair freshness
+      labels after spending a run.
 
   develop:
     prompt: |

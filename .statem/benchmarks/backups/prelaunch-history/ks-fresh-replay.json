@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "kind": "tb3_prelaunch_history_check",
+  "index_sha256": "da0ca3b848cd52d8e69c086f078fcc667f7efaad9963ff32231fd38da8e51ce8",
+  "task": "terminal-bench/ks-solver-cpp",
+  "job_name": "tb3-v4p89-ks-fresh-proposal",
+  "agent_name": "codex-auth-no-session-baseline-v2",
+  "model": "gpt-5.6-sol",
+  "codex_version": "0.149.1",
+  "evidence_class": "fresh_direct",
+  "boundary_change_reason": null,
+  "compatible_history_count": 2,
+  "valid_history_count": 2,
+  "matching_history": [
+    {
+      "job_name": "tb3-sol-native-baseline-v2-ks-solver-cpp-k1-aws-x86-a",
+      "trial_id": "2ac72a21-cdf6-40a4-b8a4-c6158126c683",
+      "codex_version": "0.148.0",
+      "reward": 0.0,
+      "reward_valid": true,
+      "protocol_valid": true,
+      "result_sha256": "593a4b9c0fd127df19a0bc1800b6222d3499659eb1f371abdee4d6a0fd3f6e00"
+    },
+    {
+      "job_name": "tb3-sol-native-baseline-v2-ks-solver-v4p87-k1-aws-x86-a",
+      "trial_id": "0feec7e1-8b17-4893-8689-b25d93b5903b",
+      "codex_version": "0.149.1",
+      "reward": 0.0,
+      "reward_valid": true,
+      "protocol_valid": true,
+      "result_sha256": "99443bc1754f914ec34b8cfeeefeb754b5365007dbb78875ee759fb9ded14346"
+    }
+  ],
+  "decision": "reject",
+  "reason": "prior_reward_valid_direct_observation",
+  "score_eligible": false,
+  "receipt_sha256": "86902d37f2fa9c8df4fa129f36ff60def80bfec9e71eb25118699483a5987593"
+}
