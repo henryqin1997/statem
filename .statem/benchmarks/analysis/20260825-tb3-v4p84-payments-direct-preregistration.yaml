@@ -1,0 +1,37 @@
+version: 1
+cell_id: payments-pipeline-fix-v4p84-aws-direct-a
+task: terminal-bench/payments-pipeline-fix
+evidence_class: fresh_direct_calibration
+public_prior: 3/5
+public_errors: 2/5
+question: >-
+  Does the direct solver convert this remaining mid-score task on a compatible
+  x86 Docker runtime before any task or subfamily practice is considered?
+configuration:
+  model: gpt-5.6-sol
+  reasoning_effort: max
+  codex_version: 0.149.1
+  platform: aws_x86_64_docker
+  attempts: 1
+  retries: 0
+  timeout_multiplier: 1.0
+  upload: false
+resources:
+  cpus: 4
+  memory_mb: 8192
+  gpus: 0
+  agent_timeout_seconds: 7200
+admission:
+  require_runtime_field_preflight: true
+  require_no_active_conflicting_container: true
+  reject_unsupported_public_artifact_fields: true
+decisions:
+  prelaunch_reject: preserve_receipt_and_defer_until_runtime_boundary_changes
+  raw_1: freeze_direct_route
+  raw_0_protocol_valid: require_public_failure_owner_and_discriminator_before_adapted_cell
+  protocol_invalid: exclude_reward_attribution_and_require_new_boundary_before_replacement
+forbidden:
+  - task_specific_advice
+  - family_control_loading
+  - hidden_verifier_evidence
+  - ordinary_failure_retry
