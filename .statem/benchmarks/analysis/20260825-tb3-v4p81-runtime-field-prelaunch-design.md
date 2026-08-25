@@ -32,6 +32,13 @@ rule.
 - 37 TB3 focused tests pass;
 - the hyper runbook remains strict-valid.
 
+The exact AWS prelaunch against Harbor 0.13.1 rejected KV's unsupported
+`service` field before Harbor startup and left zero experiment containers. The
+bounded receipt is preserved at
+`.statem/benchmarks/backups/prelaunch-receipts/v4p81-kv-runtime-fields.json`;
+remote and local SHA256 are both
+`397f56cc84f853df79e3070d6d2c0e9499018f4ed9b35dc1100ad6f50ec1e1ed`.
+
 KV must not be rerun until a compatible Harbor build makes this prelaunch check
 admit. This closes an infrastructure diagnostic loop; it does not promote a
 task, subfamily, or family practice.
