@@ -1,0 +1,41 @@
+version: 1
+pair_id: kv-live-surgery-stateful-family-scope-v4p80-aws-x86-k1
+task: terminal-bench/kv-live-surgery
+evidence_class: frozen_family_scope_validation
+family: stateful-lifecycle
+scope_claim: >-
+  The compact lifecycle practice synthesized from independently observed MVCC
+  and WAL ownership, replay, visibility, and public-consumer boundaries can
+  improve or preserve an untouched same-family task without global context.
+convergence_basis:
+  - mvcc-lsm-compaction adapted positive and repeated thin sentinel
+  - wal-recovery-ordering independent fresh raw one with stateful routing
+target_freshness: >-
+  The prior KV Daytona direct cell was protocol-invalid at cross-service public
+  artifact collection and supplied no semantic or control-authoring evidence.
+matched_configuration:
+  model: gpt-5.6-sol
+  reasoning_effort: max
+  codex_version: 0.149.1
+  platform: aws_x86_64_docker
+  attempts_per_arm: 1
+  retries: 0
+  timeout_multiplier: 1.0
+  upload: false
+direct_agent: codex-auth-no-session-baseline-v2
+statem_agent: ziheng-yaxin-statem-codex-thin-family-v4p76-exp
+statem_practice: stateful_lifecycle_compact
+admission:
+  require_exact_visible_prelaunch_route: true
+  require_same_catalog_for_prelaunch_and_runtime: true
+decisions:
+  direct_0_statem_1: admit_positive_family_transfer
+  direct_1_statem_1: retain_family_candidate_as_noninterference_only
+  direct_0_statem_0: no_scope_expansion
+  direct_1_statem_0: reject_for_negative_transfer
+  protocol_invalid: exclude_and_attribute_owner
+forbidden:
+  - between_arm_tuning
+  - task_specific_control_addition
+  - hidden_verifier_evidence
+  - ordinary_failure_retry

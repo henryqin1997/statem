@@ -15,7 +15,7 @@ positive transfer.
 | repair-aware contract authority | task; global candidate | embedding-drift adapted 0 to 1; related authority conflicts observed elsewhere but without independent positive transfer | retain mechanism, do not expand globally |
 | numerical estimator/population checks | task/subfamily | embedding-drift positive; lake-temperature clean negative under sealed distribution shift | family candidate, unadmitted |
 | interleaved candidate-blind acceptance plus information gate | task composite | adapted v4p29 0 to v4p30 1, but two controls changed together | unisolated; no promotion |
-| stateful lifecycle/revise practice | subfamily/family candidate | repeated MVCC reward preservation and thin sentinel; no demonstrated family uplift | retain precise route, unadmitted |
+| stateful lifecycle/revise practice | subfamily/family candidate | repeated MVCC reward preservation and thin sentinel; frozen KV scope cell was raw 0/0 but protocol-invalid because public cross-service artifacts were not collected | no positive transfer; retain precise route, unadmitted; block the current false-heavy family selector |
 | risk-scorer failure closure | task safety | reward preserved with large time/cost overhead; tested control path was not exercised | sentinel only |
 | temporal identity and seed sensitivity | task/subfamily | public discriminators closed, final adapted reward remained 0 | useful local effects, incomplete |
 | audio symbolic transcription | task | material artifact delta, adapted reward remained 0 | parked, unadmitted |
