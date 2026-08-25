@@ -10,7 +10,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 HARBOR_BIN = Path(
     os.environ.get("STATEM_HARBOR_BIN", REPO_ROOT / ".venv" / "bin" / "harbor")
@@ -263,6 +262,28 @@ def main() -> int:
     parser.add_argument("--upload", action="store_true")
     parser.add_argument("--public", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--prelaunch-expected-practice",
+        help=(
+            "Require the visible-instruction selector to choose this exact "
+            "practice before Harbor or an environment starts."
+        ),
+    )
+    parser.add_argument(
+        "--prelaunch-practice-catalog",
+        type=Path,
+        help="Catalog used by both the host prelaunch check and thin-family adapter.",
+    )
+    parser.add_argument(
+        "--prelaunch-route-receipt",
+        type=Path,
+        help="Optional output path for the field-validated prelaunch receipt.",
+    )
+    parser.add_argument(
+        "--prelaunch-only",
+        action="store_true",
+        help="Run the route check and exit before Harbor, auth, or environment checks.",
+    )
     args = parser.parse_args()
 
     if args.all_tasks and args.task:
@@ -293,6 +314,22 @@ def main() -> int:
         all_tasks=args.all_tasks,
         parser=parser,
     )
+
+    prelaunch_receipt = _run_prelaunch_route_check(args, tasks, parser)
+    if prelaunch_receipt is not None:
+        print(
+            "Prelaunch route: "
+            f"{prelaunch_receipt['decision']} "
+            f"({prelaunch_receipt['reason']})"
+        )
+        if prelaunch_receipt["decision"] != "admit":
+            parser.error(
+                "prelaunch route rejected: "
+                f"expected {prelaunch_receipt['expected_practice_id']!r}, "
+                f"selected {prelaunch_receipt['selected_practice_id']!r}"
+            )
+        if args.prelaunch_only:
+            return 0
 
     if not HARBOR_BIN.exists():
         parser.error(f"missing Harbor executable: {HARBOR_BIN}")
@@ -551,6 +588,62 @@ def _prepend_pythonpath(path: Path, existing: str | None) -> str:
     if path_text in parts:
         return existing
     return path_text + os.pathsep + existing
+
+
+def _run_prelaunch_route_check(
+    args: argparse.Namespace,
+    tasks: list[str],
+    parser: argparse.ArgumentParser,
+) -> dict[str, object] | None:
+    configured = any(
+        (
+            args.prelaunch_expected_practice,
+            args.prelaunch_practice_catalog,
+            args.prelaunch_route_receipt,
+            args.prelaunch_only,
+        )
+    )
+    if not configured:
+        return None
+    if not args.prelaunch_expected_practice or not args.prelaunch_practice_catalog:
+        parser.error(
+            "--prelaunch-expected-practice and --prelaunch-practice-catalog "
+            "must be provided together"
+        )
+    if args.all_tasks or len(tasks) != 1:
+        parser.error("prelaunch route checks require exactly one selected task")
+    if args.dataset_path is None:
+        parser.error("prelaunch route checks require a pinned --dataset-path")
+    if args.additional_agent:
+        parser.error("prelaunch route checks do not support additional agents")
+
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    from integrations.harbor.experimental.tb3_prelaunch_route_check import (
+        build_prelaunch_route_receipt,
+        write_prelaunch_route_receipt,
+    )
+
+    receipt_path = args.prelaunch_route_receipt or (
+        args.jobs_dir
+        / ".prelaunch-receipts"
+        / f"{args.job_name}.route.json"
+    )
+    try:
+        receipt = build_prelaunch_route_receipt(
+            dataset_path=args.dataset_path,
+            task=tasks[0],
+            job_name=args.job_name,
+            agent_name=args.agent_name,
+            agent_import_path=args.agent_import_path,
+            agent_kwargs=args.agent_kwarg,
+            expected_practice_id=args.prelaunch_expected_practice,
+            catalog_path=args.prelaunch_practice_catalog,
+        )
+        write_prelaunch_route_receipt(receipt, receipt_path)
+    except ValueError as exc:
+        parser.error(f"invalid prelaunch route configuration: {exc}")
+    return receipt
 
 
 def _dataset_filter_name(task: str, *, local_path: bool) -> str:
