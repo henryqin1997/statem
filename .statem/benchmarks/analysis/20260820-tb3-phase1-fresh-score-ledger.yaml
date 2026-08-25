@@ -1029,6 +1029,37 @@ closed_direct_calibrations:
       a3392221acd43c2eab824bc38c557e5476840b0d16ea31c35faab52e13598405
     score_eligible: false
     verdict: direct_raw_one_freezes_route_no_statem_arm
+  - task: terminal-bench/payments-pipeline-fix
+    direct_job: tb3-sol-native-baseline-v2-payments-v4p85-harbor-sidecar-k1-aws-x86-a
+    agent: codex-auth-no-session-baseline-v2
+    public_sol_passes: 3
+    public_sol_attempts: 5
+    evidence_class: fresh_direct_runtime_replacement
+    replaced_boundary: harbor_0_13_1_sidecar_service_field_schema_rejection
+    isolated_harbor_version: 0.22.0
+    isolated_harbor_commit: 6ecebe4ae9910ee0b28a2e6e8fa30934c0b41dfa
+    raw_reward: 1.0
+    reward_valid: true
+    protocol_valid: true
+    errors: 0
+    retries: 0
+    cost_usd: 3.8209576
+    input_tokens: 4735925
+    cache_tokens: 4566784
+    output_tokens: 65884
+    wall_seconds: 2438.783281
+    agent_seconds: 2128.799107
+    atif_schema: ATIF-v1.7
+    atif_steps: 78
+    raw_session_paths: 0
+    sidecar_artifact_status: ok
+    backup_files: 22
+    backup_bytes: 73469084
+    backup_tree_sha256: >-
+      98f1782a937e3602c539521165d8e2190381d726e2119936b0f96f9e9d74c9ae
+    backup_checksum_dry_run_empty: true
+    score_eligible: false
+    verdict: direct_raw_one_freezes_route_no_statem_arm
 
 fresh_direct_protocol_invalid:
   - task: terminal-bench/layout-config-recreation
@@ -1508,10 +1539,10 @@ conversion_portfolio:
     completed_protocol_invalid_matched: 1
     valid_matched_zero: 4
     infrastructure_invalid_matched: 2
-    active_fresh_direct: 1
+    active_fresh_direct: 0
     completed_fresh_direct_zero_parked: 1
     completed_fresh_direct_zero_pending_matched_gate: 2
-    closed_fresh_direct_one: 1
+    closed_fresh_direct_one: 2
     preadmitted_or_practice_gated: 5
   public_exact_passes_over_105_trials: 18
   descriptive_full_conversion_additional_reward_over_370: 87
@@ -1525,21 +1556,22 @@ conversion_portfolio:
     protocol-invalid, three matched arms were valid zeros, two historical
     matched launches were lost to the remote runner lifecycle, their Intrastat
     replacement completed as a valid zero and their Next.js replacement was
-    protocol-invalid, two newly admitted fresh-direct arms are active, and the
-    the v4p57 sound-change arm completed as another valid zero, one contemporaneous mid-score pair is
+    protocol-invalid, the fresh Retro and Payments direct replacements closed
+    at raw one, and the v4p57 sound-change arm completed as another valid zero,
+    one contemporaneous mid-score pair is
     frozen but unlaunched, and the remaining paths have not produced their
-    required matched or fresh evidence yet. One additional fresh-direct
-    opportunity was closed after a valid raw one and is not counted in this
+    required matched or fresh evidence yet. Two additional fresh-direct
+    opportunities closed after valid raw ones and are not counted in this
     conversion ceiling.
 
 aggregate:
-  as_of: 2026-08-25T11:44:49-07:00
+  as_of: 2026-08-25T14:59:10Z
   completed_pairs: 8
   active_matched_arms: 0
   frozen_unlaunched_pairs: 0
   pending_matched_pairs: 2
-  pending_fresh_direct_arms: 1
-  closed_fresh_direct_one: 2
+  pending_fresh_direct_arms: 0
+  closed_fresh_direct_one: 3
   infrastructure_invalid_matched_pairs: 2
   protocol_invalid_statem_pairs: 7
   eligible_direct_reward: 0
