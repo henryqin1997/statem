@@ -1,0 +1,34 @@
+version: 1
+cell_id: retro-console-soc-v4p82-aws-direct-a
+task: terminal-bench/retro-console-soc
+evidence_class: fresh_direct_infrastructure_replacement
+prior_attempt: >-
+  The Daytona x86 cell failed before solver execution when the Fedora package
+  mirror returned TLS errors during agent installation. It produced no model
+  tokens, candidate artifact, validation, verifier run, or raw reward.
+changed_boundary: aws_x86_64_docker_network_and_agent_installation
+question: >-
+  Does the direct solver convert this public 3/5 CPU task on a validated x86
+  Docker boundary before any family control is considered?
+configuration:
+  model: gpt-5.6-sol
+  reasoning_effort: max
+  codex_version: 0.149.1
+  platform: aws_x86_64_docker
+  attempts: 1
+  retries: 0
+  timeout_multiplier: 1.0
+  upload: false
+agent: codex-auth-no-session-baseline-v2
+admission:
+  require_runtime_field_preflight: true
+  require_no_active_conflicting_container: true
+decisions:
+  raw_1: freeze_direct_route
+  raw_0_protocol_valid: classify_failure_owner_and_public_validation_delta_before_any_adapted_cell
+  protocol_invalid: exclude_reward_attribution_and_require_new_boundary_before_replacement
+forbidden:
+  - task_specific_advice
+  - family_control_loading
+  - hidden_verifier_evidence
+  - ordinary_failure_retry
