@@ -1119,6 +1119,39 @@ fresh_direct_protocol_invalid:
       practice until the public lifecycle boundary changes.
 
 fresh_direct_zero_gates:
+  - task: terminal-bench/atrx-vep-crispr
+    direct_job: tb3-sol-native-baseline-v2-atrx-vep-v4p87-k1-local-arm-c
+    agent: codex-auth-no-session-baseline-v2
+    public_sol_passes: 2
+    public_sol_attempts: 5
+    public_errors: 0
+    evidence_class: fresh_direct_calibration
+    raw_reward: 0.0
+    reward_valid: true
+    protocol_valid: true
+    errors: 0
+    retries: 0
+    cost_usd: 2.3271584
+    input_tokens: 2172950
+    cache_tokens: 2029056
+    output_tokens: 46998
+    wall_seconds: 1293.638324
+    agent_seconds: 1109.393563
+    atif_schema: ATIF-v1.5
+    atif_steps: 51
+    raw_session_paths: 0
+    artifact_status: ok
+    backup_files: 15
+    backup_bytes: 816310
+    backup_tree_sha256: >-
+      575cb1f3c40115994a8972828dac4fcd3a12a5d495f29fd153f74cae7ca6190a
+    backup_checksum_dry_run_empty: true
+    score_eligible: false
+    matched_gate: >-
+      At most one task/subfamily adapted cell is eligible after a candidate-blind
+      public cross-field consistency discriminator is preregistered. Do not
+      encode expected values or promote the proposed practice beyond its local
+      scope without an independently recurring mechanism.
   - task: terminal-bench/legacy-utility-triage
     direct_job: tb3-sol-native-baseline-v2-legacy-utility-v4p86-harbor-sidecar-k1-aws-x86-a
     agent: codex-auth-no-session-baseline-v2
@@ -1573,9 +1606,9 @@ conversion_portfolio:
     completed_protocol_invalid_matched: 1
     valid_matched_zero: 4
     infrastructure_invalid_matched: 2
-    active_fresh_direct: 0
+    active_fresh_direct: 2
     completed_fresh_direct_zero_parked: 2
-    completed_fresh_direct_zero_pending_matched_gate: 2
+    completed_fresh_direct_zero_pending_matched_gate: 3
     closed_fresh_direct_one: 2
     preadmitted_or_practice_gated: 5
   public_exact_passes_over_105_trials: 18
@@ -1599,12 +1632,12 @@ conversion_portfolio:
     conversion ceiling.
 
 aggregate:
-  as_of: 2026-08-25T16:21:56Z
+  as_of: 2026-08-25T16:55:26Z
   completed_pairs: 8
   active_matched_arms: 0
   frozen_unlaunched_pairs: 0
-  pending_matched_pairs: 2
-  pending_fresh_direct_arms: 0
+  pending_matched_pairs: 3
+  pending_fresh_direct_arms: 2
   closed_fresh_direct_one: 3
   infrastructure_invalid_matched_pairs: 2
   protocol_invalid_statem_pairs: 7
