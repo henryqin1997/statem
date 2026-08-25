@@ -1,0 +1,42 @@
+version: 1
+cell_id: payments-pipeline-fix-v4p85-harbor-sidecar-direct-a
+task: terminal-bench/payments-pipeline-fix
+evidence_class: fresh_direct_runtime_replacement
+prior_boundary: harbor_0_13_1_unsupported_sidecar_service_artifact
+changed_boundary: harbor_0_22_0_pinned_sidecar_artifact_runtime
+public_prior: 3/5
+public_errors: 2/5
+question: >-
+  Does the direct solver convert this mid-score task when the declared sidecar
+  evidence can be transferred by a validated runtime?
+configuration:
+  model: gpt-5.6-sol
+  reasoning_effort: max
+  codex_version: 0.149.1
+  harbor_version: 0.22.0
+  harbor_commit: 6ecebe4ae9910ee0b28a2e6e8fa30934c0b41dfa
+  platform: aws_x86_64_docker
+  attempts: 1
+  retries: 0
+  timeout_multiplier: 1.0
+  upload: false
+resources:
+  cpus: 4
+  memory_mb: 8192
+  gpus: 0
+  agent_timeout_seconds: 7200
+prelaunch:
+  task_field_decision: admit
+  receipt_sha256: 0f58f2a4b2de5951c1883ef1fb0170bade8492946ceff0c6a724ceeadc90799d
+  sidecar_smoke_raw_reward: 1.0
+  sidecar_smoke_protocol_valid: true
+  sidecar_smoke_tree_sha256: ad925386b1c72aca9939711f48f8c9c6f080e04e0a9e238c220494e8b1763ad3
+decisions:
+  raw_1: freeze_direct_route
+  raw_0_protocol_valid: require_public_failure_owner_and_discriminator_before_adapted_cell
+  protocol_invalid: exclude_reward_attribution_and_require_new_boundary_before_replacement
+forbidden:
+  - task_specific_advice
+  - family_control_loading
+  - hidden_verifier_evidence
+  - ordinary_failure_retry

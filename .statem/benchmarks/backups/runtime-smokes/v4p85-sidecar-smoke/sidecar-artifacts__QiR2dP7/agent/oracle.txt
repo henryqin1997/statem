@@ -1,0 +1,1 @@
+{"status": "created", "item": "apple"}{"status": "created", "item": "banana"}{"status": "created", "item": "cherry"}

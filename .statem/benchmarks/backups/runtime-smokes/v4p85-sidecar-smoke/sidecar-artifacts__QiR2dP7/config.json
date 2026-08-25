@@ -1,0 +1,8 @@
+{
+    "task": {
+        "path": "/home/ubuntu/harbor-v4p85-6ecebe4ae991/upstream/examples/tasks/sidecar-artifacts"
+    },
+    "trial_name": "sidecar-artifacts__QiR2dP7",
+    "trials_dir": "/home/ubuntu/harbor-v4p85-6ecebe4ae991/smoke-jobs/v4p85-sidecar-smoke",
+    "job_id": "a4ae17e6-ba33-4e43-8ee2-4fcc44ef90d9"
+}

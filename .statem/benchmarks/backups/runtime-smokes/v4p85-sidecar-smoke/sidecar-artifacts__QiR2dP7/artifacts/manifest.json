@@ -1,0 +1,23 @@
+[
+  {
+    "source": "/logs/artifacts",
+    "destination": "artifacts/logs/artifacts",
+    "type": "directory",
+    "status": "empty",
+    "service": null
+  },
+  {
+    "source": "/var/log/api/orders.log",
+    "destination": "artifacts/var/log/api/orders.log",
+    "type": "file",
+    "status": "ok",
+    "service": "api"
+  },
+  {
+    "source": "/tmp/stats.json",
+    "destination": "artifacts/tmp/stats.json",
+    "type": "file",
+    "status": "ok",
+    "service": "api"
+  }
+]

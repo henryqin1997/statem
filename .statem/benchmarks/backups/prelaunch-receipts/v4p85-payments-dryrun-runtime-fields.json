@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "kind": "tb3_task_runtime_compat",
+  "job_name": "tb3-sol-native-baseline-v2-payments-v4p85-harbor-sidecar-k1-aws-x86-a",
+  "task": "terminal-bench/payments-pipeline-fix",
+  "task_config_sha256": "5fa78662a591a9eb4f7ff71b7d1c5e53cc51f3f534855d8d63e643a398feaa42",
+  "runtime_name": "harbor",
+  "runtime_version": "0.22.0",
+  "supported_artifact_fields": [
+    "destination",
+    "exclude",
+    "service",
+    "source"
+  ],
+  "declared_artifact_fields": [
+    "service",
+    "source"
+  ],
+  "unsupported_artifact_fields": [],
+  "artifact_entry_count": 2,
+  "decision": "admit",
+  "reason": "artifact_fields_supported",
+  "receipt_sha256": "0f58f2a4b2de5951c1883ef1fb0170bade8492946ceff0c6a724ceeadc90799d"
+}

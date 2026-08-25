@@ -27,3 +27,10 @@ modifying the frozen Harbor `0.13.1` environment or launching a model.
 
 Any failed import, missing `service` field, receipt mismatch, harness test
 failure, or dry-run failure blocks a live task launch.
+
+## Outcome
+
+All five admission stages passed under isolated Harbor `0.22.0`. The upstream
+sidecar Oracle smoke was reward- and protocol-valid with successful service
+artifact collection. Exactly one Payments fresh direct runtime-replacement cell
+is admitted; broader runtime reuse remains unapproved.

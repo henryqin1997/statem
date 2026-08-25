@@ -1,0 +1,10 @@
+{
+    "job_name": "v4p85-sidecar-smoke",
+    "jobs_dir": "/home/ubuntu/harbor-v4p85-6ecebe4ae991/smoke-jobs",
+    "n_concurrent_trials": 1,
+    "tasks": [
+        {
+            "path": "/home/ubuntu/harbor-v4p85-6ecebe4ae991/upstream/examples/tasks/sidecar-artifacts"
+        }
+    ]
+}

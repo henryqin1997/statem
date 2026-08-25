@@ -1,0 +1,8 @@
+Skipping image OS validation for hb__3aa666a91836226672873a43054cb53e: docker inspect returned 1
+Collecting main service artifacts
+Stopping main service before sidecar evidence collection
+Main service stopped
+Collecting sidecar artifacts from services: ['api']
+Running collect hook in service 'api': 'curl -s http://localhost:8000/stats > /tmp/stats.json'
+Collect hook in service 'api' completed
+Skipping image OS validation for hb__8f8b1a4095e32917239ee89400b3fd05: docker inspect returned 1
