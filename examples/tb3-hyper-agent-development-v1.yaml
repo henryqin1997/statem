@@ -16,6 +16,8 @@ nodes:
       For an adapted family cell, require a field-validated host prelaunch
       receipt proving the visible selector chose the exact requested practice.
       Reject any mismatch before Harbor, authentication, or environment setup.
+      Assign the narrowest supported scope: task, subfamily, family, or global.
+      Optimize decision-changing information per wall time, not rollout count.
 
   raw_observe:
     prompt: |
@@ -39,6 +41,9 @@ nodes:
       Never force a practice that the visible selector did not choose merely to
       obtain a development rollout.
 
+      Develop local controls independently. Do not deploy one guessed general
+      control across many tasks before a common failure mechanism is observed.
+
   extract_practice:
     prompt: |
       Extract the smallest reusable control supported by the adapted contrast:
@@ -48,20 +53,29 @@ nodes:
       Do not encode task identity, observed answers, counts, patches, hidden
       evidence, portfolio state, or score targets.
 
+      Record scope, evidence basis, and hack risk. Keep non-common details at
+      task or subfamily scope. Synthesize a family or global control only from
+      convergent independently developed mechanisms; broader wording alone is
+      not generalization evidence.
+
   causal_validate:
     prompt: |
       Choose the cheapest validation that matches the claim. Use same-task
       independent evidence for a task-boundary claim, an untouched same-family
       task only for a family-general claim, and a known-positive sentinel only
       for plausible negative-transfer risk. Do not require cross-task transfer
-      mechanically. Freeze a successful control instead of expanding it.
+      mechanically or promote every local practice separately. Validate scope
+      expansion only after convergence synthesis. Freeze a successful control
+      at its supported scope; no positive transfer means no scope expansion.
 
   score:
     prompt: |
       Run only a preregistered untouched comparison under frozen source and
       matched configuration. No task influenced by control authoring or
       selection enters the fresh numerator. A k=1 pair is triage, not a pass@k
-      estimate. Preserve complete artifacts and independent validity axes.
+      estimate. A family comparison validates a synthesized family control,
+      not every local practice. Preserve complete artifacts and independent
+      validity axes.
 
   safety:
     prompt: |
@@ -74,8 +88,9 @@ nodes:
     prompt: |
       Wait for runners, reviewers, processes, and containers to exit. Preserve
       source and result artifacts, verify file count, bytes, and deterministic
-      relative-path tree identity, update the evidence ledger, and choose the
-      next state from the new information rather than from rollout count.
+      relative-path tree identity, update the evidence and scope ledgers, flag
+      hack-risk items for human review, and choose the next state from the new
+      information rather than from rollout count.
 
 edges:
   - from: triage

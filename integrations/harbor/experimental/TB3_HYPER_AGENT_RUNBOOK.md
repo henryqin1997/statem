@@ -21,7 +21,10 @@ the changed control creates a new plausible exposure.
 An adapted result cannot estimate an unbiased score, but it may be the strongest
 evidence for a control. Compare positive and negative behavior, locate the first
 decision that predicts the outcome, classify its owner, and test one bounded
-counterfactual. A useful practice contains only:
+counterfactual. Start at the narrowest scope supported by that contrast. Do not
+guess one general control and repeatedly deploy it across tasks. Develop local
+controls independently, then synthesize only the mechanism shared by convergent
+positive and negative observations. A useful practice contains only:
 
 1. an observable task-contract trigger;
 2. the earliest wrong choice;
@@ -32,6 +35,34 @@ counterfactual. A useful practice contains only:
 When several controls changed together, retain a composite hypothesis rather
 than claiming a component effect. Isolate it through the cheapest validation
 that can decide the question.
+
+## Scope ladder
+
+Every extracted control records one scope and one promotion status:
+
+| Scope | Meaning | Expansion evidence |
+| --- | --- | --- |
+| Task | One implementation or contract surface | Same-task causal delta |
+| Subfamily | A precise repeated shape inside a family | Convergent local mechanisms |
+| Family | Shared mechanism under a visible family route | Frozen family-level discriminator |
+| Global | Cross-family controller or lifecycle invariant | Cross-family convergence and scoped safety evidence |
+
+Keep non-common details in task or subfamily practices with precise routing.
+Expand scope only when the broader control produces positive transfer. A merely
+non-regressing result does not justify expansion. Mark answer-shaped triggers,
+sample-specific thresholds, post-hoc checks, and non-discriminating evidence as
+`hack_risk: review_required`; do not promote them before human review.
+
+## Three-stage pipeline
+
+1. **Local development:** obtain or reuse raw evidence, diagnose the owner, and
+   validate the smallest task or subfamily control.
+2. **Convergence synthesis:** compare independently developed controls and
+   extract only their common mechanism. No rollout is required when no common
+   mechanism is observed.
+3. **Scope validation:** freeze the synthesized family or global control and run
+   the cheapest discriminator of the scope expansion. This is not a requirement
+   to promote every local practice one by one.
 
 ## Cheap preflight
 
@@ -46,10 +77,10 @@ ownership. Full task rollouts are not controller debugging tools.
 Every continuation declares the hypotheses separated, predicted observation,
 validation delta, expected cost, deadline feasibility, and the decision that
 would change. Prefer the experiment with the largest expected change in
-admission, rebranch, transfer, or parking per unit cost. A `0 -> 0` closes one
-comparison, not the task; park only after proposal exhaustion, absent public
-discriminators, a capability or hardware boundary, or lower value than the
-next eligible task.
+admission, rebranch, scope, or parking per unit wall time. API cost is a
+constraint, not the primary search objective. A `0 -> 0` closes one comparison,
+not the task; park only after proposal exhaustion, absent public discriminators,
+a capability or hardware boundary, or lower value than the next eligible task.
 
 ## Layer boundary
 

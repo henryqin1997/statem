@@ -29,6 +29,10 @@ class Tb3HyperAgentRunbookTest(unittest.TestCase):
         self.assertIn("expected decision-changing information", nodes["triage"]["prompt"])
         self.assertIn("adapted causal evidence", nodes["develop"]["prompt"])
         self.assertIn("Do not require cross-task transfer", nodes["causal_validate"]["prompt"])
+        self.assertIn("narrowest supported scope", nodes["triage"]["prompt"])
+        self.assertIn("Develop local controls independently", nodes["develop"]["prompt"])
+        self.assertIn("hack risk", nodes["extract_practice"]["prompt"])
+        self.assertIn("convergence synthesis", nodes["causal_validate"]["prompt"])
 
     def test_hyper_policy_is_not_a_task_solution_runbook(self) -> None:
         text = RUNBOOK.read_text(encoding="utf-8").lower()
