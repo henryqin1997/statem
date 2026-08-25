@@ -68,9 +68,11 @@ sample-specific thresholds, post-hoc checks, and non-discriminating evidence as
 
 The hyper orchestrator first uses a candidate-blind task card plus existing raw
 evidence. Deterministic checks reject configuration, platform, route, deadline,
-and missing-public-discriminator mismatches. A bounded subagent is used only to
-execute a public smoke test or distinguish solver-direction from validation
-ownership. Full task rollouts are not controller debugging tools.
+runtime-field, and missing-public-discriminator mismatches. Unknown task fields
+fail before auth or environment startup instead of being silently discarded and
+misclassified as solver failures. A bounded subagent is used only to execute a
+public smoke test or distinguish solver-direction from validation ownership.
+Full task rollouts are not controller debugging tools.
 
 ## Information-gain budget
 

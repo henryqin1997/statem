@@ -16,6 +16,8 @@ nodes:
       For an adapted family cell, require a field-validated host prelaunch
       receipt proving the visible selector chose the exact requested practice.
       Reject any mismatch before Harbor, authentication, or environment setup.
+      For pinned tasks, reject declaration fields absent from the installed
+      Harbor runtime model; silently ignored fields are protocol-invalid.
       Assign the narrowest supported scope: task, subfamily, family, or global.
       Optimize decision-changing information per wall time, not rollout count.
 

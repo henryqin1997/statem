@@ -154,6 +154,7 @@ class Tb3PrelaunchRouteCheckTest(unittest.TestCase):
                 str(CATALOG),
                 "--prelaunch-route-receipt",
                 str(receipt),
+                "--no-prelaunch-task-field-check",
                 "--prelaunch-only",
             ]
             env = os.environ.copy()
@@ -206,6 +207,7 @@ class Tb3PrelaunchRouteCheckTest(unittest.TestCase):
                 str(CATALOG),
                 "--prelaunch-route-receipt",
                 str(receipt_path),
+                "--no-prelaunch-task-field-check",
                 "--prelaunch-only",
             ]
             env = os.environ.copy()

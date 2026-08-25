@@ -33,6 +33,8 @@ class Tb3HyperAgentRunbookTest(unittest.TestCase):
         self.assertIn("Develop local controls independently", nodes["develop"]["prompt"])
         self.assertIn("hack risk", nodes["extract_practice"]["prompt"])
         self.assertIn("convergence synthesis", nodes["causal_validate"]["prompt"])
+        self.assertIn("declaration fields", nodes["triage"]["prompt"])
+        self.assertIn("runtime model", nodes["triage"]["prompt"])
 
     def test_hyper_policy_is_not_a_task_solution_runbook(self) -> None:
         text = RUNBOOK.read_text(encoding="utf-8").lower()

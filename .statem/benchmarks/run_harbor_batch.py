@@ -14,6 +14,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 HARBOR_BIN = Path(
     os.environ.get("STATEM_HARBOR_BIN", REPO_ROOT / ".venv" / "bin" / "harbor")
 ).expanduser().resolve()
+HARBOR_PYTHON = Path(
+    os.environ.get("STATEM_HARBOR_PYTHON", HARBOR_BIN.parent / "python")
+).expanduser().resolve()
 DEFAULT_AGENT_TIMEOUT_SECONDS = 750
 DEFAULT_HARBOR_AGENT_TIMEOUT_SECONDS = 900
 DEFAULT_ENV_FILE = REPO_ROOT / ".statem" / "benchmarks" / "daytona.env"
@@ -282,7 +285,21 @@ def main() -> int:
     parser.add_argument(
         "--prelaunch-only",
         action="store_true",
-        help="Run the route check and exit before Harbor, auth, or environment checks.",
+        help="Run configured prelaunch checks and exit before auth or an environment starts.",
+    )
+    parser.add_argument(
+        "--prelaunch-task-field-check",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "For pinned local tasks, reject artifact declaration fields that the "
+            "installed Harbor runtime does not model."
+        ),
+    )
+    parser.add_argument(
+        "--prelaunch-task-field-receipt",
+        type=Path,
+        help="Optional output path for a single-task runtime field receipt.",
     )
     args = parser.parse_args()
 
@@ -328,8 +345,26 @@ def main() -> int:
                 f"expected {prelaunch_receipt['expected_practice_id']!r}, "
                 f"selected {prelaunch_receipt['selected_practice_id']!r}"
             )
-        if args.prelaunch_only:
-            return 0
+
+    if args.prelaunch_task_field_check and args.dataset_path is not None:
+        if not HARBOR_BIN.exists():
+            parser.error(f"missing Harbor executable: {HARBOR_BIN}")
+    task_field_receipts = _run_prelaunch_task_field_checks(args, tasks, parser)
+    for receipt in task_field_receipts:
+        print(
+            "Prelaunch task fields: "
+            f"{receipt['decision']} ({receipt['reason']}) for {receipt['task']}"
+        )
+        if receipt["decision"] != "admit":
+            parser.error(
+                "prelaunch task fields rejected: "
+                + ", ".join(receipt["unsupported_artifact_fields"])
+            )
+
+    if args.prelaunch_only:
+        if prelaunch_receipt is None and not task_field_receipts:
+            parser.error("no prelaunch check was applicable")
+        return 0
 
     if not HARBOR_BIN.exists():
         parser.error(f"missing Harbor executable: {HARBOR_BIN}")
@@ -600,7 +635,6 @@ def _run_prelaunch_route_check(
             args.prelaunch_expected_practice,
             args.prelaunch_practice_catalog,
             args.prelaunch_route_receipt,
-            args.prelaunch_only,
         )
     )
     if not configured:
@@ -644,6 +678,104 @@ def _run_prelaunch_route_check(
     except ValueError as exc:
         parser.error(f"invalid prelaunch route configuration: {exc}")
     return receipt
+
+
+def _run_prelaunch_task_field_checks(
+    args: argparse.Namespace,
+    tasks: list[str],
+    parser: argparse.ArgumentParser,
+) -> list[dict[str, object]]:
+    if not args.prelaunch_task_field_check or args.dataset_path is None:
+        if args.prelaunch_task_field_receipt is not None:
+            parser.error(
+                "--prelaunch-task-field-receipt requires a pinned --dataset-path "
+                "and task field checks"
+            )
+        return []
+
+    selected_tasks = tasks or _discover_local_tasks(args.dataset_path)
+    if not selected_tasks:
+        parser.error("task field checks found no local tasks")
+    if args.prelaunch_task_field_receipt is not None and len(selected_tasks) != 1:
+        parser.error("an explicit task field receipt requires exactly one task")
+
+    runtime = _load_harbor_artifact_schema(parser)
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    from integrations.harbor.experimental.tb3_task_runtime_compat import (
+        build_task_runtime_compat_receipt,
+        write_task_runtime_compat_receipt,
+    )
+
+    receipts: list[dict[str, object]] = []
+    for task in selected_tasks:
+        try:
+            receipt = build_task_runtime_compat_receipt(
+                dataset_path=args.dataset_path,
+                task=task,
+                job_name=args.job_name,
+                runtime_name=runtime["runtime_name"],
+                runtime_version=runtime["runtime_version"],
+                supported_artifact_fields=runtime["artifact_fields"],
+            )
+            receipt_path = args.prelaunch_task_field_receipt or (
+                args.jobs_dir
+                / ".prelaunch-receipts"
+                / f"{args.job_name}.{task.rsplit('/', 1)[-1]}.task-fields.json"
+            )
+            write_task_runtime_compat_receipt(receipt, receipt_path)
+        except ValueError as exc:
+            parser.error(f"invalid prelaunch task field configuration: {exc}")
+        receipts.append(receipt)
+    return receipts
+
+
+def _load_harbor_artifact_schema(
+    parser: argparse.ArgumentParser,
+) -> dict[str, object]:
+    if not HARBOR_PYTHON.exists():
+        parser.error(f"missing Harbor Python executable: {HARBOR_PYTHON}")
+    script = (
+        "import json; from importlib.metadata import version; "
+        "from harbor.models.trial.config import ArtifactConfig; "
+        "print(json.dumps({'runtime_name':'harbor',"
+        "'runtime_version':version('harbor'),"
+        "'artifact_fields':sorted(ArtifactConfig.model_fields)}))"
+    )
+    completed = subprocess.run(
+        [str(HARBOR_PYTHON), "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    if completed.returncode != 0:
+        parser.error("failed to inspect Harbor artifact schema")
+    try:
+        payload = json.loads(completed.stdout)
+    except json.JSONDecodeError:
+        parser.error("Harbor artifact schema inspection returned invalid JSON")
+    if not isinstance(payload, dict):
+        parser.error("Harbor artifact schema inspection must return an object")
+    fields = payload.get("artifact_fields")
+    if (
+        not isinstance(fields, list)
+        or not fields
+        or any(not isinstance(field, str) or not field for field in fields)
+    ):
+        parser.error("Harbor artifact schema inspection returned invalid fields")
+    for key in ("runtime_name", "runtime_version"):
+        if not isinstance(payload.get(key), str) or not payload[key]:
+            parser.error(f"Harbor artifact schema inspection omitted {key}")
+    return payload
+
+
+def _discover_local_tasks(dataset_path: Path) -> list[str]:
+    root = dataset_path.expanduser().resolve()
+    candidates = [path for path in root.glob("*/task.toml")]
+    candidates.extend(path for path in (root / "tasks").glob("*/task.toml"))
+    names = sorted({path.parent.name for path in candidates})
+    return [f"terminal-bench/{name}" for name in names]
 
 
 def _dataset_filter_name(task: str, *, local_path: bool) -> str:
