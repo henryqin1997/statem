@@ -175,8 +175,8 @@
       "family": "numerical-model",
       "priority": 40,
       "trigger_groups": [
-        ["\\bestimator\\b", "\\bstatistic", "\\btensor\\b", "\\bmodel\\b", "\\bmetric\\b", "\\bdistribution\\b", "\\boptimi[sz]"],
-        ["\\bunbiased\\b", "\\bcalibrat", "\\bnumeric", "\\bprecision\\b", "\\bpopulation\\b", "\\binference\\b", "\\bshape\\b"]
+        ["\\bestimator\\b", "\\bstatistic", "\\btensor\\b", "\\bmodel\\b", "\\bmetric\\b", "\\bdistribution\\b", "\\boptimi[sz]", "\\bfit(?:ting)?\\b", "\\bfunctional form\\b", "\\bcontinuous relationship\\b", "\\bregression\\b"],
+        ["\\bunbiased\\b", "\\bcalibrat", "\\bnumeric", "\\bprecision\\b", "\\bpopulation\\b", "\\binference\\b", "\\bshape\\b", "\\bpredict", "\\bextrem", "\\bspectroscop", "\\bwavenumber\\b", "\\bdihedral\\b"]
       ],
       "compact": {
         "direction_cues": [

@@ -81,9 +81,9 @@ class ThinFamilyV4p90Test(unittest.TestCase):
 
     def test_roy_routes_to_existing_numerical_control(self) -> None:
         selection = self._select(
-            "Fit a physically appropriate continuous model to a molecular "
-            "dihedral angle and spectroscopic wavenumber population, then predict "
-            "numeric extrema and values with calibrated precision.",
+            "Model the continuous relationship between conformation and "
+            "spectroscopic behavior by fitting a physically appropriate functional "
+            "form, then predict extrema and wavenumbers at several dihedral angles.",
             "numerical_model_compact",
         )
         selection["activated"] = True
