@@ -728,7 +728,15 @@ After compaction, immediately recover with:
             return _result(item, purpose, True, output="auto-confirmed yes")
         if not sys.stdin.isatty():
             return _result(item, purpose, False, output="confirmation required; rerun with --yes to auto-confirm")
-        answer = input("Confirm? [y/N] ").strip().lower()
+        try:
+            answer = input("Confirm? [y/N] ").strip().lower()
+        except EOFError:
+            return _result(
+                item,
+                purpose,
+                False,
+                output="confirmation required (EOF); rerun with --yes to auto-confirm",
+            )
         return _result(item, purpose, answer in {"y", "yes"}, output=f"answered {answer or 'no'}")
 
     def _run_checklist(self, item: dict[str, Any], purpose: str) -> dict[str, Any]:
@@ -742,7 +750,15 @@ After compaction, immediately recover with:
         if not sys.stdin.isatty():
             return _result(item, purpose, False, output="checklist confirmation required; rerun with --yes")
         for entry in entries:
-            answer = input(f"Confirm '{entry}'? [y/N] ").strip().lower()
+            try:
+                answer = input(f"Confirm '{entry}'? [y/N] ").strip().lower()
+            except EOFError:
+                return _result(
+                    item,
+                    purpose,
+                    False,
+                    output=f"unchecked (EOF): {entry}; rerun with --yes to auto-confirm",
+                )
             if answer not in {"y", "yes"}:
                 return _result(item, purpose, False, output=f"unchecked: {entry}")
         return _result(item, purpose, True, output="checklist confirmed")
