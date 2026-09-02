@@ -5,7 +5,7 @@ import shlex
 import subprocess
 import tempfile
 import unittest
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from unittest import mock
 
 from statem.core import RunOptions, StatemRuntime
@@ -129,7 +129,7 @@ class ExistingPosixStopHookCompatibilityTest(unittest.TestCase):
     def test_posix_continuation_text_keeps_legacy_quoting(self) -> None:
         reason = STOP_HOOK._continuation_reason(
             ["python3", "-m", "statem"],
-            Path("/tmp/state"),
+            PurePosixPath("/tmp/state"),
             "start",
             [{"to": "plan"}],
             statem_command_text="python3 -m statem",
