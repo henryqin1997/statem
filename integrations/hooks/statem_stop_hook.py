@@ -34,8 +34,9 @@ def main() -> int:
     if not (state_dir / "active_run").exists():
         return _allow()
 
+    statem_command_text = os.environ.get("STATEM_COMMAND")
     try:
-        statem_argv = _statem_command_argv(os.environ.get("STATEM_COMMAND"))
+        statem_argv = _statem_command_argv(statem_command_text)
     except ValueError:
         return _allow(
             system_message="statem Stop hook found an invalid STATEM_COMMAND; allowing stop."
@@ -53,7 +54,13 @@ def main() -> int:
     if current in stop_states or not next_states:
         return _allow()
 
-    reason = _continuation_reason(statem_argv, state_dir, current, next_states)
+    reason = _continuation_reason(
+        statem_argv,
+        state_dir,
+        current,
+        next_states,
+        statem_command_text=statem_command_text or f"{sys.executable} -m statem",
+    )
     return _continue(reason)
 
 
@@ -134,11 +141,32 @@ def _run_statem_json(
 
 
 def _continuation_reason(
-    statem_argv: Sequence[str], state_dir: Path, current: str, next_states: list[Any]
+    statem_argv: Sequence[str],
+    state_dir: Path,
+    current: str,
+    next_states: list[Any],
+    *,
+    statem_command_text: str | None = None,
+    windows: bool | None = None,
 ) -> str:
     next_names = ", ".join(str(edge.get("to")) for edge in next_states if isinstance(edge, dict)) or "(none)"
-    cur_command = _format_argv([*statem_argv, "cur", "--state-dir", str(state_dir), "--json"])
-    next_command = _format_argv([*statem_argv, "next", "--state-dir", str(state_dir), "--json"])
+    is_windows = os.name == "nt" if windows is None else windows
+    if is_windows:
+        cur_command = _format_argv(
+            [*statem_argv, "cur", "--state-dir", str(state_dir), "--json"],
+            windows=True,
+        )
+        next_command = _format_argv(
+            [*statem_argv, "next", "--state-dir", str(state_dir), "--json"],
+            windows=True,
+        )
+    else:
+        # Keep the pre-Windows-fix continuation text byte-for-byte compatible
+        # on POSIX, including the caller's STATEM_COMMAND spelling and the
+        # always-single-quoted state directory.
+        command_text = statem_command_text or _format_argv(statem_argv, windows=False)
+        cur_command = f"{command_text} cur --state-dir {sh_quote(str(state_dir))} --json"
+        next_command = f"{command_text} next --state-dir {sh_quote(str(state_dir))} --json"
     return "\n".join(
         [
             "Continue the active statem-managed run instead of stopping.",
@@ -165,6 +193,12 @@ def _allow(*, system_message: str | None = None) -> int:
 def _continue(reason: str) -> int:
     print(json.dumps({"decision": "block", "reason": reason}))
     return 0
+
+
+def sh_quote(value: str) -> str:
+    """Quote one POSIX shell value using the hook's legacy rendering."""
+
+    return "'" + value.replace("'", "'\"'\"'") + "'"
 
 
 if __name__ == "__main__":

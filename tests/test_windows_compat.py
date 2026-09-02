@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import shlex
 import subprocess
 import tempfile
 import unittest
@@ -107,6 +108,39 @@ class WindowsStopHookCommandTest(unittest.TestCase):
                 r"D:\work\.statem",
                 "--json",
             ],
+        )
+
+
+class ExistingPosixStopHookCompatibilityTest(unittest.TestCase):
+    def test_posix_overrides_keep_legacy_shlex_parsing(self) -> None:
+        commands = [
+            "statem",
+            "python3 -m statem",
+            "'/opt/Python Env/bin/python3' -m statem",
+            'statem-wrapper --profile "test profile"',
+        ]
+        for command in commands:
+            with self.subTest(command=command):
+                self.assertEqual(
+                    STOP_HOOK._statem_command_argv(command, windows=False),
+                    shlex.split(command),
+                )
+
+    def test_posix_continuation_text_keeps_legacy_quoting(self) -> None:
+        reason = STOP_HOOK._continuation_reason(
+            ["python3", "-m", "statem"],
+            Path("/tmp/state"),
+            "start",
+            [{"to": "plan"}],
+            statem_command_text="python3 -m statem",
+            windows=False,
+        )
+
+        self.assertIn(
+            "python3 -m statem cur --state-dir '/tmp/state' --json", reason
+        )
+        self.assertIn(
+            "python3 -m statem next --state-dir '/tmp/state' --json", reason
         )
 
 
