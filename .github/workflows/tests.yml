@@ -1,0 +1,37 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Run Windows compatibility regressions
+        run: python -m unittest tests.test_windows_compat
+      - name: Run Windows stop-hook integration regressions
+        if: runner.os == 'Windows'
+        run: >-
+          python -m unittest
+          tests.test_statem_cli.StatemCliTest.test_stop_hook_blocks_unfinished_active_run
+          tests.test_statem_cli.StatemCliTest.test_stop_hook_allows_recursion_guard_and_terminal_state
+      - name: Run dependency-free suite
+        if: runner.os == 'Linux'
+        run: >-
+          python -m unittest
+          tests.test_statem_cli
+          tests.test_deepseek_server_readiness_subset
+          tests.test_windows_compat
