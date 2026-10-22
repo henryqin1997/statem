@@ -212,6 +212,24 @@ Every hook/check should have robust defaults:
 - `timeout`: optional for command hooks.
 - `cwd`: optional command working directory.
 
+### Non-Interactive Execution
+
+`statem` is designed to be driven by agents, which are often non-interactive
+(stdin is not a terminal, or no input is ever provided). Behavior in these
+environments:
+
+- `manual` and `checklist` items require explicit confirmation. When stdin is
+  not a TTY, they fail the check with a message telling the caller to rerun
+  with `--yes` instead of reading stdin.
+- If stdin is a TTY but the input stream ends before an answer is given (EOF),
+  the check fails gracefully and tells the caller to rerun with `--yes` rather
+  than raising a traceback.
+- `--yes` auto-confirms every `manual` and `checklist` item. It does not bypass
+  `predicate`, `command`, or `llm_review` checks.
+- Exit codes are machine-usable: `0` means the transition committed, `2` means
+  a gate blocked and the run stayed in its source node, and `1` is reserved for
+  invalid input or an operational error.
+
 ### Typed File Predicate
 
 A typed predicate is a declarative file check, not a shell command. It lets the
@@ -236,6 +254,12 @@ condition:
 ```
 
 This is safer and easier to inspect than embedding shell for common checks.
+
+Relative predicate `path` values and relative command `cwd` values resolve
+against the directory containing the runbook spec (`spec.path.parent`), not the
+caller's current working directory. Absolute paths are used as-is. This keeps
+checks stable when a run starts from another directory or moves to a new
+checkout.
 
 ### LLM Review
 
