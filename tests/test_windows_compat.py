@@ -156,7 +156,7 @@ edges:
             self.assertEqual(blocked.returncode, 2, blocked.stderr)
             self.assertNotIn("Traceback", blocked.stdout + blocked.stderr)
             blocked_payload = json.loads(blocked.stdout)
-            self.assertEqual(blocked_payload["details"]["stage"], "condition")
+            self.assertEqual(blocked_payload["details"]["stage"], "before_transfer")
             self.assertIn(
                 "confirmation required (EOF)",
                 blocked_payload["details"]["results"][0]["output"],
