@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import os
 import shlex
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path, PurePosixPath
@@ -61,6 +64,74 @@ class NonInteractiveConfirmationTest(unittest.TestCase):
             result["output"],
             "unchecked (EOF): tests passed; rerun with --yes to auto-confirm",
         )
+
+    @unittest.skipUnless(os.name == "nt", "requires Windows NUL stdin semantics")
+    def test_goto_with_stdin_from_nul_blocks_without_traceback(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            spec = root / "nul-stdin.yaml"
+            state_dir = root / ".statem"
+            spec.write_text(
+                """
+name: nul-stdin
+initial: start
+nodes:
+  start: Start.
+  done: Done.
+edges:
+  - from: start
+    to: done
+    condition: Confirm the transition.
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            common = [
+                "--run-id",
+                "nul-stdin",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+            ]
+            started = subprocess.run(
+                [sys.executable, "-m", "statem", "start", str(spec), *common],
+                cwd=REPO,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(started.returncode, 0, started.stderr)
+
+            with open(os.devnull, encoding="utf-8") as null_stdin:
+                blocked = subprocess.run(
+                    [sys.executable, "-m", "statem", "goto", "done", *common],
+                    cwd=REPO,
+                    stdin=null_stdin,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+
+            self.assertEqual(blocked.returncode, 2, blocked.stderr)
+            self.assertNotIn("Traceback", blocked.stdout + blocked.stderr)
+            blocked_payload = json.loads(blocked.stdout)
+            self.assertEqual(blocked_payload["details"]["stage"], "condition")
+            self.assertIn(
+                "confirmation required (EOF)",
+                blocked_payload["details"]["results"][0]["output"],
+            )
+
+            history = subprocess.run(
+                [sys.executable, "-m", "statem", "history", *common],
+                cwd=REPO,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(history.returncode, 0, history.stderr)
+            history_payload = json.loads(history.stdout)
+            self.assertEqual(history_payload["current"], "start")
+            self.assertEqual(history_payload["history"][-1]["event"], "goto_blocked")
 
 
 class WindowsStopHookCommandTest(unittest.TestCase):
