@@ -729,7 +729,7 @@ After compaction, immediately recover with:
         if not sys.stdin.isatty():
             return _result(item, purpose, False, output="confirmation required; rerun with --yes to auto-confirm")
         try:
-            answer = input("Confirm? [y/N] ").strip().lower()
+            answer = self._read_confirmation("Confirm? [y/N] ")
         except EOFError:
             return _result(
                 item,
@@ -751,7 +751,7 @@ After compaction, immediately recover with:
             return _result(item, purpose, False, output="checklist confirmation required; rerun with --yes")
         for entry in entries:
             try:
-                answer = input(f"Confirm '{entry}'? [y/N] ").strip().lower()
+                answer = self._read_confirmation(f"Confirm '{entry}'? [y/N] ")
             except EOFError:
                 return _result(
                     item,
@@ -762,6 +762,12 @@ After compaction, immediately recover with:
             if answer not in {"y", "yes"}:
                 return _result(item, purpose, False, output=f"unchecked: {entry}")
         return _result(item, purpose, True, output="checklist confirmed")
+
+    def _read_confirmation(self, prompt: str) -> str:
+        if self.options.json_mode:
+            print(prompt, end="", file=sys.stderr, flush=True)
+            return input().strip().lower()
+        return input(prompt).strip().lower()
 
     def _run_command(
         self, spec: StatemSpec, state: dict[str, Any], item: dict[str, Any], purpose: str

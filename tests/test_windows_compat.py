@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 import os
 import shlex
@@ -24,6 +25,46 @@ HOOK_SPEC.loader.exec_module(STOP_HOOK)
 
 
 class NonInteractiveConfirmationTest(unittest.TestCase):
+    def test_json_confirmation_prompt_is_written_to_stderr(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            runtime = StatemRuntime(
+                RunOptions(state_dir=Path(temp_dir), json_mode=True)
+            )
+            fake_stdin = mock.Mock()
+            fake_stdin.isatty.return_value = True
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            with mock.patch("statem.core.sys.stdin", fake_stdin), mock.patch(
+                "builtins.input", return_value="yes"
+            ) as read, mock.patch("statem.core.sys.stdout", stdout), mock.patch(
+                "statem.core.sys.stderr", stderr
+            ):
+                result = runtime._run_manual(
+                    {"type": "manual", "prompt": "Confirm release"}, "condition"
+                )
+
+        self.assertTrue(result["passed"])
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertEqual(stderr.getvalue(), "Confirm? [y/N] ")
+        read.assert_called_once_with()
+
+    def test_plain_confirmation_keeps_legacy_input_prompt(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            runtime = StatemRuntime(
+                RunOptions(state_dir=Path(temp_dir), json_mode=False)
+            )
+            fake_stdin = mock.Mock()
+            fake_stdin.isatty.return_value = True
+            with mock.patch("statem.core.sys.stdin", fake_stdin), mock.patch(
+                "builtins.input", return_value="yes"
+            ) as read:
+                result = runtime._run_manual(
+                    {"type": "manual", "prompt": "Confirm release"}, "condition"
+                )
+
+        self.assertTrue(result["passed"])
+        read.assert_called_once_with("Confirm? [y/N] ")
+
     def test_manual_check_fails_cleanly_when_tty_reaches_eof(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             runtime = StatemRuntime(
