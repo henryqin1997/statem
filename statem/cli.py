@@ -21,6 +21,7 @@ def main(argv: list[str] | None = None) -> int:
         state_dir=Path(args.state_dir),
         yes=bool(args.yes),
         json_mode=bool(args.json),
+        strict=bool(getattr(args, "strict", False)),
         run_id=args.run_id,
         agent_id=args.agent_id,
         agent_role=args.agent_role,
@@ -70,6 +71,11 @@ def _build_parser() -> argparse.ArgumentParser:
     start = subparsers.add_parser("start", parents=[common], help="create or resume a run from a spec")
     start.add_argument("spec", help="spec file")
     start.add_argument("--fresh", action="store_true", help="force a new run even if an active run exists")
+    start.add_argument(
+        "--strict",
+        action="store_true",
+        help="reject unknown runbook keywords and keep strict validation enabled for this run",
+    )
     start.set_defaults(handler=_cmd_start)
 
     cur = subparsers.add_parser("cur", parents=[common], help="show current state")

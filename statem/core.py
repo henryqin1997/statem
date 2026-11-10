@@ -116,6 +116,7 @@ class RunOptions:
     run_id: str | None = None
     agent_id: str | None = None
     agent_role: str | None = None
+    strict: bool = False
 
     def emit(self, message: str) -> None:
         if message and not self.json_mode:
@@ -213,7 +214,7 @@ class StatemRuntime:
         self.state_dir = options.state_dir.expanduser().resolve()
 
     def start(self, spec_path: str, *, fresh: bool = False) -> dict[str, Any]:
-        spec = StatemSpec.load(spec_path)
+        spec = StatemSpec.load(spec_path, strict=self.options.strict)
         self.state_dir.mkdir(parents=True, exist_ok=True)
         (self.state_dir / "runs").mkdir(parents=True, exist_ok=True)
 
@@ -232,6 +233,7 @@ class StatemRuntime:
                 "run_id": run_id,
                 "spec_path": str(spec.path),
                 "spec_hash": spec.spec_hash,
+                "strict_spec": bool(self.options.strict),
                 "current": spec.initial,
                 "current_entry_id": _new_entry_id(),
                 "created_at": _now(),
@@ -240,11 +242,43 @@ class StatemRuntime:
             }
             self._ensure_agent_identity(state)
             self._ensure_entry_manifest(spec, state, spec.initial)
-            _append_event(state, "start", {"current": spec.initial, "spec": str(spec.path)})
+            _append_event(
+                state,
+                "start",
+                {
+                    "current": spec.initial,
+                    "spec": str(spec.path),
+                    "spec_hash": spec.spec_hash,
+                    "strict": bool(self.options.strict),
+                },
+            )
         else:
             state = _read_json(state_path)
+            previous_spec_path = str(state.get("spec_path") or "")
+            previous_spec_hash = str(state.get("spec_hash") or "")
+            previous_strict = bool(state.get("strict_spec", False))
+            strict_spec = previous_strict or self.options.strict
+            if strict_spec and not self.options.strict:
+                spec = StatemSpec.load(spec_path, strict=True)
             self._ensure_agent_identity(state)
             previous_current = str(state.get("current"))
+            if previous_spec_path != str(spec.path) or previous_spec_hash != spec.spec_hash:
+                _append_event(
+                    state,
+                    "spec_rebind",
+                    {
+                        "previous_spec": previous_spec_path,
+                        "spec": str(spec.path),
+                        "previous_spec_hash": previous_spec_hash,
+                        "spec_hash": spec.spec_hash,
+                    },
+                )
+            if strict_spec and not previous_strict:
+                _append_event(
+                    state,
+                    "strict_enabled",
+                    {"spec": str(spec.path), "spec_hash": spec.spec_hash},
+                )
             if previous_current not in spec.nodes:
                 state["current"] = spec.initial
                 state["current_entry_id"] = _new_entry_id()
@@ -260,8 +294,18 @@ class StatemRuntime:
                 )
             state["spec_path"] = str(spec.path)
             state["spec_hash"] = spec.spec_hash
+            state["strict_spec"] = strict_spec
             self._ensure_current_entry(spec, state)
-            _append_event(state, "resume", {"current": state["current"], "spec": str(spec.path)})
+            _append_event(
+                state,
+                "resume",
+                {
+                    "current": state["current"],
+                    "spec": str(spec.path),
+                    "spec_hash": spec.spec_hash,
+                    "strict": strict_spec,
+                },
+            )
 
         self._write_active(run_id)
         self._write_state(state)
@@ -291,7 +335,9 @@ class StatemRuntime:
         return {
             "run_id": state["run_id"],
             "spec": str(spec.path),
+            "spec_hash": spec.spec_hash,
             "spec_name": spec.name,
+            "strict": bool(state.get("strict_spec", False)),
             "current": current,
             "current_entry_id": state.get("current_entry_id"),
             "agent_id": self._ensure_agent_identity(state),
@@ -856,8 +902,8 @@ After compaction, immediately recover with:
         path = _resolve_path(spec, item, str(path_value))
         problems: list[str] = []
 
-        expected_exists = item.get("exists")
-        if expected_exists is not None and path.exists() != bool(expected_exists):
+        expected_exists = item.get("exists", True)
+        if path.exists() != bool(expected_exists):
             problems.append(f"exists expected {bool(expected_exists)}, got {path.exists()}")
 
         needs_file = any(key in item for key in ("non_empty", "contains", "not_contains", "matches", "json_path"))
@@ -1017,7 +1063,33 @@ After compaction, immediately recover with:
         if not state_path.exists():
             raise StatemError(f"Run not found: {selected_run_id}")
         state = _read_json(state_path)
-        spec = StatemSpec.load(state["spec_path"])
+        spec = StatemSpec.load(
+            state["spec_path"], strict=bool(state.get("strict_spec", False))
+        )
+        pinned_hash = str(state.get("spec_hash") or "")
+        if not pinned_hash:
+            raise StatemError(
+                f"Run '{selected_run_id}' has no pinned spec_hash; "
+                "run 'statem start SPEC --run-id ID' to bind the runbook explicitly",
+                details={
+                    "run_id": selected_run_id,
+                    "spec": str(spec.path),
+                    "actual_spec_hash": spec.spec_hash,
+                    "reason": "missing_spec_hash",
+                },
+            )
+        if pinned_hash != spec.spec_hash:
+            raise StatemError(
+                f"Runbook changed since run '{selected_run_id}' was bound; "
+                "run 'statem start SPEC --run-id ID' to accept and audit the change",
+                details={
+                    "run_id": selected_run_id,
+                    "spec": str(spec.path),
+                    "pinned_spec_hash": pinned_hash,
+                    "actual_spec_hash": spec.spec_hash,
+                    "reason": "spec_hash_mismatch",
+                },
+            )
         if state.get("current") not in spec.nodes:
             raise StatemError(
                 f"Run '{selected_run_id}' points at '{state.get('current')}', which is not in the current spec"
@@ -1404,6 +1476,28 @@ def _validate_items(raw_items: Any, purpose: str, label: str) -> list[str]:
             errors.append(f"{label}: command requires run")
         if item_type == "predicate" and not item.get("path"):
             errors.append(f"{label}: predicate requires path")
+        if item_type == "predicate":
+            if "exists" in item and not isinstance(item["exists"], bool):
+                errors.append(f"{label}: predicate exists must be a boolean")
+            if "equals" in item and "json_path" not in item:
+                errors.append(f"{label}: predicate equals requires json_path")
+            if "one_of" in item and "json_path" not in item:
+                errors.append(f"{label}: predicate one_of requires json_path")
+            if "one_of" in item and not isinstance(item["one_of"], list):
+                errors.append(f"{label}: predicate one_of must be a list")
+            content_assertions = {
+                "non_empty",
+                "contains",
+                "not_contains",
+                "matches",
+                "json_path",
+                "equals",
+                "one_of",
+            }
+            if item.get("exists") is False and content_assertions.intersection(item):
+                errors.append(
+                    f"{label}: predicate exists: false cannot be combined with content assertions"
+                )
         if item_type == "checklist" and not (item.get("items") or item.get("checks")):
             errors.append(f"{label}: checklist requires items")
         if item.get("on_failure") not in {"block", "continue"}:
@@ -1539,6 +1633,13 @@ def _validate_dynamic_payload(payload: dict[str, Any], config: dict[str, Any], p
         if not isinstance(raw_check, dict):
             problems.append(f"{path}: check {index} must be a mapping")
             continue
+        problems.extend(
+            _validate_items(
+                raw_check,
+                DYNAMIC_PURPOSE,
+                f"{path}: dynamic check {index}",
+            )
+        )
         check = _normalize_item(raw_check, DYNAMIC_PURPOSE)
         if check["type"] not in allowed:
             problems.append(f"{path}: dynamic check {index} type '{check['type']}' is not allowed")

@@ -31,6 +31,9 @@ before_transfer:
 ```
 
 If a gate fails, the transition is aborted and the agent stays in the current node.
+For predicates, `path` by itself means the path must exist. Write
+`exists: false` only when absence is the intended assertion; JSON value checks
+such as `equals` and `one_of` must select a value with `json_path`.
 
 ### 2. Current-entry dynamic checks
 
