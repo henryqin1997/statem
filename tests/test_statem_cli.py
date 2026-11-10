@@ -41,7 +41,6 @@ class StatemCliTest(unittest.TestCase):
         env = os.environ.copy()
         existing_path = env.get("PYTHONPATH")
         env["PYTHONPATH"] = str(REPO) if not existing_path else str(REPO) + os.pathsep + existing_path
-        env["STATEM_COMMAND"] = f"{sys.executable} -m statem"
         completed = subprocess.run(
             [sys.executable, str(REPO / "integrations/hooks/statem_stop_hook.py")],
             cwd=REPO,

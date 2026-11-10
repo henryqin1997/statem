@@ -728,7 +728,15 @@ After compaction, immediately recover with:
             return _result(item, purpose, True, output="auto-confirmed yes")
         if not sys.stdin.isatty():
             return _result(item, purpose, False, output="confirmation required; rerun with --yes to auto-confirm")
-        answer = input("Confirm? [y/N] ").strip().lower()
+        try:
+            answer = self._read_confirmation("Confirm? [y/N] ")
+        except EOFError:
+            return _result(
+                item,
+                purpose,
+                False,
+                output="confirmation required (EOF); rerun with --yes to auto-confirm",
+            )
         return _result(item, purpose, answer in {"y", "yes"}, output=f"answered {answer or 'no'}")
 
     def _run_checklist(self, item: dict[str, Any], purpose: str) -> dict[str, Any]:
@@ -742,10 +750,24 @@ After compaction, immediately recover with:
         if not sys.stdin.isatty():
             return _result(item, purpose, False, output="checklist confirmation required; rerun with --yes")
         for entry in entries:
-            answer = input(f"Confirm '{entry}'? [y/N] ").strip().lower()
+            try:
+                answer = self._read_confirmation(f"Confirm '{entry}'? [y/N] ")
+            except EOFError:
+                return _result(
+                    item,
+                    purpose,
+                    False,
+                    output=f"unchecked (EOF): {entry}; rerun with --yes to auto-confirm",
+                )
             if answer not in {"y", "yes"}:
                 return _result(item, purpose, False, output=f"unchecked: {entry}")
         return _result(item, purpose, True, output="checklist confirmed")
+
+    def _read_confirmation(self, prompt: str) -> str:
+        if self.options.json_mode:
+            print(prompt, end="", file=sys.stderr, flush=True)
+            return input().strip().lower()
+        return input(prompt).strip().lower()
 
     def _run_command(
         self, spec: StatemSpec, state: dict[str, Any], item: dict[str, Any], purpose: str

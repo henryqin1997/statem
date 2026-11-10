@@ -41,3 +41,11 @@ It allows the stop when:
 
 Configure terminal names with `STATEM_AUTOLOOP_STOP_STATES`, the statem command
 with `STATEM_COMMAND`, and the state directory with `STATEM_STATE_DIR`.
+
+The hook uses the current Python interpreter by default, so Windows users do
+not need to set `STATEM_COMMAND`. When overriding it with an executable path
+that contains spaces, quote that path, for example:
+
+```powershell
+$env:STATEM_COMMAND = '"C:\Program Files\Python311\python.exe" -m statem'
+```
