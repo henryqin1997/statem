@@ -67,6 +67,19 @@ runtime state should live outside the repo, such as
 After moving to a new checkout, `statem start SPEC --run-id ID` should be run
 once to rebind the run to the current spec path.
 
+The stored spec hash is a pin, not informational metadata. Runtime commands
+reload the bound spec and compare its content hash before inspecting or
+changing the run. A mismatch fails closed until `statem start SPEC --run-id ID`
+explicitly rebinds the run and records the previous and new hashes. A run
+started with `--strict` also stores that choice, so every later runtime load and
+rebind rejects unknown or misplaced schema keywords.
+
+This protects against accidental or unreviewed runbook drift while the runtime
+state remains trusted. It is not cryptographic tamper resistance: an actor that
+can rewrite both the spec and the machine-local state can replace the pinned
+hash. Stronger adversarial integrity requires external permissions, signing, or
+an immutable receipt outside StateM's local runtime directory.
+
 ### Node
 
 A node has:
@@ -261,6 +274,12 @@ caller's current working directory. Absolute paths are used as-is. This keeps
 checks stable when a run starts from another directory or moves to a new
 checkout.
 
+`path` is always required. When `exists` is omitted, it defaults to `true`; a
+predicate containing only `path` therefore asserts that the path exists.
+Explicit `exists: false` asserts absence and cannot be combined with content
+assertions. `equals` and `one_of` compare the value selected by `json_path`, so
+using either without `json_path` is a spec validation error.
+
 ### LLM Review
 
 `llm_review` is intentionally generic. The spec can provide a command in `run`,
@@ -286,7 +305,10 @@ for every command that agents may parse.
 
 Commands:
 
-- `statem start SPEC [--run-id ID]`: create or resume a run from a spec.
+- `statem start SPEC [--run-id ID]`: create, explicitly rebind, or resume a run
+  from a spec.
+- `statem start SPEC --strict`: bind strict keyword validation to the run so it
+  remains active for every later command and rebind.
 - `statem cur [--json]`: show current node, prompt, and outgoing transitions.
 - `statem state [--json]`: list the full runbook graph, including all states
   and edges.
@@ -403,8 +425,11 @@ for current state, allowed next states, hooks, and history.
 Editing the spec and restarting should be possible, but must be explicit:
 
 - `statem validate SPEC` checks graph structure.
+- Runtime commands compare the current spec with the run's pinned hash and fail
+  without executing checks or hooks when it changed.
 - `statem start SPEC --run-id ID` resumes an existing run if the current node
-  still exists and reruns that node's `in_hook`.
+  still exists, records a `spec_rebind` event when the path or hash changed, and
+  reruns that node's `in_hook`.
 - If the current node was removed or renamed, startup moves the pointer to
   `initial`, logs a `migrate_current` event, and runs the initial node's
   `in_hook`.

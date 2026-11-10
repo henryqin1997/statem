@@ -144,6 +144,186 @@ edges:
             self.run_statem("save", "--run-id", "run1", "--state-dir", str(state_dir), "--json")
             self.assertTrue((root / "saved.txt").exists())
 
+    def test_bare_predicate_requires_path_to_exist_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            spec = root / "bare-predicate.yaml"
+            state_dir = root / ".statem"
+            spec.write_text(
+                """
+name: bare-predicate
+initial: start
+nodes:
+  start: Start.
+  done: Done.
+edges:
+  - from: start
+    to: done
+    condition:
+      type: predicate
+      path: ready.txt
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            self.run_statem(
+                "start",
+                str(spec),
+                "--run-id",
+                "bare-predicate",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+            )
+            blocked = self.run_statem(
+                "goto",
+                "done",
+                "--run-id",
+                "bare-predicate",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+                check=False,
+            )
+            self.assertEqual(blocked.returncode, 2)
+            result = json.loads(blocked.stdout)["details"]["results"][0]
+            self.assertFalse(result["passed"])
+            self.assertIn("exists expected True, got False", result["output"])
+
+            (root / "ready.txt").write_text("ready\n", encoding="utf-8")
+            moved = self.run_statem(
+                "goto",
+                "done",
+                "--run-id",
+                "bare-predicate",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+            )
+            self.assertEqual(json.loads(moved.stdout)["current"], "done")
+
+    def test_predicate_exists_false_explicitly_asserts_absence(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            spec = root / "absence-predicate.yaml"
+            state_dir = root / ".statem"
+            spec.write_text(
+                """
+name: absence-predicate
+initial: start
+nodes:
+  start: Start.
+  done: Done.
+edges:
+  - from: start
+    to: done
+    condition:
+      type: predicate
+      path: forbidden.txt
+      exists: false
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            self.run_statem(
+                "start",
+                str(spec),
+                "--run-id",
+                "absent",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+            )
+            moved = self.run_statem(
+                "goto",
+                "done",
+                "--run-id",
+                "absent",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+            )
+            self.assertEqual(json.loads(moved.stdout)["current"], "done")
+
+            (root / "forbidden.txt").write_text("present\n", encoding="utf-8")
+            self.run_statem(
+                "start",
+                str(spec),
+                "--run-id",
+                "present",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+            )
+            blocked = self.run_statem(
+                "goto",
+                "done",
+                "--run-id",
+                "present",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+                check=False,
+            )
+            self.assertEqual(blocked.returncode, 2)
+            self.assertIn(
+                "exists expected False, got True",
+                json.loads(blocked.stdout)["details"]["results"][0]["output"],
+            )
+
+    def test_predicate_validation_rejects_invalid_assertion_combinations(self) -> None:
+        cases = {
+            "equals-without-json-path": (
+                "      equals: ok",
+                "predicate equals requires json_path",
+            ),
+            "one-of-without-json-path": (
+                "      one_of:\n        - ok",
+                "predicate one_of requires json_path",
+            ),
+            "non-list-one-of": (
+                "      json_path: status\n      one_of: ok",
+                "predicate one_of must be a list",
+            ),
+            "absent-with-content": (
+                "      exists: false\n      contains: ready",
+                "exists: false cannot be combined with content assertions",
+            ),
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            for name, (assertion, expected_error) in cases.items():
+                with self.subTest(name=name):
+                    spec = root / f"{name}.yaml"
+                    spec.write_text(
+                        f"""
+name: {name}
+initial: start
+nodes:
+  start: Start.
+  done: Done.
+edges:
+  - from: start
+    to: done
+    condition:
+      type: predicate
+      path: result.json
+{assertion}
+""".strip()
+                        + "\n",
+                        encoding="utf-8",
+                    )
+                    rejected = self.run_statem(
+                        "validate", str(spec), "--json", check=False
+                    )
+                    self.assertEqual(rejected.returncode, 1)
+                    self.assertIn(
+                        expected_error,
+                        json.loads(rejected.stdout)["error"],
+                    )
+
     def test_optional_edge_max_attempts_bounds_only_configured_edges(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -322,6 +502,106 @@ edges:
         payload = json.loads(validated.stdout)
         self.assertTrue(payload["ok"])
         self.assertTrue(payload["strict"])
+
+    def test_start_strict_rejects_silent_gate_typos(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            spec = root / "strict-start.yaml"
+            state_dir = root / ".statem"
+            spec.write_text(
+                """
+name: strict-start
+initial: start
+nodes:
+  start: Start.
+  middle: Middle.
+  done: Done.
+edges:
+  - from: start
+    to: middle
+    condition:
+      - type: predicate
+        path: result.json
+        not_equals: ok
+      - type: message
+        run: "exit 1"
+      - runn: "exit 1"
+  - from: middle
+    to: done
+    conditon:
+      type: command
+      run: "exit 1"
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            rejected = self.run_statem(
+                "start",
+                str(spec),
+                "--strict",
+                "--run-id",
+                "strict-start",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+                check=False,
+            )
+            self.assertEqual(rejected.returncode, 1)
+            error = json.loads(rejected.stdout)["error"]
+            for keyword in ("not_equals", "run", "runn", "conditon"):
+                self.assertIn(keyword, error)
+            self.assertFalse(state_dir.exists())
+
+    def test_start_strict_persists_across_runtime_loads_and_rebinds(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            spec = root / "strict-persisted.yaml"
+            state_dir = root / ".statem"
+            valid_spec = """
+name: strict-persisted
+initial: start
+nodes:
+  start: Start.
+  done: Done.
+edges:
+  - from: start
+    to: done
+""".strip()
+            spec.write_text(valid_spec + "\n", encoding="utf-8")
+
+            started = self.run_statem(
+                "start",
+                str(spec),
+                "--strict",
+                "--run-id",
+                "strict-persisted",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+            )
+            started_payload = json.loads(started.stdout)
+            self.assertTrue(started_payload["strict"])
+            state_path = state_dir / "runs" / "strict-persisted" / "state.json"
+            self.assertTrue(json.loads(state_path.read_text(encoding="utf-8"))["strict_spec"])
+
+            spec.write_text(valid_spec.replace("edges:", "edgez:") + "\n", encoding="utf-8")
+            for command in (
+                ("cur",),
+                ("start", str(spec)),
+            ):
+                with self.subTest(command=command[0]):
+                    rejected = self.run_statem(
+                        *command,
+                        "--run-id",
+                        "strict-persisted",
+                        "--state-dir",
+                        str(state_dir),
+                        "--json",
+                        check=False,
+                    )
+                    self.assertEqual(rejected.returncode, 1)
+                    self.assertIn("edgez", json.loads(rejected.stdout)["error"])
 
     def test_state_dir_can_come_from_environment(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -519,6 +799,44 @@ edges:
             )
             self.assertEqual(path_payload["current_entry_id"], first_entry)
             dynamic_dir = Path(path_payload["path"])
+
+            invalid_checks_file = root / "invalid-checks.json"
+            invalid_checks_file.write_text(
+                json.dumps(
+                    {
+                        "basis": {"implementation_summary": "Invalid JSON assertion."},
+                        "checks": [
+                            {
+                                "type": "predicate",
+                                "path": "result.json",
+                                "equals": "ok",
+                                "reason": "JSON comparisons require an explicit selector.",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            invalid_write = self.run_statem(
+                "dynamic",
+                "write",
+                str(invalid_checks_file),
+                "--run-id",
+                "dynamic-run",
+                "--state-dir",
+                str(state_dir),
+                "--agent-id",
+                "agent-a",
+                "--agent-role",
+                "executor",
+                "--json",
+                check=False,
+            )
+            self.assertEqual(invalid_write.returncode, 1)
+            self.assertIn(
+                "predicate equals requires json_path",
+                json.loads(invalid_write.stdout)["error"],
+            )
 
             checks_file = root / "checks.json"
             checks_file.write_text(
@@ -1061,6 +1379,185 @@ edges:
             payload = json.loads(moved.stdout)
             self.assertEqual(payload["current"], "execute")
             self.assertTrue(any(result["type"] == "llm_review" for result in payload["results"]))
+
+    def test_runtime_rejects_spec_edits_until_explicit_start_rebinds(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            spec = root / "hash-pinned.yaml"
+            state_dir = root / ".statem"
+            spec.write_text(
+                """
+name: hash-pinned
+initial: start
+nodes:
+  start: Start.
+  done: Done.
+edges:
+  - from: start
+    to: done
+    condition:
+      type: predicate
+      path: approval.txt
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            self.run_statem(
+                "start",
+                str(spec),
+                "--run-id",
+                "hash-pinned",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+            )
+            blocked = self.run_statem(
+                "goto",
+                "done",
+                "--run-id",
+                "hash-pinned",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+                check=False,
+            )
+            self.assertEqual(blocked.returncode, 2)
+            state_path = state_dir / "runs" / "hash-pinned" / "state.json"
+            state_before_edit = json.loads(state_path.read_text(encoding="utf-8"))
+            pinned_hash = state_before_edit["spec_hash"]
+
+            spec.write_text(
+                """
+name: hash-pinned
+initial: start
+nodes:
+  start: Start.
+  done: Done.
+edges:
+  - from: start
+    to: done
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            rejected = self.run_statem(
+                "goto",
+                "done",
+                "--run-id",
+                "hash-pinned",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+                check=False,
+            )
+            self.assertEqual(rejected.returncode, 1)
+            rejected_payload = json.loads(rejected.stdout)
+            self.assertEqual(
+                rejected_payload["details"]["reason"], "spec_hash_mismatch"
+            )
+            self.assertEqual(
+                rejected_payload["details"]["pinned_spec_hash"], pinned_hash
+            )
+            self.assertNotEqual(
+                rejected_payload["details"]["actual_spec_hash"], pinned_hash
+            )
+            self.assertIn("statem start", rejected_payload["error"])
+            self.assertEqual(
+                json.loads(state_path.read_text(encoding="utf-8")), state_before_edit
+            )
+
+            rebound = self.run_statem(
+                "start",
+                str(spec),
+                "--run-id",
+                "hash-pinned",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+            )
+            rebound_payload = json.loads(rebound.stdout)
+            self.assertNotEqual(rebound_payload["spec_hash"], pinned_hash)
+            moved = self.run_statem(
+                "goto",
+                "done",
+                "--run-id",
+                "hash-pinned",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+            )
+            self.assertEqual(json.loads(moved.stdout)["current"], "done")
+
+            history = json.loads(
+                self.run_statem(
+                    "history",
+                    "--run-id",
+                    "hash-pinned",
+                    "--state-dir",
+                    str(state_dir),
+                    "--json",
+                ).stdout
+            )["history"]
+            rebind = next(event for event in history if event["event"] == "spec_rebind")
+            self.assertEqual(rebind["previous_spec_hash"], pinned_hash)
+            self.assertEqual(rebind["spec_hash"], rebound_payload["spec_hash"])
+
+    def test_runtime_rejects_state_without_pinned_spec_hash(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            spec = root / "missing-hash.yaml"
+            state_dir = root / ".statem"
+            spec.write_text(
+                """
+name: missing-hash
+initial: start
+nodes:
+  start: Start.
+edges: []
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            self.run_statem(
+                "start",
+                str(spec),
+                "--run-id",
+                "missing-hash",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+            )
+            state_path = state_dir / "runs" / "missing-hash" / "state.json"
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            del state["spec_hash"]
+            state_path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+
+            rejected = self.run_statem(
+                "cur",
+                "--run-id",
+                "missing-hash",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+                check=False,
+            )
+            self.assertEqual(rejected.returncode, 1)
+            self.assertEqual(
+                json.loads(rejected.stdout)["details"]["reason"],
+                "missing_spec_hash",
+            )
+
+            rebound = self.run_statem(
+                "start",
+                str(spec),
+                "--run-id",
+                "missing-hash",
+                "--state-dir",
+                str(state_dir),
+                "--json",
+            )
+            self.assertTrue(json.loads(rebound.stdout)["spec_hash"])
 
     def test_start_migrates_spec_edits_and_reruns_in_hook(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

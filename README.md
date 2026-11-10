@@ -231,11 +231,18 @@ fresh source-node entry receives a fresh budget.
 
 Checks can be configured with fields such as `blocking`, `on_failure`, `timeout`, and `cwd`. Prefer checks that exercise the same interface the task promises to its eventual consumer.
 
+A predicate always requires `path`. Omitting `exists` means `exists: true`, so
+a bare path blocks when the file is missing. Use `exists: false` only to assert
+that a path is absent; it cannot be combined with content assertions.
+`equals` and `one_of` are JSON value assertions and therefore require
+`json_path`.
+
 ## CLI at a glance
 
 | Command | Purpose |
 | --- | --- |
-| `statem start SPEC` | Create or resume a run |
+| `statem start SPEC` | Create, explicitly rebind, or resume a run |
+| `statem start SPEC --strict` | Start a run that permanently rejects unknown or misplaced runbook keywords |
 | `statem cur` | Show the current node and its prompt |
 | `statem state` | Show the full graph |
 | `statem ls NODE` | Inspect one node |
@@ -271,7 +278,20 @@ Long runs should keep durable facts in project files and use the model context f
 - `statem prompt` for restoring attention after a cleared session;
 - `statem compact-prompt` for safe compaction inside cyclic runbooks;
 - explicit recovery or session-refresh nodes when another loop should continue;
-- spec hashes and run identifiers to detect or deliberately rebind edited runbooks.
+- pinned spec hashes and run identifiers to detect edited runbooks before any
+  runtime command executes them.
+
+After a run starts, editing its YAML makes `cur`, `goto`, `save`, and other
+runtime commands fail closed. Review and validate the edit, then explicitly
+accept it with `statem start SPEC --run-id ID`; StateM records a `spec_rebind`
+event with the previous and new hashes. Runs created with `start --strict` keep
+strict keyword validation enabled across later commands and rebinds.
+
+The runtime directory is a trusted local control record, not a cryptographic
+security boundary. A process that can rewrite both the runbook and
+`.statem/runs/.../state.json` can bypass local hash pinning. Use filesystem
+permissions or an external immutable receipt when protection from the local
+agent itself is required.
 
 Runbooks belong in version control. Runtime state does not. Add `.statem/` to `.gitignore` when using the default local state directory.
 
